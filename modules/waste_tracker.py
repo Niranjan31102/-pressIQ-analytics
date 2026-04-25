@@ -74,7 +74,7 @@ def read_tracker_file(uploaded_file):
         # W = Sweep Waste
         # Y = Trial Waste
         # AA = Total Waste
-        out["Consumption Kg"] = to_num(get_col(daily, 2))
+        out["Consumption Kg"] = to_num(get_col(daily, 1))
         out["Total Printed Waste Kg"] = to_num(get_col(daily, 12))
 
         out["Makeready Starts"] = to_num(get_col(daily, 14))
