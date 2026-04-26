@@ -49,7 +49,7 @@ def read_tracker_file(uploaded_file):
         plant_code = str(sheet).strip().upper()
         plant_name = PLANT_NAMES.get(plant_code, plant_code)
 
-        # Date assumed in column A
+        # A = Date
         date_series = pd.to_datetime(get_col(df, 0), errors="coerce")
         daily = df[date_series.notna()].copy()
         daily["Date_Parsed"] = date_series[date_series.notna()].values
@@ -62,8 +62,8 @@ def read_tracker_file(uploaded_file):
         out["Plant Name"] = plant_name
         out["Date"] = daily["Date_Parsed"]
 
-        # Fixed tracker mapping by Excel column
-        # C = Total Consumption
+        # Fixed tracker mapping by Excel column index
+        # B = Total Consumption
         # M = Total Printed Waste
         # O = No. of Makeready Starts
         # P = No. of Warm Unplanned Stoppages
@@ -88,7 +88,6 @@ def read_tracker_file(uploaded_file):
         out["Trial Waste Kg"] = to_num(get_col(daily, 24))
         out["Total Waste Kg"] = to_num(get_col(daily, 26))
 
-        # Fallback if total waste is missing
         if out["Total Waste Kg"].sum() == 0:
             out["Total Waste Kg"] = (
                 out["Total Printed Waste Kg"]
@@ -206,30 +205,26 @@ def round_display(df):
     return out
 
 
-def excel_filter_table(df, height=420):
-    gb = GridOptionsBuilder.from_dataframe(df)
-
-    gb.configure_default_column(
-        filter=True,
-        sortable=True,
-        resizable=True
+def kpi_card(title, value, subtitle, accent="#2563eb"):
+    st.markdown(
+        f"""
+        <div style="
+            background:#ffffff;
+            border:1px solid #e5e7eb;
+            border-left:7px solid {accent};
+            border-radius:18px;
+            padding:20px 22px;
+            box-shadow:0 6px 18px rgba(15,23,42,0.08);
+            min-height:145px;
+        ">
+            <div style="font-size:15px;color:#64748b;font-weight:600;">{title}</div>
+            <div style="font-size:34px;color:#0f172a;font-weight:800;margin-top:8px;">{value}</div>
+            <div style="font-size:13px;color:#64748b;margin-top:8px;">{subtitle}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
-    gb.configure_grid_options(
-        enableRangeSelection=True,
-        pagination=True,
-        paginationPageSize=14
-    )
-
-    grid_options = gb.build()
-
-    AgGrid(
-        df,
-        gridOptions=grid_options,
-        height=height,
-        fit_columns_on_grid_load=False,
-        theme="streamlit"
-    )
 
 def run_waste_tracker():
     st.markdown("### Upload Pan India Waste Tracker File")
@@ -250,76 +245,63 @@ def run_waste_tracker():
     total_waste_mt = summary["Total Waste MT"].sum()
     pan_waste_pct = safe_div(total_waste_mt, total_consumption_mt) * 100
 
+    pan_printed_waste_mt = summary["Total Printed Waste MT"].sum()
+    pan_printed_waste_pct = safe_div(pan_printed_waste_mt, total_consumption_mt) * 100
+
     best_plant = summary.sort_values("Total Waste %").iloc[0]
     worst_plant = summary.sort_values("Total Waste %", ascending=False).iloc[0]
     highest_abs = summary.sort_values("Total Waste MT", ascending=False).iloc[0]
 
     st.markdown("## Executive Dashboard")
 
-pan_printed_waste_mt = summary["Total Printed Waste MT"].sum()
-pan_printed_waste_pct = safe_div(pan_printed_waste_mt, total_consumption_mt) * 100
+    d1, d2, d3 = st.columns(3)
+    with d1:
+        kpi_card(
+            "Pan India Consumption",
+            f"{total_consumption_mt:,.1f} MT",
+            "Total newsprint consumption",
+            "#2563eb"
+        )
+    with d2:
+        kpi_card(
+            "Total Waste",
+            f"{total_waste_mt:,.1f} MT",
+            "Overall waste across all plants",
+            "#dc2626"
+        )
+    with d3:
+        kpi_card(
+            "Total Waste %",
+            f"{pan_waste_pct:.2f}%",
+            "Total waste against consumption",
+            "#f97316"
+        )
 
-dash1, dash2, dash3 = st.columns(3)
+    st.write("")
 
-with dash1:
-    st.markdown(f"""
-    <div class="card">
-        <h4>Pan India Consumption</h4>
-        <h2>{total_consumption_mt:,.1f} MT</h2>
-        <p>Total newsprint consumption</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-with dash2:
-    st.markdown(f"""
-    <div class="card">
-        <h4>Total Waste</h4>
-        <h2>{total_waste_mt:,.1f} MT</h2>
-        <p>Overall waste across all plants</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-with dash3:
-    st.markdown(f"""
-    <div class="card">
-        <h4>Total Waste %</h4>
-        <h2>{pan_waste_pct:.2f}%</h2>
-        <p>Pan India total waste rate</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-st.write("")
-
-dash4, dash5, dash6 = st.columns(3)
-
-with dash4:
-    st.markdown(f"""
-    <div class="card">
-        <h4>Printed Waste</h4>
-        <h2>{pan_printed_waste_mt:,.1f} MT</h2>
-        <p>Total printed waste</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-with dash5:
-    st.markdown(f"""
-    <div class="card">
-        <h4>Printed Waste %</h4>
-        <h2>{pan_printed_waste_pct:.2f}%</h2>
-        <p>Printed waste vs consumption</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-with dash6:
-    st.markdown(f"""
-    <div class="card">
-        <h4>Plants Analyzed</h4>
-        <h2>{len(summary)}</h2>
-        <p>Total plant sheets processed</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("## 🚨 Critical Insights")
+    d4, d5, d6 = st.columns(3)
+    with d4:
+        kpi_card(
+            "Printed Waste",
+            f"{pan_printed_waste_mt:,.1f} MT",
+            "Total printed waste",
+            "#7c3aed"
+        )
+    with d5:
+        kpi_card(
+            "Printed Waste %",
+            f"{pan_printed_waste_pct:.2f}%",
+            "Printed waste against consumption",
+            "#0f766e"
+        )
+    with d6:
+        kpi_card(
+            "Plants Analyzed",
+            f"{len(summary)}",
+            "Total plant sheets processed",
+            "#16a34a"
+        )
+            st.markdown("## 🚨 Critical Insights")
     insight_box(f"<b>Best waste-rate plant:</b> {best_plant['Plant Name']} ({best_plant['Total Waste %']:.2f}%).")
     insight_box(f"<b>Worst waste-rate plant:</b> {worst_plant['Plant Name']} ({worst_plant['Total Waste %']:.2f}%).", "warning")
     insight_box(f"<b>Highest absolute waste:</b> {highest_abs['Plant Name']} with {highest_abs['Total Waste MT']:.1f} MT waste.")
@@ -337,7 +319,7 @@ with dash6:
     # ---------------- TAB 1 ----------------
     with tab1:
         st.markdown("## All India Plant Ranking")
-       
+
         waste_table = summary[[
             "Plant Name",
             "Total Consumption MT",
@@ -354,7 +336,7 @@ with dash6:
             "Trial Waste MT",
             "Trial Waste %"
         ]].sort_values("Total Waste %", ascending=True)
-        
+
         driver_table = summary[[
             "Plant Name",
             "Total Consumption MT",
