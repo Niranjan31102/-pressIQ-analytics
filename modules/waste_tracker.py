@@ -308,10 +308,10 @@ def run_waste_tracker():
         ]].sort_values("Total Consumption MT", ascending=False)
 
         st.markdown("### Waste Performance Table")
-        excel_filter_table(round_display(waste_table), height=420)
+        st.dataframe(round_display(waste_table), use_container_width=True, hide_index=True)
 
         st.markdown("### Operational Driver Table")
-        excel_filter_table(round_display(driver_table), height=320)
+        st.dataframe(round_display(driver_table), use_container_width=True, hide_index=True)
 
         fig_rank = px.bar(
             waste_table,
