@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from io import BytesIO
+from st_aggrid import AgGrid, GridOptionsBuilder
 
 from utils.helpers import PLANT_NAMES, norm, safe_div, to_num, insight_box
 
@@ -206,6 +207,31 @@ def round_display(df):
     return out
 
 
+def excel_filter_table(df, height=420):
+    gb = GridOptionsBuilder.from_dataframe(df)
+
+    gb.configure_default_column(
+        filter=True,
+        sortable=True,
+        resizable=True
+    )
+
+    gb.configure_grid_options(
+        enableRangeSelection=True,
+        pagination=True,
+        paginationPageSize=14
+    )
+
+    grid_options = gb.build()
+
+    AgGrid(
+        df,
+        gridOptions=grid_options,
+        height=height,
+        fit_columns_on_grid_load=False,
+        theme="streamlit"
+    )
+
 def run_waste_tracker():
     st.markdown("### Upload Pan India Waste Tracker File")
     uploaded_file = st.file_uploader("Upload Excel tracker file", type=["xlsx"])
@@ -282,10 +308,10 @@ def run_waste_tracker():
         ]].sort_values("Total Consumption MT", ascending=False)
 
         st.markdown("### Waste Performance Table")
-        st.dataframe(round_display(waste_table), use_container_width=True, hide_index=True)
+        excel_filter_table(round_display(waste_table), height=420)
 
         st.markdown("### Operational Driver Table")
-        st.dataframe(round_display(driver_table), use_container_width=True, hide_index=True)
+        excel_filter_table(round_display(driver_table), height=320)
 
         fig_rank = px.bar(
             waste_table,
