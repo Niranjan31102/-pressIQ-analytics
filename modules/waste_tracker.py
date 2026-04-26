@@ -255,11 +255,69 @@ def run_waste_tracker():
     highest_abs = summary.sort_values("Total Waste MT", ascending=False).iloc[0]
 
     st.markdown("## Executive Dashboard")
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Pan India Consumption", f"{total_consumption_mt:,.1f} MT")
-    c2.metric("Total Waste", f"{total_waste_mt:,.1f} MT")
-    c3.metric("Pan India Waste %", f"{pan_waste_pct:.2f}%")
-    c4.metric("Plants Analyzed", f"{len(summary)}")
+
+pan_printed_waste_mt = summary["Total Printed Waste MT"].sum()
+pan_printed_waste_pct = safe_div(pan_printed_waste_mt, total_consumption_mt) * 100
+
+dash1, dash2, dash3 = st.columns(3)
+
+with dash1:
+    st.markdown(f"""
+    <div class="card">
+        <h4>Pan India Consumption</h4>
+        <h2>{total_consumption_mt:,.1f} MT</h2>
+        <p>Total newsprint consumption</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with dash2:
+    st.markdown(f"""
+    <div class="card">
+        <h4>Total Waste</h4>
+        <h2>{total_waste_mt:,.1f} MT</h2>
+        <p>Overall waste across all plants</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with dash3:
+    st.markdown(f"""
+    <div class="card">
+        <h4>Total Waste %</h4>
+        <h2>{pan_waste_pct:.2f}%</h2>
+        <p>Pan India total waste rate</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.write("")
+
+dash4, dash5, dash6 = st.columns(3)
+
+with dash4:
+    st.markdown(f"""
+    <div class="card">
+        <h4>Printed Waste</h4>
+        <h2>{pan_printed_waste_mt:,.1f} MT</h2>
+        <p>Total printed waste</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with dash5:
+    st.markdown(f"""
+    <div class="card">
+        <h4>Printed Waste %</h4>
+        <h2>{pan_printed_waste_pct:.2f}%</h2>
+        <p>Printed waste vs consumption</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with dash6:
+    st.markdown(f"""
+    <div class="card">
+        <h4>Plants Analyzed</h4>
+        <h2>{len(summary)}</h2>
+        <p>Total plant sheets processed</p>
+    </div>
+    """, unsafe_allow_html=True)
 
     st.markdown("## 🚨 Critical Insights")
     insight_box(f"<b>Best waste-rate plant:</b> {best_plant['Plant Name']} ({best_plant['Total Waste %']:.2f}%).")
