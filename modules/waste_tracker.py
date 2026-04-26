@@ -301,7 +301,8 @@ def run_waste_tracker():
             "Total plant sheets processed",
             "#16a34a"
         )
-            st.markdown("## 🚨 Critical Insights")
+
+    st.markdown("## 🚨 Critical Insights")
     insight_box(f"<b>Best waste-rate plant:</b> {best_plant['Plant Name']} ({best_plant['Total Waste %']:.2f}%).")
     insight_box(f"<b>Worst waste-rate plant:</b> {worst_plant['Plant Name']} ({worst_plant['Total Waste %']:.2f}%).", "warning")
     insight_box(f"<b>Highest absolute waste:</b> {highest_abs['Plant Name']} with {highest_abs['Total Waste MT']:.1f} MT waste.")
