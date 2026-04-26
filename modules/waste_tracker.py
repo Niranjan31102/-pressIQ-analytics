@@ -304,7 +304,7 @@ def run_waste_tracker():
             "Trial Waste %"
         ]].sort_values("Total Waste %", ascending=True)
 
-       driver_table = filtered_summary[[
+        driver_table = filtered_summary[[
             "Plant Name",
             "Total Consumption MT",
             "Total No. of Starts",
