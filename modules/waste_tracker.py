@@ -254,40 +254,8 @@ def run_waste_tracker():
     # ---------------- TAB 1 ----------------
     with tab1:
         st.markdown("## All India Plant Ranking")
-        st.markdown("### 🔎 Filter Plant Data")
-
-        filter_col1, filter_col2 = st.columns(2)
-
-        with filter_col1:
-            selected_plants = st.multiselect(
-                "Select Plant(s)",
-                options=summary["Plant Name"].tolist(),
-                default=summary["Plant Name"].tolist()
-            )
-
-        with filter_col2:
-            min_waste = float(summary["Total Waste %"].min())
-            max_waste = float(summary["Total Waste %"].max())
-
-            selected_waste_range = st.slider(
-                "Select Total Waste % Range",
-                min_value=min_waste,
-                max_value=max_waste,
-                value=(min_waste, max_waste),
-                step=0.01
-            )
-
-        filtered_summary = summary[
-            (summary["Plant Name"].isin(selected_plants)) &
-            (summary["Total Waste %"] >= selected_waste_range[0]) &
-            (summary["Total Waste %"] <= selected_waste_range[1])
-        ].copy()
-
-        if filtered_summary.empty:
-            st.warning("No plant data available for selected filter.")
-            st.stop()
-            
-        waste_table = filtered_summary[[
+       
+        waste_table = summary[[
             "Plant Name",
             "Total Consumption MT",
             "Total Waste MT",
@@ -303,8 +271,8 @@ def run_waste_tracker():
             "Trial Waste MT",
             "Trial Waste %"
         ]].sort_values("Total Waste %", ascending=True)
-
-        driver_table = filtered_summary[[
+        
+        driver_table = summary[[
             "Plant Name",
             "Total Consumption MT",
             "Total No. of Starts",
