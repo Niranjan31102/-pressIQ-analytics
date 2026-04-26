@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from io import BytesIO
-from st_aggrid import AgGrid, GridOptionsBuilder
 
 from utils.helpers import PLANT_NAMES, norm, safe_div, to_num, insight_box
 
