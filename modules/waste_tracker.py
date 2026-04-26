@@ -254,7 +254,7 @@ def run_waste_tracker():
     # ---------------- TAB 1 ----------------
     with tab1:
         st.markdown("## All India Plant Ranking")
-                st.markdown("### 🔎 Filter Plant Data")
+        st.markdown("### 🔎 Filter Plant Data")
 
         filter_col1, filter_col2 = st.columns(2)
 
