@@ -467,7 +467,7 @@ def run_waste_tracker():
                 plant_row["No. of GNPs"],
                 plant_row["No. of Extra Folder"],
             ],
-            "Pan India (Excl.)": [
+            f"Pan India (Excl.)": [
                 rest_consumption,
                 rest_waste,
                 rest_waste_pct,
@@ -486,6 +486,7 @@ def run_waste_tracker():
                 rest_summary["No. of GNPs"].sum(),
                 rest_summary["No. of Extra Folder"].sum(),
         ]
+    })
         st.dataframe(round_kpi_table(compare_df), use_container_width=True, hide_index=True)
 
         plant_daily = daily_all[daily_all["Plant Name"] == plant]
