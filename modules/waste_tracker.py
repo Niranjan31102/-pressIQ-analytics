@@ -468,7 +468,7 @@ def run_waste_tracker():
                 plant_row["No. of GNPs"],
                 plant_row["No. of Extra Folder"],
             ],
-            f"Pan India (Excl.)": [
+            f"Pan India (Excl. {plant})": [
                 rest_consumption,
                 rest_waste,
                 rest_waste_pct,
