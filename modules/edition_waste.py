@@ -219,7 +219,7 @@ def run_edition_waste_analyzer():
         "Download Report"
     ])
 
-    with tab1:
+        with tab1:
         st.markdown("## Waste Segment Breakdown")
 
         segment_df = pd.DataFrame({
@@ -233,20 +233,11 @@ def run_edition_waste_analyzer():
             segment_df,
             x="Waste Segment",
             y="Waste MT",
-            text="Waste MT",
-            title=
+            text="Waste MT"
         )
+
         fig_seg.update_traces(texttemplate="%{text:.3f}")
         st.plotly_chart(fig_seg, use_container_width=True)
-
-        fig_pie = px.pie(
-            segment_df,
-            values="Waste MT",
-            names="Waste Segment",
-            hole=0.45,
-            title="Waste Segment Share"
-        )
-        st.plotly_chart(fig_pie, use_container_width=True)
 
     with tab2:
         st.markdown("## Edition Wise Waste Performance")
