@@ -191,6 +191,17 @@ def read_tracker_file(uploaded_file):
 
 
 def round_display(df):
+    return (
+        df.style
+        .set_properties(**{
+            "text-align": "center"
+        })
+        .set_table_styles([
+            {"selector": "th", "props": [("text-align", "center")]},
+            {"selector": "td", "props": [("text-align", "center")]}
+        ])
+    )
+    
     out = df.copy()
     for col in out.columns:
         if pd.api.types.is_numeric_dtype(out[col]):
@@ -347,11 +358,10 @@ def run_waste_tracker():
         ]].sort_values("Total Consumption MT", ascending=False)
 
         st.markdown("### Waste Performance Table")
-        st.dataframe(round_display(waste_table), use_container_width=True, hide_index=True)
+        st.dataframe(center_table(round_display(waste_table)), use_container_width=True, hide_index=True)
 
         st.markdown("### Operational Driver Table")
         st.dataframe(round_display(driver_table), use_container_width=True, hide_index=True)
-
         fig_rank = px.bar(
             waste_table,
             x="Total Waste %",
@@ -447,7 +457,7 @@ def run_waste_tracker():
             ]
         })
 
-        st.dataframe(round_display(compare_df), use_container_width=True, hide_index=True)
+        st.dataframe(center_table(round_display(compare_df)), use_container_width=True, hide_index=True)
 
         plant_daily = daily_all[daily_all["Plant Name"] == plant]
         fig_daily = px.line(
@@ -557,7 +567,7 @@ def run_waste_tracker():
         })
 
     
-        st.dataframe(round_display(comp), use_container_width=True, hide_index=True)
+        st.dataframe(center_table(round_display(comp)), use_container_width=True, hide_index=True)
 
         trend_two = daily_all[daily_all["Plant Name"].isin([plant_a, plant_b])]
         fig_two = px.line(
@@ -600,7 +610,7 @@ def run_waste_tracker():
             ]
         })
 
-        st.dataframe(round_display(cat), use_container_width=True, hide_index=True)
+        st.dataframe(center_table(round_display(cat)), use_container_width=True, hide_index=True)
 
         fig_cat = px.pie(
             cat,
