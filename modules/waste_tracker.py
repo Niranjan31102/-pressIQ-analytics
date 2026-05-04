@@ -319,7 +319,7 @@ def run_waste_tracker():
 
     # ---------------- TAB 1 ----------------
     with tab1:
-        st.markdown("## All India Plant Ranking")
+        st.markdown("## Pan India Plant Performance")
 
         waste_table = summary[[
             "Plant Name",
