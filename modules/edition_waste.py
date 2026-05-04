@@ -28,7 +28,7 @@ def read_edition_file(uploaded_file, sheet_name):
         "Edition Name": find_col(df, ["Edition Name"]),
         "Print Order": find_col(df, ["Print Order"]),
         "Main/Supplement": find_col(df, ["Edition (Main/Supl)", "Main/Supplement"]),
-        "Machine": find_col(df, ["Machine"]),
+        "Press": find_col(df, ["Machine", "Press"]),
         "Folder": find_col(df, ["Folder"]),
         "GNP/SNP": find_col(df, ["GNP", "SNP/GNP"]),
         "Complexity": find_col(df, ["Complexity"]),
@@ -205,7 +205,7 @@ def run_edition_waste_analyzer():
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "Waste Segment",
         "Edition Performance",
-        "Machine / Start Type",
+        "Press / Start Type",
         "GNP-SNP / Complexity",
         "Download Report"
     ])
@@ -220,7 +220,6 @@ def run_edition_waste_analyzer():
 
         st.dataframe(round_display(segment_df), use_container_width=True, hide_index=True)
 
-        
         fig_pie = px.pie(
             segment_df,
             values="Waste MT",
@@ -254,10 +253,10 @@ def run_edition_waste_analyzer():
         st.plotly_chart(fig_edition, use_container_width=True)
 
     with tab3:
-        st.markdown("## Machine / Start Type Analysis")
+        st.markdown("## Press / Start Type Analysis")
 
-        machine_summary = (
-            filtered.groupby("Machine", dropna=False)["Total Waste MT"]
+        press_summary = (
+            filtered.groupby("Press", dropna=False)["Total Waste MT"]
             .sum()
             .reset_index()
             .sort_values("Total Waste MT", ascending=False)
@@ -273,32 +272,12 @@ def run_edition_waste_analyzer():
         c1, c2 = st.columns(2)
 
         with c1:
-            st.markdown("### Machine Wise Waste")
-            st.dataframe(round_display(machine_summary), use_container_width=True, hide_index=True)
+            st.markdown("### Press Wise Waste")
+            st.dataframe(round_display(press_summary), use_container_width=True, hide_index=True)
 
         with c2:
             st.markdown("### Start Type Wise Waste")
             st.dataframe(round_display(start_summary), use_container_width=True, hide_index=True)
-
-        fig_machine = px.bar(
-            machine_summary,
-            x="Machine",
-            y="Total Waste MT",
-            text="Total Waste MT",
-            title="Machine Wise Waste MT"
-        )
-        fig_machine.update_traces(texttemplate="%{text:.3f}")
-        st.plotly_chart(fig_machine, use_container_width=True)
-
-        fig_start = px.bar(
-            start_summary,
-            x="Type of Start",
-            y="Total Waste MT",
-            text="Total Waste MT",
-            title="Start Type Wise Waste MT"
-        )
-        fig_start.update_traces(texttemplate="%{text:.3f}")
-        st.plotly_chart(fig_start, use_container_width=True)
 
     with tab4:
         st.markdown("## GNP/SNP and Complexity Analysis")
@@ -354,7 +333,7 @@ def run_edition_waste_analyzer():
 
         export_cols = [
             "Edition Date", "Edition", "Edition Name", "Print Order",
-            "Main/Supplement", "Machine", "Folder", "GNP/SNP",
+            "Main/Supplement", "Press", "Folder", "GNP/SNP",
             "Complexity", "Type of Start", "White MT", "Scum MT",
             "Cut-off MT", "Registration MT", "Density Variation MT",
             "Other MT", "Pasting MT", "Total Waste MT"
@@ -366,7 +345,7 @@ def run_edition_waste_analyzer():
             round_display(export_data).to_excel(writer, index=False, sheet_name="Filtered Data")
             round_display(segment_df).to_excel(writer, index=False, sheet_name="Waste Segment")
             round_display(edition_summary).to_excel(writer, index=False, sheet_name="Edition Summary")
-            round_display(machine_summary).to_excel(writer, index=False, sheet_name="Machine Summary")
+            round_display(press_summary).to_excel(writer, index=False, sheet_name="Press Summary")
             round_display(start_summary).to_excel(writer, index=False, sheet_name="Start Type Summary")
             round_display(gnp_summary).to_excel(writer, index=False, sheet_name="GNP SNP Summary")
             round_display(complexity_summary).to_excel(writer, index=False, sheet_name="Complexity Summary")
