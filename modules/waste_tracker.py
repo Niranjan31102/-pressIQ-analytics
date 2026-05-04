@@ -411,14 +411,20 @@ def run_waste_tracker():
 
     # ---------------- TAB 2 ----------------
     with tab_single:
-        st.markdown("## Single Plant vs Pan India")
+        st.markdown(f"## {plant} vs Pan India (excluding {plant})")
 
         plant = st.selectbox("Select Plant", summary["Plant Name"].tolist(), key="single_plant")
         plant_row = summary[summary["Plant Name"] == plant].iloc[0]
+        rest_summary = summary[summary["Plant Name"] != plant]
+
+        rest_consumption = rest_summary["Total Consumption MT"].sum()
+        rest_waste = rest_summary["Total Waste MT"].sum()
+
+        rest_waste_pct = safe_div(rest_waste, rest_consumption) * 100
 
         p1, p2, p3, p4 = st.columns(4)
         p1.metric("Plant Waste %", f"{plant_row['Total Waste %']:.2f}%")
-        p2.metric("Pan India Waste %", f"{pan_waste_pct:.2f}%")
+        p2.metric("Rest of Pan India Waste %", f"{rest_waste_pct:.2f}%")
         p3.metric("Gap vs Pan India", f"{plant_row['Total Waste %'] - pan_waste_pct:+.2f}%")
         p4.metric("Total Waste", f"{plant_row['Total Waste MT']:.1f} MT")
 
@@ -461,27 +467,25 @@ def run_waste_tracker():
                 plant_row["No. of GNPs"],
                 plant_row["No. of Extra Folder"],
             ],
-            "Pan India": [
-                total_consumption_mt,
-                total_waste_mt,
-                pan_waste_pct,
-                summary["Total Printed Waste MT"].sum(),
-                safe_div(summary["Total Printed Waste MT"].sum(), total_consumption_mt) * 100,
-                summary["Reel End Waste MT"].sum(),
-                safe_div(summary["Reel End Waste MT"].sum(), total_consumption_mt) * 100,
-                summary["Tear Off Waste MT"].sum(),
-                safe_div(summary["Tear Off Waste MT"].sum(), total_consumption_mt) * 100,
-                summary["Sweep Waste MT"].sum(),
-                safe_div(summary["Sweep Waste MT"].sum(), total_consumption_mt) * 100,
-                summary["Trial Waste MT"].sum(),
-                safe_div(summary["Trial Waste MT"].sum(), total_consumption_mt) * 100,
-                summary["Total No. of Starts"].sum(),
-                summary["Total No. of Warm Unplanned Stoppages"].sum(),
-                summary["No. of GNPs"].sum(),
-                summary["No. of Extra Folder"].sum(),
-            ]
-        })
-
+                "Pan India (Excl.)": [
+                    rest_consumption,
+                    rest_waste,
+                    rest_waste_pct,
+                    rest_summary["Total Printed Waste MT"].sum(),
+                    safe_div(rest_summary["Total Printed Waste MT"].sum(), rest_consumption) * 100,
+                    rest_summary["Reel End Waste MT"].sum(),
+                    safe_div(rest_summary["Reel End Waste MT"].sum(), rest_consumption) * 100,
+                    rest_summary["Tear Off Waste MT"].sum(),
+                    safe_div(rest_summary["Tear Off Waste MT"].sum(), rest_consumption) * 100,
+                    rest_summary["Sweep Waste MT"].sum(),
+                    safe_div(rest_summary["Sweep Waste MT"].sum(), rest_consumption) * 100,
+                    rest_summary["Trial Waste MT"].sum(),
+                    safe_div(rest_summary["Trial Waste MT"].sum(), rest_consumption) * 100,
+                    rest_summary["Total No. of Starts"].sum(),
+                    rest_summary["Total No. of Warm Unplanned Stoppages"].sum(),
+                    rest_summary["No. of GNPs"].sum(),
+                    rest_summary["No. of Extra Folder"].sum(),
+        ]
         st.dataframe(round_kpi_table(compare_df), use_container_width=True, hide_index=True)
 
         plant_daily = daily_all[daily_all["Plant Name"] == plant]
