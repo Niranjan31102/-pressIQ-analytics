@@ -490,16 +490,6 @@ def run_waste_tracker():
     })
         st.dataframe(round_kpi_table(compare_df), use_container_width=True, hide_index=True)
 
-        plant_daily = daily_all[daily_all["Plant Name"] == plant]
-        fig_daily = px.line(
-            plant_daily,
-            x="Date",
-            y="Total Waste %",
-            markers=True,
-            title=f"{plant} Daily Total Waste % Trend"
-        )
-        st.plotly_chart(fig_daily, use_container_width=True)
-
         if plant_row["Total Waste %"] > pan_waste_pct:
             gap_waste = (plant_row["Total Waste %"] - pan_waste_pct) / 100 * (plant_row["Total Consumption MT"] * 1000)
             insight_box(
