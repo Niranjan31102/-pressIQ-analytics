@@ -55,8 +55,7 @@ def read_edition_file(uploaded_file, sheet_name):
     out["Edition Date"] = pd.to_datetime(out["Edition Date"], errors="coerce", dayfirst=True)
     out = out[out["Edition Date"].notna()].copy()
 
-    for col in [
-        "Print Order",
+    kg_cols = [
         "White Kg",
         "Scum Kg",
         "Cut-off Kg",
@@ -65,9 +64,35 @@ def read_edition_file(uploaded_file, sheet_name):
         "Other Kg",
         "Pasting Kg",
         "Total Waste Kg",
-    ]:
+        "Print Order",
+    ]
+
+    for col in kg_cols:
         out[col] = to_num(out[col])
 
+    # MT conversion for display/reporting
+    out["White MT"] = out["White Kg"] / 1000
+    out["Scum MT"] = out["Scum Kg"] / 1000
+    out["Cut-off MT"] = out["Cut-off Kg"] / 1000
+    out["Registration MT"] = out["Registration Kg"] / 1000
+    out["Density Variation MT"] = out["Density Variation Kg"] / 1000
+    out["Other MT"] = out["Other Kg"] / 1000
+    out["Pasting MT"] = out["Pasting Kg"] / 1000
+    out["Total Waste MT"] = out["Total Waste Kg"] / 1000
+
+    return out
+
+
+def round_display(df):
+    out = df.copy()
+    for col in out.columns:
+        if pd.api.types.is_numeric_dtype(out[col]):
+            if "MT" in col:
+                out[col] = out[col].round(3)
+            elif "%" in col:
+                out[col] = out[col].round(2)
+            else:
+                out[col] = out[col].round(0)
     return out
 
 
@@ -91,10 +116,7 @@ def run_edition_waste_analyzer():
         if str(s).strip().upper() not in ["MASTER", "SHEET1"]
     ]
 
-    if "AIR" in xls.sheet_names:
-        default_index = available_sheets.index("AIR") if "AIR" in available_sheets else 0
-    else:
-        default_index = 0
+    default_index = available_sheets.index("AIR") if "AIR" in available_sheets else 0
 
     sheet_name = st.selectbox(
         "Select Plant Sheet",
@@ -116,10 +138,20 @@ def run_edition_waste_analyzer():
     col1, col2 = st.columns(2)
 
     with col1:
-        start_date = st.date_input("From Date", min_date, min_value=min_date, max_value=max_date)
+        start_date = st.date_input(
+            "From Date",
+            min_date,
+            min_value=min_date,
+            max_value=max_date
+        )
 
     with col2:
-        end_date = st.date_input("To Date", max_date, min_value=min_date, max_value=max_date)
+        end_date = st.date_input(
+            "To Date",
+            max_date,
+            min_value=min_date,
+            max_value=max_date
+        )
 
     filtered = df[
         (df["Edition Date"].dt.date >= start_date) &
@@ -130,33 +162,37 @@ def run_edition_waste_analyzer():
         st.warning("No data found for selected date range.")
         return
 
-    total_waste = filtered["Total Waste Kg"].sum()
+    total_waste_mt = filtered["Total Waste MT"].sum()
     total_print_order = filtered["Print Order"].sum()
     total_editions = len(filtered)
-    avg_waste = total_waste / total_editions if total_editions else 0
+    avg_waste_mt = total_waste_mt / total_editions if total_editions else 0
 
     st.markdown("## Executive Dashboard")
 
     k1, k2, k3, k4 = st.columns(4)
 
     k1.metric("Total Editions", f"{total_editions:,}")
-    k2.metric("Total Waste", f"{total_waste:,.1f} kg")
+    k2.metric("Total Waste", f"{total_waste_mt:,.3f} MT")
     k3.metric("Total Print Order", f"{total_print_order:,.0f}")
-    k4.metric("Avg Waste / Edition", f"{avg_waste:,.1f} kg")
+    k4.metric("Avg Waste / Edition", f"{avg_waste_mt:,.3f} MT")
 
     st.markdown("## Key Insight")
+
     top_segment = {
-        "White Kg": filtered["White Kg"].sum(),
-        "Scum Kg": filtered["Scum Kg"].sum(),
-        "Cut-off Kg": filtered["Cut-off Kg"].sum(),
-        "Registration Kg": filtered["Registration Kg"].sum(),
-        "Density Variation Kg": filtered["Density Variation Kg"].sum(),
-        "Other Kg": filtered["Other Kg"].sum(),
-        "Pasting Kg": filtered["Pasting Kg"].sum(),
+        "White MT": filtered["White MT"].sum(),
+        "Scum MT": filtered["Scum MT"].sum(),
+        "Cut-off MT": filtered["Cut-off MT"].sum(),
+        "Registration MT": filtered["Registration MT"].sum(),
+        "Density Variation MT": filtered["Density Variation MT"].sum(),
+        "Other MT": filtered["Other MT"].sum(),
+        "Pasting MT": filtered["Pasting MT"].sum(),
     }
 
     top_segment_name = max(top_segment, key=top_segment.get)
-    st.info(f"Highest waste segment is **{top_segment_name}** with **{top_segment[top_segment_name]:,.1f} kg**.")
+    st.info(
+        f"Highest waste segment is **{top_segment_name}** with "
+        f"**{top_segment[top_segment_name]:,.3f} MT**."
+    )
 
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "Waste Segment",
@@ -171,24 +207,24 @@ def run_edition_waste_analyzer():
 
         segment_df = pd.DataFrame({
             "Waste Segment": list(top_segment.keys()),
-            "Waste Kg": list(top_segment.values())
-        }).sort_values("Waste Kg", ascending=False)
+            "Waste MT": list(top_segment.values())
+        }).sort_values("Waste MT", ascending=False)
 
-        st.dataframe(segment_df, use_container_width=True, hide_index=True)
+        st.dataframe(round_display(segment_df), use_container_width=True, hide_index=True)
 
         fig_seg = px.bar(
             segment_df,
             x="Waste Segment",
-            y="Waste Kg",
-            text="Waste Kg",
-            title="Waste by Segment"
+            y="Waste MT",
+            text="Waste MT",
+            title="Waste by Segment (MT)"
         )
-        fig_seg.update_traces(texttemplate="%{text:.1f}")
+        fig_seg.update_traces(texttemplate="%{text:.3f}")
         st.plotly_chart(fig_seg, use_container_width=True)
 
         fig_pie = px.pie(
             segment_df,
-            values="Waste Kg",
+            values="Waste MT",
             names="Waste Segment",
             hole=0.45,
             title="Waste Segment Share"
@@ -199,98 +235,155 @@ def run_edition_waste_analyzer():
         st.markdown("## Edition Wise Waste Performance")
 
         edition_summary = (
-            filtered.groupby(["Edition", "Edition Name"], dropna=False)["Total Waste Kg"]
+            filtered.groupby(["Edition", "Edition Name"], dropna=False)["Total Waste MT"]
             .sum()
             .reset_index()
-            .sort_values("Total Waste Kg", ascending=False)
+            .sort_values("Total Waste MT", ascending=False)
         )
 
-        st.dataframe(edition_summary.head(50), use_container_width=True, hide_index=True)
+        st.dataframe(round_display(edition_summary.head(50)), use_container_width=True, hide_index=True)
 
         fig_edition = px.bar(
             edition_summary.head(20),
-            x="Total Waste Kg",
+            x="Total Waste MT",
             y="Edition Name",
             orientation="h",
-            text="Total Waste Kg",
-            title="Top 20 Editions by Waste Kg"
+            text="Total Waste MT",
+            title="Top 20 Editions by Waste MT"
         )
-        fig_edition.update_traces(texttemplate="%{text:.1f}")
+        fig_edition.update_traces(texttemplate="%{text:.3f}")
         st.plotly_chart(fig_edition, use_container_width=True)
 
     with tab3:
         st.markdown("## Machine / Start Type Analysis")
 
         machine_summary = (
-            filtered.groupby("Machine", dropna=False)["Total Waste Kg"]
+            filtered.groupby("Machine", dropna=False)["Total Waste MT"]
             .sum()
             .reset_index()
-            .sort_values("Total Waste Kg", ascending=False)
+            .sort_values("Total Waste MT", ascending=False)
         )
 
         start_summary = (
-            filtered.groupby("Type of Start", dropna=False)["Total Waste Kg"]
+            filtered.groupby("Type of Start", dropna=False)["Total Waste MT"]
             .sum()
             .reset_index()
-            .sort_values("Total Waste Kg", ascending=False)
+            .sort_values("Total Waste MT", ascending=False)
         )
 
         c1, c2 = st.columns(2)
 
         with c1:
             st.markdown("### Machine Wise Waste")
-            st.dataframe(machine_summary, use_container_width=True, hide_index=True)
+            st.dataframe(round_display(machine_summary), use_container_width=True, hide_index=True)
 
         with c2:
             st.markdown("### Start Type Wise Waste")
-            st.dataframe(start_summary, use_container_width=True, hide_index=True)
+            st.dataframe(round_display(start_summary), use_container_width=True, hide_index=True)
 
-        fig_machine = px.bar(machine_summary, x="Machine", y="Total Waste Kg", text="Total Waste Kg")
+        fig_machine = px.bar(
+            machine_summary,
+            x="Machine",
+            y="Total Waste MT",
+            text="Total Waste MT",
+            title="Machine Wise Waste MT"
+        )
+        fig_machine.update_traces(texttemplate="%{text:.3f}")
         st.plotly_chart(fig_machine, use_container_width=True)
 
-        fig_start = px.bar(start_summary, x="Type of Start", y="Total Waste Kg", text="Total Waste Kg")
+        fig_start = px.bar(
+            start_summary,
+            x="Type of Start",
+            y="Total Waste MT",
+            text="Total Waste MT",
+            title="Start Type Wise Waste MT"
+        )
+        fig_start.update_traces(texttemplate="%{text:.3f}")
         st.plotly_chart(fig_start, use_container_width=True)
 
     with tab4:
         st.markdown("## GNP/SNP and Complexity Analysis")
 
         gnp_summary = (
-            filtered.groupby("GNP/SNP", dropna=False)["Total Waste Kg"]
+            filtered.groupby("GNP/SNP", dropna=False)["Total Waste MT"]
             .sum()
             .reset_index()
-            .sort_values("Total Waste Kg", ascending=False)
+            .sort_values("Total Waste MT", ascending=False)
         )
 
         complexity_summary = (
-            filtered.groupby("Complexity", dropna=False)["Total Waste Kg"]
+            filtered.groupby("Complexity", dropna=False)["Total Waste MT"]
             .sum()
             .reset_index()
-            .sort_values("Total Waste Kg", ascending=False)
+            .sort_values("Total Waste MT", ascending=False)
         )
 
         c1, c2 = st.columns(2)
 
         with c1:
             st.markdown("### GNP/SNP Wise Waste")
-            st.dataframe(gnp_summary, use_container_width=True, hide_index=True)
+            st.dataframe(round_display(gnp_summary), use_container_width=True, hide_index=True)
 
         with c2:
             st.markdown("### Complexity Wise Waste")
-            st.dataframe(complexity_summary, use_container_width=True, hide_index=True)
+            st.dataframe(round_display(complexity_summary), use_container_width=True, hide_index=True)
+
+        fig_gnp = px.bar(
+            gnp_summary,
+            x="GNP/SNP",
+            y="Total Waste MT",
+            text="Total Waste MT",
+            title="GNP/SNP Wise Waste MT"
+        )
+        fig_gnp.update_traces(texttemplate="%{text:.3f}")
+        st.plotly_chart(fig_gnp, use_container_width=True)
+
+        fig_complexity = px.bar(
+            complexity_summary,
+            x="Complexity",
+            y="Total Waste MT",
+            text="Total Waste MT",
+            title="Complexity Wise Waste MT"
+        )
+        fig_complexity.update_traces(texttemplate="%{text:.3f}")
+        st.plotly_chart(fig_complexity, use_container_width=True)
 
     with tab5:
         st.markdown("## Download Report")
 
         output = BytesIO()
 
+        export_cols = [
+            "Edition Date",
+            "Edition",
+            "Edition Name",
+            "Print Order",
+            "Main/Supplement",
+            "Machine",
+            "Folder",
+            "GNP/SNP",
+            "Complexity",
+            "Type of Start",
+            "White MT",
+            "Scum MT",
+            "Cut-off MT",
+            "Registration MT",
+            "Density Variation MT",
+            "Other MT",
+            "Pasting MT",
+            "Total Waste MT",
+        ]
+
+        export_data = filtered[export_cols].copy()
+
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-            filtered.to_excel(writer, index=False, sheet_name="Filtered Data")
-            segment_df.to_excel(writer, index=False, sheet_name="Waste Segment")
-            edition_summary.to_excel(writer, index=False, sheet_name="Edition Summary")
-            machine_summary.to_excel(writer, index=False, sheet_name="Machine Summary")
-            start_summary.to_excel(writer, index=False, sheet_name="Start Type Summary")
-            gnp_summary.to_excel(writer, index=False, sheet_name="GNP SNP Summary")
-            complexity_summary.to_excel(writer, index=False, sheet_name="Complexity Summary")
+            round_display(export_data).to_excel(writer, index=False, sheet_name="Filtered Data")
+            round_display(segment_df).to_excel(writer, index=False, sheet_name="Waste Segment")
+            round_display(edition_summary).to_excel(writer, index=False, sheet_name="Edition Summary")
+            round_display(machine_summary).to_excel(writer, index=False, sheet_name="Machine Summary")
+            round_display(start_summary).to_excel(writer, index=False, sheet_name="Start Type Summary")
+            round_display(gnp_summary).to_excel(writer, index=False, sheet_name="GNP SNP Summary")
+            round_display(complexity_summary).to_excel(writer, index=False, sheet_name="Complexity Summary")
 
         st.download_button(
             "📥 Download Edition Wise Wastage Report",
