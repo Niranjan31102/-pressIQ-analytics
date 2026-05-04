@@ -234,7 +234,7 @@ def run_edition_waste_analyzer():
             x="Waste Segment",
             y="Waste MT",
             text="Waste MT",
-            title="Waste by Segment (MT)"
+            title=
         )
         fig_seg.update_traces(texttemplate="%{text:.3f}")
         st.plotly_chart(fig_seg, use_container_width=True)
