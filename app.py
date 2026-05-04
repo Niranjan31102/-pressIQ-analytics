@@ -83,7 +83,6 @@ if area == "Waste Intelligence":
         "Select Waste Tool",
         [
             "Pan India Waste Tracker Analyzer",
-            "ADAM Production Report Analyzer"
         ]
     )
 else:
