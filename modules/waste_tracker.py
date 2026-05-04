@@ -556,11 +556,7 @@ def run_waste_tracker():
             ]
         })
 
-        comp["Better"] = comp.apply(
-            lambda r: plant_a if r[plant_a] < r[plant_b] else plant_b,
-            axis=1
-        )
-
+    
         st.dataframe(round_display(comp), use_container_width=True, hide_index=True)
 
         trend_two = daily_all[daily_all["Plant Name"].isin([plant_a, plant_b])]
