@@ -23,6 +23,10 @@ st.markdown("""
     font-size: 20px;
     color: #475569;
 }
+/* Center align numeric columns in tables */
+    [data-testid="stDataFrame"] td {
+    text-align: center !important;
+}
 .card {
     background: #ffffff;
     padding: 22px;
