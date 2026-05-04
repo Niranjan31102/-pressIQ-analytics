@@ -28,7 +28,7 @@ def read_edition_file(uploaded_file, sheet_name):
         "Edition Name": find_col(df, ["Edition Name"]),
         "Print Order": find_col(df, ["Print Order"]),
         "Main/Supplement": find_col(df, ["Edition (Main/Supl)", "Main/Supplement"]),
-        "Press": find_col(df, ["Machine", "Press"]),
+        "Press": find_col(df, ["Press", "Press No", "Press Number", "Machine"]),
         "Folder": find_col(df, ["Folder"]),
         "GNP/SNP": find_col(df, ["GNP", "SNP/GNP"]),
         "Complexity": find_col(df, ["Complexity"]),
