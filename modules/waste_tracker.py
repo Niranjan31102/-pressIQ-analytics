@@ -584,27 +584,6 @@ def run_waste_tracker():
     
         st.dataframe(round_kpi_table(comp), use_container_width=True, hide_index=True)
 
-        trend_two = daily_all[daily_all["Plant Name"].isin([plant_a, plant_b])].copy()
-        
-        fig_two = px.line(
-            trend_two,
-            x="Date",
-            y="Printed Waste %",
-            color="Plant Name",
-            markers=True,
-            title=f"Daily Printed Waste % Trend: {plant_a} vs {plant_b}"
-        )
-
-        fig_two.update_traces(mode="lines+markers")
-        fig_two.update_layout(
-            xaxis_title="Date",
-            yaxis_title="Printed Waste %",
-            legend_title="Plant"
-        )
-
-        st.plotly_chart(fig_two, use_container_width=True)
-        
-
         if a["Total Waste %"] > b["Total Waste %"]:
             saving_gap = (a["Total Waste %"] - b["Total Waste %"]) / 100 * (a["Total Consumption MT"] * 1000)
             insight_box(f"If {plant_a} reaches {plant_b}'s waste %, saving opportunity is approx {saving_gap/1000:.1f} MT.", "warning")
