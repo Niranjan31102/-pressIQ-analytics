@@ -411,8 +411,7 @@ def run_waste_tracker():
 
     # ---------------- TAB 2 ----------------
     with tab_single:
-        st.markdown(f"## {plant} vs Pan India (excluding {plant})")
-
+    
         plant = st.selectbox("Select Plant", summary["Plant Name"].tolist(), key="single_plant")
         plant_row = summary[summary["Plant Name"] == plant].iloc[0]
         rest_summary = summary[summary["Plant Name"] != plant]
@@ -421,6 +420,8 @@ def run_waste_tracker():
         rest_waste = rest_summary["Total Waste MT"].sum()
 
         rest_waste_pct = safe_div(rest_waste, rest_consumption) * 100
+        
+        st.markdown(f"## {plant} vs Pan India (excluding {plant})")
 
         p1, p2, p3, p4 = st.columns(4)
         p1.metric("Plant Waste %", f"{plant_row['Total Waste %']:.2f}%")
