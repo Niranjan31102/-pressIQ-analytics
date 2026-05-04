@@ -260,16 +260,14 @@ def run_edition_waste_analyzer():
 
         st.dataframe(round_display(edition_summary.head(50)), use_container_width=True, hide_index=True)
 
-        fig_edition = px.bar(
-            edition_summary.head(20),
-            x="Total Waste MT",
-            y="Edition Name",
-            orientation="h",
-            text="Total Waste MT",
-            title="Top 20 Editions by Waste MT"
+        fig_seg = px.bar(
+            segment_df,
+            x="Waste Segment",
+            y="Waste MT",
+            text="Waste MT"
         )
-        fig_edition.update_traces(texttemplate="%{text:.3f}")
-        st.plotly_chart(fig_edition, use_container_width=True)
+        fig_seg.update_traces(texttemplate="%{text:.3f}")
+        st.plotly_chart(fig_seg, use_container_width=True)
 
     with tab3:
         st.markdown("## Machine / Start Type Analysis")
