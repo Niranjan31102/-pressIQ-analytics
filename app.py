@@ -14,40 +14,79 @@ st.set_page_config(
 # ---------------- STYLE ----------------
 st.markdown("""
 <style>
+
+/* ----------- HEADER ----------- */
 .main-title {
     font-size: 44px;
     font-weight: 900;
     color: #0f172a;
 }
+
 .sub-title {
     font-size: 20px;
     color: #475569;
 }
-/* Center align numeric columns in tables */
-    [data-testid="stDataFrame"] td {
-    text-align: center !important;
-}
+
+/* ----------- KPI CARD (Power BI style) ----------- */
 .card {
     background: #ffffff;
     padding: 22px;
     border-radius: 18px;
     border: 1px solid #e5e7eb;
-    box-shadow: 0px 4px 14px rgba(15, 23, 42, 0.06);
+    box-shadow: 0px 6px 18px rgba(15, 23, 42, 0.08);
+    margin-bottom: 10px;
 }
+
+/* ----------- INSIGHT CARD ----------- */
 .insight-card {
     background: linear-gradient(90deg, #eff6ff, #f8fafc);
     padding: 18px;
     border-radius: 16px;
     border-left: 6px solid #2563eb;
     margin-bottom: 12px;
+    font-size: 15px;
 }
+
+/* ----------- WARNING CARD ----------- */
 .warning-card {
     background: #fff7ed;
     padding: 18px;
     border-radius: 16px;
     border-left: 6px solid #f97316;
     margin-bottom: 12px;
+    font-size: 15px;
 }
+
+/* ----------- TABLE IMPROVEMENT ----------- */
+
+/* Center align all table data */
+div[data-testid="stDataFrame"] table {
+    text-align: center !important;
+}
+
+/* Center header */
+div[data-testid="stDataFrame"] th {
+    text-align: center !important;
+    font-weight: 600 !important;
+}
+
+/* Center values */
+div[data-testid="stDataFrame"] td {
+    text-align: center !important;
+}
+
+/* Slightly better spacing */
+div[data-testid="stDataFrame"] {
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* ----------- TAB IMPROVEMENT ----------- */
+button[role="tab"] {
+    font-size: 14px !important;
+    padding: 6px 12px !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
