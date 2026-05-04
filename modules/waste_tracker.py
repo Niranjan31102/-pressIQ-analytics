@@ -585,8 +585,7 @@ def run_waste_tracker():
         st.dataframe(round_kpi_table(comp), use_container_width=True, hide_index=True)
 
         trend_two = daily_all[daily_all["Plant Name"].isin([plant_a, plant_b])].copy()
-                trend_two = daily_all[daily_all["Plant Name"].isin([plant_a, plant_b])].copy()
-
+        
         fig_two = px.line(
             trend_two,
             x="Date",
