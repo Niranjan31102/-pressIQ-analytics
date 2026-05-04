@@ -70,7 +70,6 @@ def read_edition_file(uploaded_file, sheet_name):
     for col in kg_cols:
         out[col] = to_num(out[col])
 
-    # MT conversion for display/reporting
     out["White MT"] = out["White Kg"] / 1000
     out["Scum MT"] = out["Scum Kg"] / 1000
     out["Cut-off MT"] = out["Cut-off Kg"] / 1000
@@ -116,10 +115,14 @@ def run_edition_waste_analyzer():
         if str(s).strip().upper() not in ["MASTER", "SHEET1"]
     ]
 
+    if not available_sheets:
+        st.error("No valid plant sheet found in uploaded file.")
+        return
+
     default_index = available_sheets.index("AIR") if "AIR" in available_sheets else 0
 
     sheet_name = st.selectbox(
-        "Select Plant Sheet",
+        "Detected Plant / Select Plant Sheet",
         available_sheets,
         index=default_index
     )
@@ -129,6 +132,10 @@ def run_edition_waste_analyzer():
     if df.empty:
         st.error("No valid edition-wise data found in selected sheet.")
         return
+
+    plant_name = sheet_name.upper()
+
+    st.success(f"Plant detected: {plant_name}")
 
     min_date = df["Edition Date"].min().date()
     max_date = df["Edition Date"].max().date()
@@ -153,6 +160,16 @@ def run_edition_waste_analyzer():
             max_value=max_date
         )
 
+    if start_date > end_date:
+        st.error("From Date cannot be greater than To Date.")
+        return
+
+    run_analysis = st.button("Run Edition Wise Wastage Analysis")
+
+    if not run_analysis:
+        st.info("Select date range and click 'Run Edition Wise Wastage Analysis' to view output.")
+        return
+
     filtered = df[
         (df["Edition Date"].dt.date >= start_date) &
         (df["Edition Date"].dt.date <= end_date)
@@ -167,7 +184,7 @@ def run_edition_waste_analyzer():
     total_editions = len(filtered)
     avg_waste_mt = total_waste_mt / total_editions if total_editions else 0
 
-    st.markdown("## Executive Dashboard")
+    st.markdown(f"## Executive Dashboard - {plant_name}")
 
     k1, k2, k3, k4 = st.columns(4)
 
@@ -175,8 +192,6 @@ def run_edition_waste_analyzer():
     k2.metric("Total Waste", f"{total_waste_mt:,.3f} MT")
     k3.metric("Total Print Order", f"{total_print_order:,.0f}")
     k4.metric("Avg Waste / Edition", f"{avg_waste_mt:,.3f} MT")
-
-    st.markdown("## Key Insight")
 
     top_segment = {
         "White MT": filtered["White MT"].sum(),
@@ -189,9 +204,11 @@ def run_edition_waste_analyzer():
     }
 
     top_segment_name = max(top_segment, key=top_segment.get)
+
+    st.markdown("## Key Insight")
     st.info(
         f"Highest waste segment is **{top_segment_name}** with "
-        f"**{top_segment[top_segment_name]:,.3f} MT**."
+        f"**{top_segment[top_segment_name]:,.3f} MT** for selected date range."
     )
 
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
