@@ -203,6 +203,32 @@ def round_display(df):
             else:
                 out[col] = out[col].round(0)
     return out
+
+def round_kpi_table(df):
+    out = df.copy()
+
+    for idx, row in out.iterrows():
+        kpi = str(row["KPI"])
+
+        for col in out.columns:
+            if col == "KPI":
+                continue
+
+            value = out.at[idx, col]
+
+            if pd.notna(value):
+                if "%" in kpi:
+                    out.at[idx, col] = round(value, 2)
+                elif "MT" in kpi:
+                    out.at[idx, col] = round(value, 2)
+                elif "Kg" in kpi:
+                    out.at[idx, col] = round(value, 1)
+                else:
+                    out.at[idx, col] = round(value, 0)
+
+    return out
+
+
 def center_table(df):
     return (
         df.style
@@ -456,7 +482,7 @@ def run_waste_tracker():
             ]
         })
 
-        st.dataframe(round_display(compare_df), use_container_width=True, hide_index=True)
+        st.dataframe(round_kpi_table(compare_df), use_container_width=True, hide_index=True)
 
         plant_daily = daily_all[daily_all["Plant Name"] == plant]
         fig_daily = px.line(
@@ -566,7 +592,7 @@ def run_waste_tracker():
         })
 
     
-        st.dataframe(round_display(comp), use_container_width=True, hide_index=True)
+        st.dataframe(round_kpi_table(comp), use_container_width=True, hide_index=True)
 
         trend_two = daily_all[daily_all["Plant Name"].isin([plant_a, plant_b])]
         fig_two = px.line(
