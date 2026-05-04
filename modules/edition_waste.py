@@ -332,7 +332,7 @@ def run_edition_waste_analyzer():
 
         export_cols = [
             "Edition Date", "Edition", "Edition Name", "Print Order",
-            "Main/Supplement", "Press", "Folder", "GNP/SNP",
+            "Main/Supplement", "Folder", "GNP/SNP",
             "Complexity", "Type of Start", "White MT", "Scum MT",
             "Cut-off MT", "Registration MT", "Density Variation MT",
             "Other MT", "Pasting MT", "Total Waste MT"
