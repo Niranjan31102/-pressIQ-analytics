@@ -537,11 +537,7 @@ def run_waste_tracker():
                 "Total No. of Starts",
                 "Total No. of Warm Unplanned Stoppages",
                 "No. of GNPs",
-                "No. of Extra Folder",
-                "Waste per Start Kg",
-                "Waste per Warm Unplanned Stop Kg",
-                "Waste per GNP Kg",
-                "Waste per Extra Folder Kg",
+                "No. of Extra Folder",  
             ],
             plant_a: [
                 a["Total Consumption MT"],
@@ -561,10 +557,7 @@ def run_waste_tracker():
                 a["Total No. of Warm Unplanned Stoppages"],
                 a["No. of GNPs"],
                 a["No. of Extra Folder"],
-                a["Waste per Start Kg"],
-                a["Waste per Warm Unplanned Stop Kg"],
-                a["Waste per GNP Kg"],
-                a["Waste per Extra Folder Kg"],
+                
             ],
             plant_b: [
                 b["Total Consumption MT"],
@@ -584,10 +577,7 @@ def run_waste_tracker():
                 b["Total No. of Warm Unplanned Stoppages"],
                 b["No. of GNPs"],
                 b["No. of Extra Folder"],
-                b["Waste per Start Kg"],
-                b["Waste per Warm Unplanned Stop Kg"],
-                b["Waste per GNP Kg"],
-                b["Waste per Extra Folder Kg"],
+                
             ]
         })
 
