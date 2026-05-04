@@ -33,7 +33,6 @@ def read_edition_file(uploaded_file, sheet_name):
         "GNP/SNP": find_col(df, ["GNP", "SNP/GNP"]),
         "Complexity": find_col(df, ["Complexity"]),
         "Type of Start": find_col(df, ["Type of Start"]),
-
         "White Kg": find_col(df, ["White copies in Kg"]),
         "Scum Kg": find_col(df, ["Scum Copies in Kg"]),
         "Cut-off Kg": find_col(df, ["Cut-off Copies in Kg"]),
@@ -56,15 +55,9 @@ def read_edition_file(uploaded_file, sheet_name):
     out = out[out["Edition Date"].notna()].copy()
 
     kg_cols = [
-        "White Kg",
-        "Scum Kg",
-        "Cut-off Kg",
-        "Registration Kg",
-        "Density Variation Kg",
-        "Other Kg",
-        "Pasting Kg",
-        "Total Waste Kg",
-        "Print Order",
+        "White Kg", "Scum Kg", "Cut-off Kg", "Registration Kg",
+        "Density Variation Kg", "Other Kg", "Pasting Kg",
+        "Total Waste Kg", "Print Order"
     ]
 
     for col in kg_cols:
@@ -134,7 +127,6 @@ def run_edition_waste_analyzer():
         return
 
     plant_name = sheet_name.upper()
-
     st.success(f"Plant detected: {plant_name}")
 
     min_date = df["Edition Date"].min().date()
@@ -187,7 +179,6 @@ def run_edition_waste_analyzer():
     st.markdown(f"## Executive Dashboard - {plant_name}")
 
     k1, k2, k3, k4 = st.columns(4)
-
     k1.metric("Total Editions", f"{total_editions:,}")
     k2.metric("Total Waste", f"{total_waste_mt:,.3f} MT")
     k3.metric("Total Print Order", f"{total_print_order:,.0f}")
@@ -219,7 +210,7 @@ def run_edition_waste_analyzer():
         "Download Report"
     ])
 
-        with tab1:
+    with tab1:
         st.markdown("## Waste Segment Breakdown")
 
         segment_df = pd.DataFrame({
@@ -235,9 +226,17 @@ def run_edition_waste_analyzer():
             y="Waste MT",
             text="Waste MT"
         )
-
         fig_seg.update_traces(texttemplate="%{text:.3f}")
         st.plotly_chart(fig_seg, use_container_width=True)
+
+        fig_pie = px.pie(
+            segment_df,
+            values="Waste MT",
+            names="Waste Segment",
+            hole=0.45,
+            title="Waste Segment Share"
+        )
+        st.plotly_chart(fig_pie, use_container_width=True)
 
     with tab2:
         st.markdown("## Edition Wise Waste Performance")
@@ -251,14 +250,16 @@ def run_edition_waste_analyzer():
 
         st.dataframe(round_display(edition_summary.head(50)), use_container_width=True, hide_index=True)
 
-        fig_seg = px.bar(
-            segment_df,
-            x="Waste Segment",
-            y="Waste MT",
-            text="Waste MT"
+        fig_edition = px.bar(
+            edition_summary.head(20),
+            x="Total Waste MT",
+            y="Edition Name",
+            orientation="h",
+            text="Total Waste MT",
+            title="Top 20 Editions by Waste MT"
         )
-        fig_seg.update_traces(texttemplate="%{text:.3f}")
-        st.plotly_chart(fig_seg, use_container_width=True)
+        fig_edition.update_traces(texttemplate="%{text:.3f}")
+        st.plotly_chart(fig_edition, use_container_width=True)
 
     with tab3:
         st.markdown("## Machine / Start Type Analysis")
@@ -360,24 +361,11 @@ def run_edition_waste_analyzer():
         output = BytesIO()
 
         export_cols = [
-            "Edition Date",
-            "Edition",
-            "Edition Name",
-            "Print Order",
-            "Main/Supplement",
-            "Machine",
-            "Folder",
-            "GNP/SNP",
-            "Complexity",
-            "Type of Start",
-            "White MT",
-            "Scum MT",
-            "Cut-off MT",
-            "Registration MT",
-            "Density Variation MT",
-            "Other MT",
-            "Pasting MT",
-            "Total Waste MT",
+            "Edition Date", "Edition", "Edition Name", "Print Order",
+            "Main/Supplement", "Machine", "Folder", "GNP/SNP",
+            "Complexity", "Type of Start", "White MT", "Scum MT",
+            "Cut-off MT", "Registration MT", "Density Variation MT",
+            "Other MT", "Pasting MT", "Total Waste MT"
         ]
 
         export_data = filtered[export_cols].copy()
