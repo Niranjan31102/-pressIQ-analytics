@@ -272,8 +272,8 @@ def run_edition_waste_analyzer():
         c1, c2 = st.columns(2)
 
         with c1:
-            st.markdown("### Press Wise Waste")
-            st.dataframe(round_display(press_summary), use_container_width=True, hide_index=True)
+            st.markdown("### Folder Wise Waste")
+            st.dataframe(round_display(folder_summary), use_container_width=True, hide_index=True)
         with c2:
             st.markdown("### Start Type Wise Waste")
             st.dataframe(round_display(start_summary), use_container_width=True, hide_index=True)
