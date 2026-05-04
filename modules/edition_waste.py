@@ -29,7 +29,7 @@ def read_edition_file(uploaded_file, sheet_name):
         "Print Order": find_col(df, ["Print Order"]),
         "Main/Supplement": find_col(df, ["Edition (Main/Supl)", "Main/Supplement"]),
         "Press": find_col(df, ["Press", "Press No", "Press Number", "Machine"]),
-        "Folder": find_col(df, ["Folder"]),
+        "Folder": find_col(df, ["Folder", "Folder Type", "Folder Used"]),
         "GNP/SNP": find_col(df, ["GNP", "SNP/GNP"]),
         "Complexity": find_col(df, ["Complexity"]),
         "Type of Start": find_col(df, ["Type of Start"]),
@@ -205,7 +205,7 @@ def run_edition_waste_analyzer():
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "Waste Segment",
         "Edition Performance",
-        "Press / Start Type",
+        "Folder / Start Type",
         "GNP-SNP / Complexity",
         "Download Report"
     ])
@@ -253,10 +253,10 @@ def run_edition_waste_analyzer():
         st.plotly_chart(fig_edition, use_container_width=True)
 
     with tab3:
-        st.markdown("## Press / Start Type Analysis")
+        st.markdown("## Folder / Start Type Analysis")
 
-        press_summary = (
-            filtered.groupby("Press", dropna=False)["Total Waste MT"]
+        folder_summary = (
+            filtered.groupby("Folder", dropna=False)["Total Waste MT"]
             .sum()
             .reset_index()
             .sort_values("Total Waste MT", ascending=False)
@@ -274,7 +274,6 @@ def run_edition_waste_analyzer():
         with c1:
             st.markdown("### Press Wise Waste")
             st.dataframe(round_display(press_summary), use_container_width=True, hide_index=True)
-
         with c2:
             st.markdown("### Start Type Wise Waste")
             st.dataframe(round_display(start_summary), use_container_width=True, hide_index=True)
@@ -345,7 +344,7 @@ def run_edition_waste_analyzer():
             round_display(export_data).to_excel(writer, index=False, sheet_name="Filtered Data")
             round_display(segment_df).to_excel(writer, index=False, sheet_name="Waste Segment")
             round_display(edition_summary).to_excel(writer, index=False, sheet_name="Edition Summary")
-            round_display(press_summary).to_excel(writer, index=False, sheet_name="Press Summary")
+            round_display(folder_summary).to_excel(writer, index=False, sheet_name="Folder Summary")
             round_display(start_summary).to_excel(writer, index=False, sheet_name="Start Type Summary")
             round_display(gnp_summary).to_excel(writer, index=False, sheet_name="GNP SNP Summary")
             round_display(complexity_summary).to_excel(writer, index=False, sheet_name="Complexity Summary")
