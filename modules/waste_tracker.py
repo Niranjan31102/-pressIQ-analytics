@@ -309,7 +309,7 @@ def run_waste_tracker():
     insight_box(f"<b>Pan India waste rate:</b> {pan_waste_pct:.2f}%. Plants above this need focused waste control.")
 
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "All India Ranking",
+        "Pan India Performance",
         "Single Plant vs Pan India",
         "Plant vs Plant",
         "Waste Category",
