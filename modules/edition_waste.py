@@ -220,15 +220,7 @@ def run_edition_waste_analyzer():
 
         st.dataframe(round_display(segment_df), use_container_width=True, hide_index=True)
 
-        fig_seg = px.bar(
-            segment_df,
-            x="Waste Segment",
-            y="Waste MT",
-            text="Waste MT"
-        )
-        fig_seg.update_traces(texttemplate="%{text:.3f}")
-        st.plotly_chart(fig_seg, use_container_width=True)
-
+        
         fig_pie = px.pie(
             segment_df,
             values="Waste MT",
