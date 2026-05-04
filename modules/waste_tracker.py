@@ -308,17 +308,16 @@ def run_waste_tracker():
     insight_box(f"<b>Highest absolute waste:</b> {highest_abs['Plant Name']} with {highest_abs['Total Waste MT']:.1f} MT waste.")
     insight_box(f"<b>Pan India waste rate:</b> {pan_waste_pct:.2f}%. Plants above this need focused waste control.")
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tab_pvp, tab_perf, tab_single, tab_cat, tab_download = st.tabs([
+        "Plant vs Plant",
         "Pan India Performance",
         "Single Plant vs Pan India",
-        "Plant vs Plant",
-        "Waste Category",
-        "Daily Outliers",
+        "Pan India Waste Category",
         "Download Report"
     ])
 
     # ---------------- TAB 1 ----------------
-    with tab1:
+    with tab_perf:
         st.markdown("## Pan India Plant Performance")
 
         waste_table = summary[[
@@ -376,7 +375,7 @@ def run_waste_tracker():
         st.plotly_chart(fig_abs, use_container_width=True)
 
     # ---------------- TAB 2 ----------------
-    with tab2:
+    with tab_single:
         st.markdown("## Single Plant vs Pan India")
 
         plant = st.selectbox("Select Plant", summary["Plant Name"].tolist(), key="single_plant")
@@ -470,7 +469,7 @@ def run_waste_tracker():
             insight_box(f"<b>{plant} is performing better than Pan India average.</b> It can be used as a benchmark plant.")
 
     # ---------------- TAB 3 ----------------
-    with tab3:
+    with tab_pvp:
         st.markdown("## Plant vs Plant Comparison")
 
         plants = summary["Plant Name"].tolist()
@@ -585,7 +584,7 @@ def run_waste_tracker():
             insight_box("Both plants have similar total waste percentage.")
 
     # ---------------- TAB 4 ----------------
-    with tab4:
+    with tab_cat:
         st.markdown("## Waste Category Analysis")
 
         cat = pd.DataFrame({
@@ -626,34 +625,9 @@ def run_waste_tracker():
         fig_cat_bar.update_traces(texttemplate="%{text:.1f}")
         st.plotly_chart(fig_cat_bar, use_container_width=True)
 
+   
     # ---------------- TAB 5 ----------------
-    with tab5:
-        st.markdown("## Daily Outlier Detection")
-
-        outliers = daily_all[
-            (daily_all["Total Waste %"] > pan_waste_pct)
-            & (daily_all["Consumption Kg"] > 0)
-        ].sort_values("Total Waste %", ascending=False)
-
-        st.write(f"Days above Pan India average waste rate: {len(outliers)}")
-        st.dataframe(round_display(outliers.head(50)), use_container_width=True, hide_index=True)
-
-        top_outlier = outliers.head(20)
-
-        if not top_outlier.empty:
-            fig_out = px.bar(
-                top_outlier,
-                x="Date",
-                y="Total Waste %",
-                color="Plant Name",
-                text="Total Waste %",
-                title="Top Daily Waste % Outliers"
-            )
-            fig_out.update_traces(texttemplate="%{text:.2f}%")
-            st.plotly_chart(fig_out, use_container_width=True)
-
-    # ---------------- TAB 6 ----------------
-    with tab6:
+    with tab_download:
         st.markdown("## Download Report")
 
         output = BytesIO()
@@ -664,8 +638,7 @@ def run_waste_tracker():
             round_display(summary).to_excel(writer, index=False, sheet_name="Full Summary")
             round_display(daily_all).to_excel(writer, index=False, sheet_name="Daily Data")
             round_display(cat).to_excel(writer, index=False, sheet_name="Category Summary")
-            round_display(outliers).to_excel(writer, index=False, sheet_name="Outliers")
-
+           
         st.download_button(
             "📥 Download Pan India Waste Tracker Report",
             data=output.getvalue(),
