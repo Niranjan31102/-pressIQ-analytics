@@ -191,17 +191,6 @@ def read_tracker_file(uploaded_file):
 
 
 def round_display(df):
-    return (
-        df.style
-        .set_properties(**{
-            "text-align": "center"
-        })
-        .set_table_styles([
-            {"selector": "th", "props": [("text-align", "center")]},
-            {"selector": "td", "props": [("text-align", "center")]}
-        ])
-    )
-    
     out = df.copy()
     for col in out.columns:
         if pd.api.types.is_numeric_dtype(out[col]):
@@ -214,7 +203,17 @@ def round_display(df):
             else:
                 out[col] = out[col].round(0)
     return out
-
+def center_table(df):
+    return (
+        df.style
+        .set_properties(**{
+            "text-align": "center"
+        })
+        .set_table_styles([
+            {"selector": "th", "props": [("text-align", "center")]},
+            {"selector": "td", "props": [("text-align", "center")]}
+        ])
+    )
 
 def kpi_card(title, value, subtitle, accent="#2563eb"):
     st.markdown(
