@@ -204,35 +204,25 @@ def round_display(df):
                 out[col] = out[col].round(0)
     return out
     
-def ai_phase2_box(module_name):
+def ai_tab_chat_preview(tab_name):
     st.markdown("---")
-    st.markdown("## 🤖 PressIQ AI Analyst — Phase 2 Preview")
+    st.markdown(f"## 🤖 PressIQ AI Analyst — {tab_name}")
 
     st.markdown("""
     <div class="insight-card">
-        <b>Coming in Phase 2:</b> This section will work like a real AI analyst for the uploaded data and process knowledge.
-        Users will be able to ask questions about waste, downtime, plant performance, press performance, consumables,
-        production process, improvement projects, saving potential, and root-cause analysis.
-        <br><br>
-        Example questions:
-        <ul>
-            <li>Why is printed waste high in this plant?</li>
-            <li>Which plant should be used as benchmark and why?</li>
-            <li>What action plan should be given to reduce registration waste?</li>
-            <li>What could be the relation between GNP, start type, and waste?</li>
-            <li>Which consumables or process checks may impact waste?</li>
-            <li>Prepare a management summary from this uploaded file.</li>
-        </ul>
-        The AI will read uploaded file context and combine it with process knowledge to give practical answers.
+        <b>Phase 2 Preview:</b> This will work like a ChatGPT/Gemini-style AI analyst.
+        Users will be able to ask questions about uploaded data, plant performance, waste, consumables,
+        process conditions, saving scope, RCA, and action plans.
     </div>
     """, unsafe_allow_html=True)
 
     st.text_input(
-        "Ask PressIQ AI Analyst",
-        placeholder="Phase 2 feature: Ask anything about this data, process, consumables, root cause, or action plan...",
+        "Ask PressIQ AI",
+        placeholder="Phase 2: Ask anything about this tab, uploaded file, process, consumables, or improvement actions...",
         disabled=True,
-        key=f"ai_preview_{module_name}"
+        key=f"ai_chat_{tab_name}"
     )
+    
 def round_kpi_table(df):
     out = df.copy()
 
@@ -437,6 +427,7 @@ def run_waste_tracker():
         )
         fig_abs.update_traces(texttemplate="%{text:.1f}")
         st.plotly_chart(fig_abs, use_container_width=True)
+        ai_tab_chat_preview("Pan India Performance")
 
     # ---------------- TAB 2 ----------------
     with tab_single:
@@ -527,6 +518,7 @@ def run_waste_tracker():
             )
         else:
             insight_box(f"<b>{plant} is performing better than Pan India average.</b> It can be used as a benchmark plant.")
+            ai_tab_chat_preview("Single Plant vs Pan India")
 
     # ---------------- TAB 3 ----------------
     with tab_pvp:
@@ -617,6 +609,7 @@ def run_waste_tracker():
             insight_box(f"If {plant_b} reaches {plant_a}'s waste %, saving opportunity is approx {saving_gap/1000:.1f} MT.", "warning")
         else:
             insight_box("Both plants have similar total waste percentage.")
+            ai_tab_chat_preview("Plant vs Plant")
 
     # ---------------- TAB 4 ----------------
     with tab_cat:
@@ -659,6 +652,7 @@ def run_waste_tracker():
         )
         fig_cat_bar.update_traces(texttemplate="%{text:.1f}")
         st.plotly_chart(fig_cat_bar, use_container_width=True)
+        ai_tab_chat_preview("Pan India Waste Category")
 
    
     # ---------------- TAB 5 ----------------
@@ -680,4 +674,4 @@ def run_waste_tracker():
             file_name="PressIQ_Pan_India_Waste_Tracker_Report.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-        ai_phase2_box("Pan India Waste Tracker Analyzer")
+        ai_tab_chat_preview("Download Report")
