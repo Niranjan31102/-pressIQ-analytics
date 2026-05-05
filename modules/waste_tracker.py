@@ -203,7 +203,36 @@ def round_display(df):
             else:
                 out[col] = out[col].round(0)
     return out
+    
+def ai_phase2_box(module_name):
+    st.markdown("---")
+    st.markdown("## 🤖 PressIQ AI Analyst — Phase 2 Preview")
 
+    st.markdown("""
+    <div class="insight-card">
+        <b>Coming in Phase 2:</b> This section will work like a real AI analyst for the uploaded data and process knowledge.
+        Users will be able to ask questions about waste, downtime, plant performance, press performance, consumables,
+        production process, improvement projects, saving potential, and root-cause analysis.
+        <br><br>
+        Example questions:
+        <ul>
+            <li>Why is printed waste high in this plant?</li>
+            <li>Which plant should be used as benchmark and why?</li>
+            <li>What action plan should be given to reduce registration waste?</li>
+            <li>What could be the relation between GNP, start type, and waste?</li>
+            <li>Which consumables or process checks may impact waste?</li>
+            <li>Prepare a management summary from this uploaded file.</li>
+        </ul>
+        The AI will read uploaded file context and combine it with process knowledge to give practical answers.
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.text_input(
+        "Ask PressIQ AI Analyst",
+        placeholder="Phase 2 feature: Ask anything about this data, process, consumables, root cause, or action plan...",
+        disabled=True,
+        key=f"ai_preview_{module_name}"
+    )
 def round_kpi_table(df):
     out = df.copy()
 
@@ -651,3 +680,4 @@ def run_waste_tracker():
             file_name="PressIQ_Pan_India_Waste_Tracker_Report.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+        ai_phase2_box("Pan India Waste Tracker Analyzer")
