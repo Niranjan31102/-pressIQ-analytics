@@ -609,7 +609,7 @@ def run_waste_tracker():
             insight_box(f"If {plant_b} reaches {plant_a}'s waste %, saving opportunity is approx {saving_gap/1000:.1f} MT.", "warning")
         else:
             insight_box("Both plants have similar total waste percentage.")
-            ai_tab_chat_preview("Plant vs Plant")
+        ai_tab_chat_preview("Plant vs Plant")
 
     # ---------------- TAB 4 ----------------
     with tab_cat:
