@@ -185,13 +185,13 @@ def run_edition_waste_analyzer():
     k4.metric("Avg Waste / Edition", f"{avg_waste_mt:,.3f} MT")
 
     top_segment = {
-        "White MT": filtered["White MT"].sum(),
-        "Scum MT": filtered["Scum MT"].sum(),
-        "Cut-off MT": filtered["Cut-off MT"].sum(),
-        "Registration MT": filtered["Registration MT"].sum(),
-        "Density Variation MT": filtered["Density Variation MT"].sum(),
-        "Other MT": filtered["Other MT"].sum(),
-        "Pasting MT": filtered["Pasting MT"].sum(),
+        "White Waste (MT)": filtered["White MT"].sum(),
+        "Scum Waste (MT)": filtered["Scum MT"].sum(),
+        "Cut-off Waste (MT)": filtered["Cut-off MT"].sum(),
+        "Registration Waste (MT)": filtered["Registration MT"].sum(),
+        "Density Variation Waste (MT)": filtered["Density Variation MT"].sum(),
+        "Other Waste (MT)": filtered["Other MT"].sum(),
+        "Pasting Waste (MT)": filtered["Pasting MT"].sum(),    
     }
 
     top_segment_name = max(top_segment, key=top_segment.get)
