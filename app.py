@@ -110,7 +110,6 @@ if not st.session_state.logged_in:
         else:
             st.error("Please enter email and password")
 
-    st.info("Demo login only. Real signup/authentication will be added later.")
     st.stop()
 
 # ---------------- SIDEBAR ----------------
