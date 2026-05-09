@@ -199,8 +199,6 @@ def run_edition_waste_analyzer():
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "Waste Segment",
         "Edition Performance",
-        "Folder / Start Type",
-        "GNP-SNP / Complexity",
         "Download Report"
     ])
 
@@ -251,79 +249,6 @@ def run_edition_waste_analyzer():
         fig_edition.update_traces(texttemplate="%{text:.3f}")
         st.plotly_chart(fig_edition, use_container_width=True)
 
-    with tab3:
-        st.markdown("## Folder / Start Type Analysis")
-
-        folder_summary = (
-            filtered.groupby("Folder", dropna=False)["Total Waste MT"]
-            .sum()
-            .reset_index()
-            .sort_values("Total Waste MT", ascending=False)
-        )
-
-        start_summary = (
-            filtered.groupby("Type of Start", dropna=False)["Total Waste MT"]
-            .sum()
-            .reset_index()
-            .sort_values("Total Waste MT", ascending=False)
-        )
-
-        c1, c2 = st.columns(2)
-
-        with c1:
-            st.markdown("### Folder Wise Waste")
-            st.dataframe(round_display(folder_summary), use_container_width=True, hide_index=True)
-        with c2:
-            st.markdown("### Start Type Wise Waste")
-            st.dataframe(round_display(start_summary), use_container_width=True, hide_index=True)
-
-    with tab4:
-        st.markdown("## GNP/SNP and Complexity Analysis")
-
-        gnp_summary = (
-            filtered.groupby("GNP/SNP", dropna=False)["Total Waste MT"]
-            .sum()
-            .reset_index()
-            .sort_values("Total Waste MT", ascending=False)
-        )
-
-        complexity_summary = (
-            filtered.groupby("Complexity", dropna=False)["Total Waste MT"]
-            .sum()
-            .reset_index()
-            .sort_values("Total Waste MT", ascending=False)
-        )
-
-        c1, c2 = st.columns(2)
-
-        with c1:
-            st.markdown("### GNP/SNP Wise Waste")
-            st.dataframe(round_display(gnp_summary), use_container_width=True, hide_index=True)
-
-        with c2:
-            st.markdown("### Complexity Wise Waste")
-            st.dataframe(round_display(complexity_summary), use_container_width=True, hide_index=True)
-
-        fig_gnp = px.bar(
-            gnp_summary,
-            x="GNP/SNP",
-            y="Total Waste MT",
-            text="Total Waste MT",
-            title="GNP/SNP Wise Waste MT"
-        )
-        fig_gnp.update_traces(texttemplate="%{text:.3f}")
-        st.plotly_chart(fig_gnp, use_container_width=True)
-
-        fig_complexity = px.bar(
-            complexity_summary,
-            x="Complexity",
-            y="Total Waste MT",
-            text="Total Waste MT",
-            title="Complexity Wise Waste MT"
-        )
-        fig_complexity.update_traces(texttemplate="%{text:.3f}")
-        st.plotly_chart(fig_complexity, use_container_width=True)
-
     with tab5:
         st.markdown("## Download Report")
 
@@ -343,10 +268,7 @@ def run_edition_waste_analyzer():
             round_display(export_data).to_excel(writer, index=False, sheet_name="Filtered Data")
             round_display(segment_df).to_excel(writer, index=False, sheet_name="Waste Segment")
             round_display(edition_summary).to_excel(writer, index=False, sheet_name="Edition Summary")
-            round_display(folder_summary).to_excel(writer, index=False, sheet_name="Folder Summary")
-            round_display(start_summary).to_excel(writer, index=False, sheet_name="Start Type Summary")
-            round_display(gnp_summary).to_excel(writer, index=False, sheet_name="GNP SNP Summary")
-            round_display(complexity_summary).to_excel(writer, index=False, sheet_name="Complexity Summary")
+    
 
         st.download_button(
             "📥 Download Edition Wise Wastage Report",
