@@ -125,7 +125,6 @@ if area == "Waste Intelligence":
     module = st.sidebar.radio(
         "Select Waste Tool",
         [
-            "Pan India Waste Tracker Analyzer",
             "Edition Wise Wastage Analyzer",
         ]
     )
