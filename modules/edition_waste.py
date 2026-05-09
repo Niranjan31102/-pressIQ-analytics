@@ -196,7 +196,7 @@ def run_edition_waste_analyzer():
 
     top_segment_name = max(top_segment, key=top_segment.get)
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab5 = st.tabs([
         "Waste Segment",
         "Edition Performance",
         "Download Report"
