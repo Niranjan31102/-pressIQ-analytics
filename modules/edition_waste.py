@@ -33,6 +33,7 @@ def read_edition_file(uploaded_file, sheet_name):
         "GNP/SNP": find_col(df, ["GNP", "SNP/GNP"]),
         "Complexity": find_col(df, ["Complexity"]),
         "Type of Start": find_col(df, ["Type of Start"]),
+
         "White Kg": find_col(df, ["White copies in Kg"]),
         "Scum Kg": find_col(df, ["Scum Copies in Kg"]),
         "Cut-off Kg": find_col(df, ["Cut-off Copies in Kg"]),
@@ -41,6 +42,15 @@ def read_edition_file(uploaded_file, sheet_name):
         "Other Kg": find_col(df, ["Other waste copies in Kg"]),
         "Pasting Kg": find_col(df, ["Total pasting copies in Kg"]),
         "Total Waste Kg": find_col(df, ["Total waste in KG", "Total Waste in KG"]),
+
+        "Department": find_col(df, ["Department", "Dept"]),
+        "Waste Reason": find_col(df, ["Waste Reason", "Reason", "Reason for Waste"]),
+        "RS": find_col(df, ["RS", "RS No", "Reelstand", "Reel Stand"]),
+        "PU": find_col(df, ["PU"]),
+        "PC": find_col(df, ["PC"]),
+        "BL": find_col(df, ["BL"]),
+        "Remarks": find_col(df, ["Remarks", "Remark", "Comments", "Comment"]),
+        "Corrective Action": find_col(df, ["Corrective Action", "Action Taken", "Action"]),
     }
 
     out = pd.DataFrame()
@@ -62,6 +72,15 @@ def read_edition_file(uploaded_file, sheet_name):
 
     for col in kg_cols:
         out[col] = to_num(out[col])
+
+    text_cols = [
+        "Edition", "Edition Name", "Main/Supplement", "Press", "Folder",
+        "GNP/SNP", "Complexity", "Type of Start", "Department",
+        "Waste Reason", "RS", "PU", "PC", "BL", "Remarks", "Corrective Action"
+    ]
+
+    for col in text_cols:
+        out[col] = out[col].astype(str).str.strip().replace("nan", "")
 
     out["White MT"] = out["White Kg"] / 1000
     out["Scum MT"] = out["Scum Kg"] / 1000
@@ -88,7 +107,452 @@ def round_display(df):
     return out
 
 
+def filter_by_date(df, start_date, end_date):
+    return df[
+        (df["Edition Date"].dt.date >= start_date) &
+        (df["Edition Date"].dt.date <= end_date)
+    ].copy()
+
+
+def action_card(title, subtitle, points, button_text, button_key, target_view, accent_color):
+    st.markdown(
+        f"""
+        <div style="
+            background:#ffffff;
+            border:1px solid #e5e7eb;
+            border-left:8px solid {accent_color};
+            border-radius:22px;
+            padding:24px;
+            min-height:235px;
+            box-shadow:0 8px 22px rgba(15,23,42,0.08);
+            margin-bottom:14px;
+        ">
+            <div style="font-size:24px;font-weight:850;color:#0f172a;margin-bottom:6px;">
+                {title}
+            </div>
+            <div style="font-size:14px;color:#475569;margin-bottom:14px;">
+                {subtitle}
+            </div>
+            <ul style="font-size:14px;color:#334155;line-height:1.8;">
+                {''.join([f'<li>{p}</li>' for p in points])}
+            </ul>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    if st.button(button_text, key=button_key, use_container_width=True):
+        st.session_state["edition_view"] = target_view
+        st.rerun()
+
+
+def build_segment_df(filtered):
+    top_segment = {
+        "White Waste (MT)": filtered["White MT"].sum(),
+        "Scum Waste (MT)": filtered["Scum MT"].sum(),
+        "Cut-off Waste (MT)": filtered["Cut-off MT"].sum(),
+        "Registration Waste (MT)": filtered["Registration MT"].sum(),
+        "Density Variation Waste (MT)": filtered["Density Variation MT"].sum(),
+        "Other Waste (MT)": filtered["Other MT"].sum(),
+        "Pasting Waste (MT)": filtered["Pasting MT"].sum(),
+    }
+
+    segment_df = pd.DataFrame({
+        "Waste Segment": list(top_segment.keys()),
+        "Waste MT": list(top_segment.values())
+    }).sort_values("Waste MT", ascending=False)
+
+    return segment_df, top_segment
+
+
+def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date):
+    filtered = filter_by_date(df, start_date, end_date)
+
+    if filtered.empty:
+        st.warning("No data found for selected date range.")
+        return
+
+    if st.button("← Change File / Date Range", key="back_to_input"):
+        st.session_state["edition_view"] = "input"
+        st.session_state["edition_analysis_ready"] = False
+        st.rerun()
+
+    total_waste_mt = filtered["Total Waste MT"].sum()
+    total_print_order = filtered["Print Order"].sum()
+    total_editions = len(filtered)
+    avg_waste_mt = total_waste_mt / total_editions if total_editions else 0
+
+    st.markdown(f"## Edition Wise Wastage Summary - {plant_name}")
+    st.caption(f"Selected Period: {start_date} to {end_date}")
+
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Total Editions", f"{total_editions:,}")
+    k2.metric("Total Waste", f"{total_waste_mt:,.3f} MT")
+    k3.metric("Total Print Order", f"{total_print_order:,.0f}")
+    k4.metric("Avg Waste / Edition", f"{avg_waste_mt:,.3f} MT")
+
+    segment_df, top_segment = build_segment_df(filtered)
+    top_segment_row = segment_df.iloc[0]
+    top_segment_name = str(top_segment_row["Waste Segment"]).replace(" Waste (MT)", "")
+    top_segment_mt = top_segment_row["Waste MT"]
+    top_segment_share = (top_segment_mt / total_waste_mt * 100) if total_waste_mt else 0
+
+    tab1, tab2, tab5 = st.tabs([
+        "Waste Segment",
+        "Edition Performance",
+        "Download Report"
+    ])
+
+    with tab1:
+        st.markdown("## Waste Segment Breakdown")
+
+        st.dataframe(round_display(segment_df), use_container_width=True, hide_index=True)
+
+        fig_pie = px.pie(
+            segment_df,
+            values="Waste MT",
+            names="Waste Segment",
+            hole=0.45,
+            title="Waste Segment Share"
+        )
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+        st.markdown("## Top Insight")
+        st.info(
+            f"Top waste segment is **{top_segment_name}**. "
+            f"It contributed **{top_segment_mt:,.3f} MT**, which is approximately "
+            f"**{top_segment_share:.1f}%** of total waste in the selected period."
+        )
+
+    with tab2:
+        st.markdown("## Edition Wise Waste Performance")
+
+        edition_summary = (
+            filtered.groupby(["Edition", "Edition Name"], dropna=False)["Total Waste MT"]
+            .sum()
+            .reset_index()
+            .sort_values("Total Waste MT", ascending=False)
+        )
+
+        st.dataframe(round_display(edition_summary.head(50)), use_container_width=True, hide_index=True)
+
+        fig_edition = px.bar(
+            edition_summary.head(20),
+            x="Total Waste MT",
+            y="Edition Name",
+            orientation="h",
+            text="Total Waste MT",
+            title="Top 20 Editions by Waste MT"
+        )
+        fig_edition.update_traces(texttemplate="%{text:.3f}")
+        st.plotly_chart(fig_edition, use_container_width=True)
+
+    with tab5:
+        st.markdown("## Download Report")
+
+        output = BytesIO()
+
+        export_cols = [
+            "Edition Date", "Edition", "Edition Name", "Print Order",
+            "Main/Supplement", "Folder", "GNP/SNP",
+            "Complexity", "Type of Start", "White MT", "Scum MT",
+            "Cut-off MT", "Registration MT", "Density Variation MT",
+            "Other MT", "Pasting MT", "Total Waste MT",
+            "Department", "Waste Reason", "RS", "PU", "PC", "BL",
+            "Remarks", "Corrective Action"
+        ]
+
+        export_cols = [c for c in export_cols if c in filtered.columns]
+        export_data = filtered[export_cols].copy()
+
+        with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+            round_display(export_data).to_excel(writer, index=False, sheet_name="Filtered Data")
+            round_display(segment_df).to_excel(writer, index=False, sheet_name="Waste Segment")
+            round_display(edition_summary).to_excel(writer, index=False, sheet_name="Edition Summary")
+
+        st.download_button(
+            "📥 Download Edition Wise Wastage Report",
+            data=output.getvalue(),
+            file_name="PressIQ_Edition_Wise_Wastage_Report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+    st.markdown("---")
+    st.markdown("## Choose Next Action")
+
+    action_col1, action_col2 = st.columns(2)
+
+    with action_col1:
+        action_card(
+            title="Daily Maintenance Action Desk",
+            subtitle="For morning maintenance and engineering action planning.",
+            points=[
+                "Identify affected editions and waste issue",
+                "Use night-shift remarks and shop-floor language",
+                "Prepare maintenance priority list",
+                "Generate PDF action plan in Phase 2"
+            ],
+            button_text="Open Daily Maintenance Action Desk",
+            button_key="open_maintenance_desk",
+            target_view="maintenance",
+            accent_color="#2563eb"
+        )
+
+    with action_col2:
+        action_card(
+            title="Performance Review Board",
+            subtitle="For plant head, production manager, and leadership review.",
+            points=[
+                "Review repeated waste patterns",
+                "Identify high-loss segments and editions",
+                "Build improvement projects",
+                "Estimate MT saving opportunity in Phase 2"
+            ],
+            button_text="Open Performance Review Board",
+            button_key="open_performance_board",
+            target_view="performance",
+            accent_color="#7c3aed"
+        )
+
+
+def render_maintenance_action_desk(df, min_date, max_date, plant_name):
+    if st.button("← Back to Summary", key="back_from_maintenance"):
+        st.session_state["edition_view"] = "summary"
+        st.rerun()
+
+    st.markdown(f"## Daily Maintenance Action Desk - {plant_name}")
+
+    st.markdown(
+        """
+        <div style="
+            background:#f8fafc;
+            border:1px solid #e5e7eb;
+            border-left:7px solid #2563eb;
+            border-radius:18px;
+            padding:18px;
+            margin-bottom:18px;
+        ">
+            This desk is designed for morning maintenance action planning.
+            It uses the same uploaded file and will convert night-shift remarks, waste issue, and locations
+            into a maintenance priority plan.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        maint_start = st.date_input(
+            "Maintenance From Date",
+            max_date,
+            min_value=min_date,
+            max_value=max_date,
+            key="maintenance_start_date"
+        )
+
+    with c2:
+        maint_end = st.date_input(
+            "Maintenance To Date",
+            max_date,
+            min_value=min_date,
+            max_value=max_date,
+            key="maintenance_end_date"
+        )
+
+    if maint_start > maint_end:
+        st.error("From Date cannot be greater than To Date.")
+        return
+
+    maint_df = filter_by_date(df, maint_start, maint_end)
+
+    if maint_df.empty:
+        st.warning("No data found for selected maintenance date range.")
+        return
+
+    issue_options = [
+        "Registration Waste",
+        "Scum Waste",
+        "White Waste",
+        "Cut-off Waste",
+        "Density Variation Waste",
+        "Other Waste",
+        "Pasting Waste"
+    ]
+
+    selected_issue = st.selectbox(
+        "Select Waste Issue for Maintenance Planning",
+        issue_options,
+        key="maintenance_issue_selector"
+    )
+
+    issue_to_col = {
+        "Registration Waste": "Registration MT",
+        "Scum Waste": "Scum MT",
+        "White Waste": "White MT",
+        "Cut-off Waste": "Cut-off MT",
+        "Density Variation Waste": "Density Variation MT",
+        "Other Waste": "Other MT",
+        "Pasting Waste": "Pasting MT"
+    }
+
+    selected_col = issue_to_col[selected_issue]
+
+    issue_df = maint_df[maint_df[selected_col] > 0].copy()
+
+    issue_waste = issue_df[selected_col].sum()
+    affected_editions = len(issue_df)
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Selected Issue", selected_issue)
+    m2.metric("Issue Waste", f"{issue_waste:,.3f} MT")
+    m3.metric("Affected Editions", f"{affected_editions:,}")
+
+    st.markdown("### Edition-wise Problem Evidence")
+
+    evidence_cols = [
+        "Edition Date", "Edition", "Edition Name", "Folder", "Type of Start",
+        selected_col, "Total Waste MT", "Department", "Waste Reason",
+        "RS", "PU", "PC", "BL", "Remarks"
+    ]
+
+    evidence_cols = [c for c in evidence_cols if c in issue_df.columns]
+
+    if issue_df.empty:
+        st.warning("No edition-level evidence found for selected issue in this date range.")
+    else:
+        st.dataframe(
+            round_display(issue_df[evidence_cols].sort_values(selected_col, ascending=False).head(50)),
+            use_container_width=True,
+            hide_index=True
+        )
+
+    st.markdown("### Phase-2 AI Maintenance Suggestion Preview")
+    st.info(
+        f"""
+        Phase 2 will generate a maintenance action plan for **{selected_issue}** using:
+        affected editions, issue waste MT, night-shift remarks, department, PU / PC / RS / BL locations,
+        and process knowledge.
+
+        Output will include recommended checks, ownership, closure format, and PDF action plan.
+        """
+    )
+
+    st.button("📥 Download Maintenance Action Plan PDF - Phase 2", disabled=True)
+
+
+def render_performance_review_board(df, min_date, max_date, plant_name):
+    if st.button("← Back to Summary", key="back_from_performance"):
+        st.session_state["edition_view"] = "summary"
+        st.rerun()
+
+    st.markdown(f"## Performance Review Board - {plant_name}")
+
+    st.markdown(
+        """
+        <div style="
+            background:#f8fafc;
+            border:1px solid #e5e7eb;
+            border-left:7px solid #7c3aed;
+            border-radius:18px;
+            padding:18px;
+            margin-bottom:18px;
+        ">
+            This board is designed for plant head, production manager, and leadership review.
+            It will identify repeated waste patterns, improvement projects, and saving opportunities.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        perf_start = st.date_input(
+            "Review From Date",
+            min_date,
+            min_value=min_date,
+            max_value=max_date,
+            key="performance_start_date"
+        )
+
+    with c2:
+        perf_end = st.date_input(
+            "Review To Date",
+            max_date,
+            min_value=min_date,
+            max_value=max_date,
+            key="performance_end_date"
+        )
+
+    if perf_start > perf_end:
+        st.error("From Date cannot be greater than To Date.")
+        return
+
+    perf_df = filter_by_date(df, perf_start, perf_end)
+
+    if perf_df.empty:
+        st.warning("No data found for selected performance review date range.")
+        return
+
+    total_waste = perf_df["Total Waste MT"].sum()
+    segment_df, _ = build_segment_df(perf_df)
+    top_segment = segment_df.iloc[0]
+    saving_20 = top_segment["Waste MT"] * 0.20
+
+    p1, p2, p3, p4 = st.columns(4)
+    p1.metric("Total Waste", f"{total_waste:,.3f} MT")
+    p2.metric("Top Waste Segment", top_segment["Waste Segment"].replace(" Waste (MT)", ""))
+    p3.metric("Top Segment Waste", f"{top_segment['Waste MT']:,.3f} MT")
+    p4.metric("20% Saving Scope", f"{saving_20:,.3f} MT")
+
+    st.markdown("### Waste Segment Ranking")
+    st.dataframe(round_display(segment_df), use_container_width=True, hide_index=True)
+
+    st.markdown("### Phase-2 Performance Review Preview")
+    st.info(
+        f"""
+        Phase 2 will generate a management review report covering repeated patterns,
+        top waste editions, department ownership, PU / PC hotspots, improvement projects,
+        and expected MT saving opportunity.
+        """
+    )
+
+    st.button("📥 Download Performance Review PDF - Phase 2", disabled=True)
+
+
 def run_edition_waste_analyzer():
+    if "edition_view" not in st.session_state:
+        st.session_state["edition_view"] = "input"
+
+    if "edition_analysis_ready" not in st.session_state:
+        st.session_state["edition_analysis_ready"] = False
+
+    if st.session_state.get("edition_analysis_ready", False):
+        df = st.session_state["edition_df"]
+        plant_name = st.session_state["edition_plant_name"]
+        min_date = st.session_state["edition_min_date"]
+        max_date = st.session_state["edition_max_date"]
+
+        if st.session_state["edition_view"] == "summary":
+            render_summary_page(
+                df,
+                plant_name,
+                st.session_state["edition_start_date"],
+                st.session_state["edition_end_date"],
+                min_date,
+                max_date
+            )
+            return
+
+        if st.session_state["edition_view"] == "maintenance":
+            render_maintenance_action_desk(df, min_date, max_date, plant_name)
+            return
+
+        if st.session_state["edition_view"] == "performance":
+            render_performance_review_board(df, min_date, max_date, plant_name)
+            return
+
     st.markdown("### Upload Edition Wise Wastage File")
 
     uploaded_file = st.file_uploader(
@@ -158,121 +622,15 @@ def run_edition_waste_analyzer():
 
     run_analysis = st.button("Run Edition Wise Wastage Analysis")
 
-    if not run_analysis:
-        st.info("Select date range and click 'Run Edition Wise Wastage Analysis' to view output.")
-        return
+    if run_analysis:
+        st.session_state["edition_df"] = df
+        st.session_state["edition_plant_name"] = plant_name
+        st.session_state["edition_min_date"] = min_date
+        st.session_state["edition_max_date"] = max_date
+        st.session_state["edition_start_date"] = start_date
+        st.session_state["edition_end_date"] = end_date
+        st.session_state["edition_analysis_ready"] = True
+        st.session_state["edition_view"] = "summary"
+        st.rerun()
 
-    filtered = df[
-        (df["Edition Date"].dt.date >= start_date) &
-        (df["Edition Date"].dt.date <= end_date)
-    ].copy()
-
-    if filtered.empty:
-        st.warning("No data found for selected date range.")
-        return
-
-    total_waste_mt = filtered["Total Waste MT"].sum()
-    total_print_order = filtered["Print Order"].sum()
-    total_editions = len(filtered)
-    avg_waste_mt = total_waste_mt / total_editions if total_editions else 0
-
-    st.markdown(f"## Executive Dashboard - {plant_name}")
-
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Total Editions", f"{total_editions:,}")
-    k2.metric("Total Waste", f"{total_waste_mt:,.3f} MT")
-    k3.metric("Total Print Order", f"{total_print_order:,.0f}")
-    k4.metric("Avg Waste / Edition", f"{avg_waste_mt:,.3f} MT")
-
-    top_segment = {
-        "White Waste (MT)": filtered["White MT"].sum(),
-        "Scum Waste (MT)": filtered["Scum MT"].sum(),
-        "Cut-off Waste (MT)": filtered["Cut-off MT"].sum(),
-        "Registration Waste (MT)": filtered["Registration MT"].sum(),
-        "Density Variation Waste (MT)": filtered["Density Variation MT"].sum(),
-        "Other Waste (MT)": filtered["Other MT"].sum(),
-        "Pasting Waste (MT)": filtered["Pasting MT"].sum(),    
-    }
-
-    top_segment_name = max(top_segment, key=top_segment.get)
-
-    tab1, tab2, tab5 = st.tabs([
-        "Waste Segment",
-        "Edition Performance",
-        "Download Report"
-    ])
-
-    with tab1:
-        st.markdown("## Waste Segment Breakdown")
-
-        segment_df = pd.DataFrame({
-            "Waste Segment": list(top_segment.keys()),
-            "Waste MT": list(top_segment.values())
-        }).sort_values("Waste MT", ascending=False)
-
-        st.dataframe(round_display(segment_df), use_container_width=True, hide_index=True)   
-        
-        fig_pie = px.pie(
-            segment_df,
-            values="Waste MT",
-            names="Waste Segment",
-            hole=0.45,
-            title="Waste Segment Share"
-        )
-        st.plotly_chart(fig_pie, use_container_width=True)
-        st.markdown("## Key Insight")
-
-        st.info(
-            f"Highest waste segment is **{top_segment_name.replace(' Waste (MT)','')}** for selected date range."
-        )        
-
-    with tab2:
-        st.markdown("## Edition Wise Waste Performance")
-
-        edition_summary = (
-            filtered.groupby(["Edition", "Edition Name"], dropna=False)["Total Waste MT"]
-            .sum()
-            .reset_index()
-            .sort_values("Total Waste MT", ascending=False)
-        )
-
-        st.dataframe(round_display(edition_summary.head(50)), use_container_width=True, hide_index=True)
-
-        fig_edition = px.bar(
-            edition_summary.head(20),
-            x="Total Waste MT",
-            y="Edition Name",
-            orientation="h",
-            text="Total Waste MT",
-            title="Top 20 Editions by Waste MT"
-        )
-        fig_edition.update_traces(texttemplate="%{text:.3f}")
-        st.plotly_chart(fig_edition, use_container_width=True)
-
-    with tab5:
-        st.markdown("## Download Report")
-
-        output = BytesIO()
-
-        export_cols = [
-            "Edition Date", "Edition", "Edition Name", "Print Order",
-            "Main/Supplement", "Folder", "GNP/SNP",
-            "Complexity", "Type of Start", "White MT", "Scum MT",
-            "Cut-off MT", "Registration MT", "Density Variation MT",
-            "Other MT", "Pasting MT", "Total Waste MT"
-        ]
-
-        export_data = filtered[export_cols].copy()
-
-        with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-            round_display(export_data).to_excel(writer, index=False, sheet_name="Filtered Data")
-            round_display(segment_df).to_excel(writer, index=False, sheet_name="Waste Segment")
-            round_display(edition_summary).to_excel(writer, index=False, sheet_name="Edition Summary")
-    
-
-        st.download_button(
-            "📥 Download Edition Wise Wastage Report",
-            data=output.getvalue(),
-            file_name="PressIQ_Edition_Wise_Wastage_Report.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    st.info("Select date range and click 'Run Edition Wise Wastage Analysis' to view output.")
