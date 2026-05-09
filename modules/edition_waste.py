@@ -198,8 +198,7 @@ def run_edition_waste_analyzer():
 
     st.markdown("## Key Insight")
     st.info(
-        f"Highest waste segment is **{top_segment_name}** with "
-        f"**{top_segment[top_segment_name]:,.3f} MT** for selected date range."
+        f"Highest waste segment is **{top_segment_name.replace(' MT','')}** for selected date range."
     )
 
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
