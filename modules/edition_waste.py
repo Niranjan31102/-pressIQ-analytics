@@ -196,11 +196,6 @@ def run_edition_waste_analyzer():
 
     top_segment_name = max(top_segment, key=top_segment.get)
 
-    st.markdown("## Key Insight")
-    st.info(
-        f"Highest waste segment is **{top_segment_name.replace(' MT','')}** for selected date range."
-    )
-
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "Waste Segment",
         "Edition Performance",
@@ -227,6 +222,11 @@ def run_edition_waste_analyzer():
             title="Waste Segment Share"
         )
         st.plotly_chart(fig_pie, use_container_width=True)
+        st.markdown("## Key Insight")
+
+        st.info(
+            f"Highest waste segment is **{top_segment_name.replace(' Waste (MT)','')}** for selected date range."
+        )        
 
     with tab2:
         st.markdown("## Edition Wise Waste Performance")
