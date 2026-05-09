@@ -217,13 +217,7 @@ def run_edition_waste_analyzer():
             "Waste MT": list(top_segment.values())
         }).sort_values("Waste MT", ascending=False)
 
-        st.dataframe
-            round_display(segment_df).style.set_properties(**{
-                "text-align": "center"
-            }),
-            use_container_width=True,
-            hide_index=True
-        )
+        st.dataframe(round_display(segment_df), use_container_width=True, hide_index=True)   
         
         fig_pie = px.pie(
             segment_df,
