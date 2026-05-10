@@ -233,16 +233,7 @@ def remark_lines(issue_df, selected_col, limit=8):
 def issue_action_recommendations(selected_issue):
     recommendations = {
         "Registration Waste": {
-            "focus": "Register control / correction response / start-up stabilization",
             "owner": "Electrical + Production",
-            "checks": [
-                "Check register correction response on repeated PU / PC locations.",
-                "Inspect register camera / sensor cleanliness and feedback stability.",
-                "Verify plate lock, blanket condition, and register setting during start-up.",
-                "Check lateral and circumferential register correction movement.",
-                "Review first-good-copy approval delay with production team.",
-                "Monitor the same PU / PC locations in the next night run after action.",
-            ],
             "priorities": [
                 (
                     "Register Control / Correction Response",
@@ -259,16 +250,7 @@ def issue_action_recommendations(selected_issue):
             ],
         },
         "Scum Waste": {
-            "focus": "Ink-water balance / dampening / plate condition",
             "owner": "Production + Mechanical",
-            "checks": [
-                "Check dampening roller setting and roller condition.",
-                "Verify fountain solution pH, conductivity, and concentration.",
-                "Inspect plate surface for sensitivity, contamination, or chemical imbalance.",
-                "Check blanket surface for ink build-up, glazing, or contamination.",
-                "Review ink-water balance correction timing during start-up.",
-                "Track recurrence by PU / PC and edition for next 3 to 7 days.",
-            ],
             "priorities": [
                 (
                     "Dampening System Check",
@@ -285,16 +267,7 @@ def issue_action_recommendations(selected_issue):
             ],
         },
         "White Waste": {
-            "focus": "Start-up stabilization / first good copy delay",
             "owner": "Production",
-            "checks": [
-                "Review start-up readiness before machine run.",
-                "Check first-good-copy approval timing and delay points.",
-                "Verify edition changeover preparation and plate/ink readiness.",
-                "Check whether white copies are linked to cold start or warm planned start.",
-                "Monitor repeated editions where white waste is high.",
-                "Standardize start-up checklist and approval discipline.",
-            ],
             "priorities": [
                 (
                     "First Good Copy Control",
@@ -311,16 +284,7 @@ def issue_action_recommendations(selected_issue):
             ],
         },
         "Cut-off Waste": {
-            "focus": "Folder timing / cut-off variation / web tension",
             "owner": "Mechanical + Production",
-            "checks": [
-                "Check folder timing and cut-off setting.",
-                "Inspect web tension and draw setting.",
-                "Verify mechanical play or adjustment issue in folder area.",
-                "Check if issue is linked to specific folder or run mode.",
-                "Review cut-off variation remarks from night team.",
-                "Monitor recurrence after mechanical adjustment.",
-            ],
             "priorities": [
                 (
                     "Folder / Cut-off Timing",
@@ -337,16 +301,7 @@ def issue_action_recommendations(selected_issue):
             ],
         },
         "Density Variation Waste": {
-            "focus": "Ink density control / ink flow / sensor calibration",
             "owner": "Production + Electrical",
-            "checks": [
-                "Check ink key settings and density control response.",
-                "Verify ink flow consistency and ductor/roller condition.",
-                "Check sensor or measurement calibration if applicable.",
-                "Review density variation by edition and PU / PC.",
-                "Inspect whether variation is repeated on same unit.",
-                "Monitor density stability in next run.",
-            ],
             "priorities": [
                 (
                     "Density Control Response",
@@ -363,16 +318,7 @@ def issue_action_recommendations(selected_issue):
             ],
         },
         "Other Waste": {
-            "focus": "Unclassified operational event review",
             "owner": "Production + Concerned Department",
-            "checks": [
-                "Review remarks entered by night shift for each event.",
-                "Classify other waste into proper reason category where possible.",
-                "Check whether issue is repeated by edition, folder, PU, or PC.",
-                "Assign ownership based on remark and department.",
-                "Convert repeated other waste into standard reason code.",
-                "Monitor recurrence after classification.",
-            ],
             "priorities": [
                 (
                     "Reason Classification",
@@ -389,16 +335,7 @@ def issue_action_recommendations(selected_issue):
             ],
         },
         "Pasting Waste": {
-            "focus": "Reel preparation / paster timing / splice quality",
             "owner": "Mechanical + Production",
-            "checks": [
-                "Check paster timing and splice quality.",
-                "Review reel preparation before run.",
-                "Inspect reelstand condition and paster response.",
-                "Check if pasting waste is repeated on same reelstand.",
-                "Review operator procedure during splice.",
-                "Monitor recurrence after adjustment.",
-            ],
             "priorities": [
                 (
                     "Paster Timing / Splice Quality",
@@ -692,8 +629,8 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
             margin-bottom:18px;
         ">
             This desk converts night-shift waste records into a morning maintenance action plan.
-            It highlights issue impact, affected editions, shop-floor remarks, repeated locations,
-            and AI-supported maintenance checks.
+            It highlights affected editions, shop-floor remarks, repeated locations,
+            and priority action areas.
         </div>
         """,
         unsafe_allow_html=True,
@@ -781,44 +718,7 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
     m3.metric("Issue Share", f"{issue_share:.1f}%")
     m4.metric("Affected Editions", f"{affected_editions:,}")
 
-    st.markdown("## 1. Maintenance Intelligence Brief")
-
-    st.markdown(
-        f"""
-<div style="
-    background:#ffffff;
-    border:1px solid #e5e7eb;
-    border-left:7px solid #0f766e;
-    border-radius:18px;
-    padding:20px;
-    margin-bottom:18px;
-    box-shadow:0 6px 16px rgba(15,23,42,0.07);
-">
-    <div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:10px;">
-        {selected_issue} Intelligence Summary
-    </div>
-
-    <p style="font-size:14px;color:#334155;line-height:1.7;">
-        During the selected maintenance period, <b>{selected_issue}</b> generated
-        <b>{issue_waste:,.3f} MT</b> waste out of total <b>{total_waste:,.3f} MT</b>.
-        This represents approximately <b>{issue_share:.1f}%</b> of total waste for the selected period.
-        The issue is observed across <b>{affected_editions}</b> affected edition records.
-    </p>
-
-    <p style="font-size:14px;color:#334155;line-height:1.7;">
-        <b>Operational Pattern:</b> {selected_issue} should be reviewed as a focused maintenance/process concern.
-        The uploaded records indicate issue concentration by editions, department remarks, and available
-        PU / PC / RS / BL / folder locations.
-    </p>
-
-    <p style="font-size:14px;color:#334155;line-height:1.7;">
-        <b>Likely Focus Area:</b> {rec["focus"]}<br>
-        <b>Suggested Ownership:</b> {rec["owner"]}
-    </p>
-</div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.markdown("## 1. Maintenance Event Summary")
 
     detail_col1, detail_col2 = st.columns(2)
 
@@ -848,7 +748,31 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
         st.markdown("### Reported Hotspots")
         st.markdown(f"<ul>{bullet_html(location_lines)}</ul>", unsafe_allow_html=True)
 
-    st.markdown("## 2. Priority Action Areas")
+    st.markdown("## 2. Overall Night Shift Remarks Captured")
+
+    if remarks:
+        for idx, line in enumerate(remarks, start=1):
+            st.markdown(
+                f"""
+                <div style="
+                    background:#f8fafc;
+                    border:1px solid #e5e7eb;
+                    border-left:5px solid #64748b;
+                    border-radius:14px;
+                    padding:12px 14px;
+                    margin-bottom:8px;
+                    font-size:14px;
+                    color:#334155;
+                ">
+                    <b>{idx}.</b> {line}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+    else:
+        st.info("No night-shift remarks found for the selected issue and date range.")
+
+    st.markdown("## 3. Priority Action Areas")
 
     if issue_waste <= 0:
         st.warning("No waste impact found for selected issue in this date range.")
@@ -880,54 +804,7 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
                 owner=rec["owner"],
             )
 
-    st.markdown("## 3. Night Shift Remarks Captured")
-
-    if remarks:
-        for idx, line in enumerate(remarks, start=1):
-            st.markdown(
-                f"""
-                <div style="
-                    background:#f8fafc;
-                    border:1px solid #e5e7eb;
-                    border-left:5px solid #64748b;
-                    border-radius:14px;
-                    padding:12px 14px;
-                    margin-bottom:8px;
-                    font-size:14px;
-                    color:#334155;
-                ">
-                    <b>{idx}.</b> {line}
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-    else:
-        st.info("No night-shift remarks found for the selected issue and date range.")
-
-    st.markdown("## 4. AI Suggested Maintenance Checks")
-
-    st.markdown(
-        f"""
-        <div style="
-            background:#fff7ed;
-            border:1px solid #fed7aa;
-            border-left:7px solid #f97316;
-            border-radius:18px;
-            padding:18px;
-            margin-bottom:14px;
-        ">
-            <div style="font-size:17px;font-weight:800;color:#7c2d12;margin-bottom:8px;">
-                Recommended checks for {selected_issue}
-            </div>
-            <ul style="font-size:14px;color:#431407;line-height:1.8;">
-                {bullet_html(rec["checks"])}
-            </ul>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown("## 5. Maintenance Action Plan PDF")
+    st.markdown("## 4. Maintenance Action Plan PDF")
     st.button("📥 Download Maintenance Action Plan PDF - Coming Soon", disabled=True)
 
 
