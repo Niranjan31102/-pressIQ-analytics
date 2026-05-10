@@ -2,6 +2,25 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from io import BytesIO
+from datetime import datetime
+from xml.sax.saxutils import escape
+
+try:
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import (
+        SimpleDocTemplate,
+        Paragraph,
+        Spacer,
+        Table,
+        TableStyle,
+    )
+    REPORTLAB_AVAILABLE = True
+except Exception:
+    REPORTLAB_AVAILABLE = False
 
 
 def to_num(series):
@@ -428,6 +447,283 @@ def build_segment_df(filtered):
     return segment_df, top_segment
 
 
+def build_segment_kg_df(df):
+    return pd.DataFrame({
+        "Waste Segment": [
+            "Registration Waste",
+            "Scum Waste",
+            "White Waste",
+            "Cut-off Waste",
+            "Density Variation Waste",
+            "Other Waste",
+            "Pasting Waste",
+        ],
+        "Waste KG": [
+            df["Registration MT"].sum() * 1000,
+            df["Scum MT"].sum() * 1000,
+            df["White MT"].sum() * 1000,
+            df["Cut-off MT"].sum() * 1000,
+            df["Density Variation MT"].sum() * 1000,
+            df["Other MT"].sum() * 1000,
+            df["Pasting MT"].sum() * 1000,
+        ],
+    }).sort_values("Waste KG", ascending=False)
+
+
+def build_reported_action_area_df(df):
+    work = df.copy()
+
+    for col in ["Waste Reason", "Department", "Folder", "PU", "PC", "RS", "BL"]:
+        if col not in work.columns:
+            work[col] = ""
+
+    def combine_area(row):
+        parts = []
+        for label in ["Folder", "PU", "PC", "RS", "BL"]:
+            value = clean_text_value(row.get(label, ""))
+            if value:
+                parts.append(f"{label}: {value}")
+        return " / ".join(parts) if parts else "Not specified"
+
+    work["Reported Area"] = work.apply(combine_area, axis=1)
+    work["Waste Reason"] = work["Waste Reason"].apply(clean_text_value)
+    work["Department"] = work["Department"].apply(clean_text_value)
+    work["Waste Reason"] = work["Waste Reason"].replace("", "Not specified")
+    work["Department"] = work["Department"].replace("", "Not specified")
+    work["Total Waste KG"] = work["Total Waste MT"] * 1000
+
+    action_df = (
+        work.groupby(["Waste Reason", "Department", "Reported Area"], dropna=False)["Total Waste KG"]
+        .sum()
+        .reset_index()
+        .sort_values("Total Waste KG", ascending=False)
+    )
+
+    action_df = action_df[action_df["Total Waste KG"] > 0]
+
+    return action_df
+
+
+def build_all_remarks_df(df):
+    work = df.copy()
+
+    if "Remarks" not in work.columns:
+        return pd.DataFrame()
+
+    work["Remarks"] = work["Remarks"].apply(clean_text_value)
+    work = work[work["Remarks"] != ""].copy()
+
+    if work.empty:
+        return pd.DataFrame()
+
+    for col in ["Edition", "Edition Name", "Waste Reason", "Folder", "PU", "PC", "RS", "BL"]:
+        if col not in work.columns:
+            work[col] = ""
+
+    def combine_area(row):
+        parts = []
+        for label in ["Folder", "PU", "PC", "RS", "BL"]:
+            value = clean_text_value(row.get(label, ""))
+            if value:
+                parts.append(f"{label}: {value}")
+        return " / ".join(parts)
+
+    work["Date"] = pd.to_datetime(work["Edition Date"], errors="coerce").dt.strftime("%d-%b-%Y")
+    work["Edition Detail"] = work.apply(
+        lambda r: clean_text_value(r.get("Edition", "")) + " - " + clean_text_value(r.get("Edition Name", "")),
+        axis=1
+    )
+    work["Reported Area"] = work.apply(combine_area, axis=1)
+    work["Total Waste KG"] = work["Total Waste MT"] * 1000
+
+    return work[[
+        "Date",
+        "Edition Detail",
+        "Waste Reason",
+        "Reported Area",
+        "Remarks",
+        "Total Waste KG",
+    ]].sort_values("Date")
+
+
+def make_pdf_paragraph(text, style):
+    text = escape(clean_text_value(text))
+    return Paragraph(text, style)
+
+
+def generate_maintenance_pdf(plant_name, start_date, end_date, maint_df):
+    buffer = BytesIO()
+
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=10 * mm,
+        leftMargin=10 * mm,
+        topMargin=10 * mm,
+        bottomMargin=10 * mm,
+    )
+
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        "PressIQTitle",
+        parent=styles["Title"],
+        fontSize=15,
+        alignment=TA_CENTER,
+        spaceAfter=6,
+        textColor=colors.HexColor("#0f172a"),
+    )
+
+    section_style = ParagraphStyle(
+        "SectionTitle",
+        parent=styles["Heading2"],
+        fontSize=10,
+        textColor=colors.HexColor("#0f172a"),
+        spaceBefore=5,
+        spaceAfter=4,
+    )
+
+    normal_style = ParagraphStyle(
+        "NormalSmall",
+        parent=styles["Normal"],
+        fontSize=7,
+        leading=9,
+        alignment=TA_LEFT,
+    )
+
+    cell_style = ParagraphStyle(
+        "CellSmall",
+        parent=styles["Normal"],
+        fontSize=6.5,
+        leading=8,
+        alignment=TA_LEFT,
+    )
+
+    story = []
+
+    total_waste_kg = maint_df["Total Waste MT"].sum() * 1000
+    segment_kg_df = build_segment_kg_df(maint_df)
+    action_area_df = build_reported_action_area_df(maint_df)
+    remarks_df = build_all_remarks_df(maint_df)
+
+    story.append(Paragraph("PressIQ Daily Maintenance Action Report", title_style))
+    story.append(Paragraph(f"Plant: {plant_name}", normal_style))
+    story.append(Paragraph(f"Period: {start_date} to {end_date}", normal_style))
+    story.append(Paragraph(f"Generated: {datetime.now().strftime('%d-%b-%Y %H:%M')}", normal_style))
+    story.append(Spacer(1, 4))
+
+    story.append(Paragraph(f"<b>Overall Waste:</b> {total_waste_kg:,.0f} KG", section_style))
+
+    seg_data = [[
+        make_pdf_paragraph("Waste Segment", cell_style),
+        make_pdf_paragraph("Waste KG", cell_style),
+    ]]
+
+    for _, row in segment_kg_df.iterrows():
+        seg_data.append([
+            make_pdf_paragraph(row["Waste Segment"], cell_style),
+            make_pdf_paragraph(f"{row['Waste KG']:,.0f}", cell_style),
+        ])
+
+    seg_table = Table(seg_data, colWidths=[120 * mm, 35 * mm])
+    seg_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#cbd5e1")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (1, 1), (1, -1), "RIGHT"),
+    ]))
+    story.append(seg_table)
+    story.append(Spacer(1, 6))
+
+    story.append(Paragraph("Reported Areas Where Action / Improvement Required", section_style))
+
+    if action_area_df.empty:
+        story.append(Paragraph("No reported action areas found for the selected period.", normal_style))
+    else:
+        action_data = [[
+            make_pdf_paragraph("Issue / Reason", cell_style),
+            make_pdf_paragraph("Department", cell_style),
+            make_pdf_paragraph("Reported Area", cell_style),
+            make_pdf_paragraph("Waste KG", cell_style),
+        ]]
+
+        for _, row in action_area_df.iterrows():
+            action_data.append([
+                make_pdf_paragraph(row["Waste Reason"], cell_style),
+                make_pdf_paragraph(row["Department"], cell_style),
+                make_pdf_paragraph(row["Reported Area"], cell_style),
+                make_pdf_paragraph(f"{row['Total Waste KG']:,.0f}", cell_style),
+            ])
+
+        action_table = Table(action_data, colWidths=[35 * mm, 28 * mm, 72 * mm, 25 * mm])
+        action_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
+            ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#cbd5e1")),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("ALIGN", (3, 1), (3, -1), "RIGHT"),
+        ]))
+        story.append(action_table)
+
+    story.append(Spacer(1, 6))
+    story.append(Paragraph("Overall Night Shift Remarks Captured", section_style))
+
+    if remarks_df.empty:
+        story.append(Paragraph("No night shift remarks found for the selected period.", normal_style))
+    else:
+        remark_data = [[
+            make_pdf_paragraph("Date", cell_style),
+            make_pdf_paragraph("Edition", cell_style),
+            make_pdf_paragraph("Issue", cell_style),
+            make_pdf_paragraph("Reported Area", cell_style),
+            make_pdf_paragraph("Night Shift Remark", cell_style),
+        ]]
+
+        for _, row in remarks_df.iterrows():
+            remark_data.append([
+                make_pdf_paragraph(row["Date"], cell_style),
+                make_pdf_paragraph(row["Edition Detail"], cell_style),
+                make_pdf_paragraph(row["Waste Reason"], cell_style),
+                make_pdf_paragraph(row["Reported Area"], cell_style),
+                make_pdf_paragraph(row["Remarks"], cell_style),
+            ])
+
+        remark_table = Table(remark_data, colWidths=[18 * mm, 42 * mm, 24 * mm, 36 * mm, 45 * mm])
+        remark_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
+            ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#cbd5e1")),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ]))
+        story.append(remark_table)
+
+    story.append(Spacer(1, 8))
+    story.append(Paragraph("Closure / Action Tracking", section_style))
+
+    closure_data = [
+        [make_pdf_paragraph("Action Taken", cell_style), ""],
+        [make_pdf_paragraph("Responsible Person", cell_style), ""],
+        [make_pdf_paragraph("Target Closure Date", cell_style), ""],
+        [make_pdf_paragraph("Status", cell_style), "Open / In Progress / Closed"],
+        [make_pdf_paragraph("Remarks After Maintenance", cell_style), ""],
+    ]
+
+    closure_table = Table(closure_data, colWidths=[45 * mm, 115 * mm], rowHeights=[9 * mm, 9 * mm, 9 * mm, 9 * mm, 14 * mm])
+    closure_table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#94a3b8")),
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f1f5f9")),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(closure_table)
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+
 def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date):
     filtered = filter_by_date(df, start_date, end_date)
 
@@ -652,27 +948,7 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
         return
 
     total_waste_kg = maint_df["Total Waste MT"].sum() * 1000
-
-    segment_kg_df = pd.DataFrame({
-        "Waste Segment": [
-            "Registration Waste",
-            "Scum Waste",
-            "White Waste",
-            "Cut-off Waste",
-            "Density Variation Waste",
-            "Other Waste",
-            "Pasting Waste",
-        ],
-        "Waste KG": [
-            maint_df["Registration MT"].sum() * 1000,
-            maint_df["Scum MT"].sum() * 1000,
-            maint_df["White MT"].sum() * 1000,
-            maint_df["Cut-off MT"].sum() * 1000,
-            maint_df["Density Variation MT"].sum() * 1000,
-            maint_df["Other MT"].sum() * 1000,
-            maint_df["Pasting MT"].sum() * 1000,
-        ],
-    }).sort_values("Waste KG", ascending=False)
+    segment_kg_df = build_segment_kg_df(maint_df)
 
     issue_options = [
         "Registration Waste",
@@ -751,7 +1027,18 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
         )
 
         st.markdown("## 2. Maintenance Action Plan PDF")
-        st.button("📥 Download Maintenance Action Plan PDF - Coming Soon", disabled=True)
+
+        if REPORTLAB_AVAILABLE:
+            pdf_buffer = generate_maintenance_pdf(plant_name, maint_start, maint_end, maint_df)
+            st.download_button(
+                "📥 Download Maintenance Action Plan PDF",
+                data=pdf_buffer.getvalue(),
+                file_name=f"PressIQ_Daily_Maintenance_Action_Report_{plant_name}_{maint_start}_{maint_end}.pdf",
+                mime="application/pdf",
+            )
+        else:
+            st.error("PDF package missing. Add reportlab to requirements.txt and reboot app.")
+
         return
 
     st.markdown("## 1. Maintenance Event Summary")
@@ -841,7 +1128,17 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
             )
 
     st.markdown("## 4. Maintenance Action Plan PDF")
-    st.button("📥 Download Maintenance Action Plan PDF - Coming Soon", disabled=True)
+
+    if REPORTLAB_AVAILABLE:
+        pdf_buffer = generate_maintenance_pdf(plant_name, maint_start, maint_end, maint_df)
+        st.download_button(
+            "📥 Download Maintenance Action Plan PDF",
+            data=pdf_buffer.getvalue(),
+            file_name=f"PressIQ_Daily_Maintenance_Action_Report_{plant_name}_{maint_start}_{maint_end}.pdf",
+            mime="application/pdf",
+        )
+    else:
+        st.error("PDF package missing. Add reportlab to requirements.txt and reboot app.")
 
 
 def render_performance_review_board(df, min_date, max_date, plant_name):
