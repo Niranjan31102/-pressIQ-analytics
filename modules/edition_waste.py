@@ -119,6 +119,8 @@ def round_display(df):
         if pd.api.types.is_numeric_dtype(out[col]):
             if "MT" in col:
                 out[col] = out[col].round(3)
+            elif "KG" in col or "Kg" in col:
+                out[col] = out[col].round(0)
             elif "%" in col:
                 out[col] = out[col].round(2)
             else:
@@ -169,13 +171,13 @@ def top_edition_lines(issue_df, selected_col, limit=5):
     for _, row in edition_group.iterrows():
         edition = clean_text_value(row.get("Edition", ""))
         edition_name = clean_text_value(row.get("Edition Name", ""))
-        waste = row[selected_col]
+        waste_kg = row[selected_col] * 1000
 
         label = edition_name if edition_name else edition
         if edition and edition_name:
             label = f"{edition} - {edition_name}"
 
-        lines.append(f"{label}: {waste:,.3f} MT")
+        lines.append(f"{label}: {waste_kg:,.0f} KG")
 
     return lines
 
@@ -263,23 +265,6 @@ def issue_action_recommendations(selected_issue):
                 (
                     "Ink-Water Balance Discipline",
                     "Review operator correction timing and standardize scum response during start-up.",
-                ),
-            ],
-        },
-        "White Waste": {
-            "owner": "Production",
-            "priorities": [
-                (
-                    "First Good Copy Control",
-                    "Reduce delay between machine start and first approved copy.",
-                ),
-                (
-                    "Start-up Readiness",
-                    "Confirm plate, ink, paper, and crew readiness before run.",
-                ),
-                (
-                    "Edition Changeover Discipline",
-                    "Review repeated editions where white copies are high.",
                 ),
             ],
         },
@@ -629,7 +614,7 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
             margin-bottom:18px;
         ">
             This desk converts night-shift waste records into a morning maintenance action plan.
-            It highlights affected editions, shop-floor remarks, repeated locations,
+            It shows total waste in KG, selected issue impact, affected editions, shop-floor remarks,
             and priority action areas.
         </div>
         """,
@@ -666,6 +651,29 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
         st.warning("No data found for selected maintenance date range.")
         return
 
+    total_waste_kg = maint_df["Total Waste MT"].sum() * 1000
+
+    segment_kg_df = pd.DataFrame({
+        "Waste Segment": [
+            "Registration Waste",
+            "Scum Waste",
+            "White Waste",
+            "Cut-off Waste",
+            "Density Variation Waste",
+            "Other Waste",
+            "Pasting Waste",
+        ],
+        "Waste KG": [
+            maint_df["Registration MT"].sum() * 1000,
+            maint_df["Scum MT"].sum() * 1000,
+            maint_df["White MT"].sum() * 1000,
+            maint_df["Cut-off MT"].sum() * 1000,
+            maint_df["Density Variation MT"].sum() * 1000,
+            maint_df["Other MT"].sum() * 1000,
+            maint_df["Pasting MT"].sum() * 1000,
+        ],
+    }).sort_values("Waste KG", ascending=False)
+
     issue_options = [
         "Registration Waste",
         "Scum Waste",
@@ -695,9 +703,8 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
     selected_col = issue_to_col[selected_issue]
     issue_df = maint_df[maint_df[selected_col] > 0].copy()
 
-    total_waste = maint_df["Total Waste MT"].sum()
-    issue_waste = issue_df[selected_col].sum()
-    issue_share = (issue_waste / total_waste * 100) if total_waste else 0
+    issue_waste_kg = issue_df[selected_col].sum() * 1000
+    issue_share = (issue_waste_kg / total_waste_kg * 100) if total_waste_kg else 0
     affected_editions = len(issue_df)
 
     rec = issue_action_recommendations(selected_issue)
@@ -712,11 +719,40 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
     top_folders = top_text_values(issue_df, "Folder", limit=5)
     remarks = remark_lines(issue_df, selected_col, limit=8)
 
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Selected Issue", selected_issue)
-    m2.metric("Issue Waste", f"{issue_waste:,.3f} MT")
-    m3.metric("Issue Share", f"{issue_share:.1f}%")
-    m4.metric("Affected Editions", f"{affected_editions:,}")
+    st.markdown("## Total Waste Overview")
+
+    o1, o2, o3, o4 = st.columns(4)
+    o1.metric("Total Waste", f"{total_waste_kg:,.0f} KG")
+    o2.metric("Selected Issue", selected_issue)
+    o3.metric("Issue Waste", f"{issue_waste_kg:,.0f} KG")
+    o4.metric("Issue Share", f"{issue_share:.1f}%")
+
+    st.markdown("### Segment-wise Waste")
+    st.dataframe(
+        round_display(segment_kg_df),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    if selected_issue == "White Waste":
+        st.markdown("## 1. White Waste Summary")
+
+        w1, w2, w3 = st.columns(3)
+        w1.metric("White Waste", f"{issue_waste_kg:,.0f} KG")
+        w2.metric("Affected Editions", f"{affected_editions:,}")
+        w3.metric("White Waste Share", f"{issue_share:.1f}%")
+
+        st.markdown("### Editions with Higher White Waste")
+        st.markdown(f"<ul>{bullet_html(top_editions)}</ul>", unsafe_allow_html=True)
+
+        st.info(
+            "White Waste is shown here for visibility and review. "
+            "No maintenance priority action is generated for White Waste in this desk."
+        )
+
+        st.markdown("## 2. Maintenance Action Plan PDF")
+        st.button("📥 Download Maintenance Action Plan PDF - Coming Soon", disabled=True)
+        return
 
     st.markdown("## 1. Maintenance Event Summary")
 
@@ -774,7 +810,7 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
 
     st.markdown("## 3. Priority Action Areas")
 
-    if issue_waste <= 0:
+    if issue_waste_kg <= 0:
         st.warning("No waste impact found for selected issue in this date range.")
     else:
         for i, item in enumerate(rec["priorities"], start=1):
@@ -790,7 +826,7 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
                 evidence_parts.append("Reason: " + ", ".join(top_reasons[:3]))
 
             evidence = (
-                f"{selected_issue} caused {issue_waste:,.3f} MT waste across "
+                f"{selected_issue} caused {issue_waste_kg:,.0f} KG waste across "
                 f"{affected_editions} edition records."
             )
 
