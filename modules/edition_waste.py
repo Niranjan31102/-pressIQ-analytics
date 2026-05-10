@@ -785,32 +785,37 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
 
     st.markdown(
         f"""
-        <div style="
-            background:#ffffff;
-            border:1px solid #e5e7eb;
-            border-left:7px solid #0f766e;
-            border-radius:18px;
-            padding:20px;
-            margin-bottom:18px;
-            box-shadow:0 6px 16px rgba(15,23,42,0.07);
-        ">
-            <div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:10px;">
-                {selected_issue} Intelligence Summary
-            </div>
+<div style="
+    background:#ffffff;
+    border:1px solid #e5e7eb;
+    border-left:7px solid #0f766e;
+    border-radius:18px;
+    padding:20px;
+    margin-bottom:18px;
+    box-shadow:0 6px 16px rgba(15,23,42,0.07);
+">
+    <div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:10px;">
+        {selected_issue} Intelligence Summary
+    </div>
 
-            <div style="font-size:14px;color:#334155;line-height:1.7;">
-                During the selected maintenance period, <b>{selected_issue}</b> generated
-                <b>{issue_waste:,.3f} MT</b> waste out of total <b>{total_waste:,.3f} MT</b>.
-                This represents approximately <b>{issue_share:.1f}%</b> of total waste for the selected period.
-                The issue is observed across <b>{affected_editions}</b> affected edition records.
-                <br><br>
-                <b>Operational Pattern:</b> {selected_issue} should be reviewed as a focused maintenance/process concern.
-                The uploaded records indicate issue concentration by editions, department remarks, and available PU / PC / RS / BL / folder locations.
-                <br><br>
-                <b>Likely Focus Area:</b> {rec["focus"]}<br>
-                <b>Suggested Ownership:</b> {rec["owner"]}
-            </div>
-        </div>
+    <p style="font-size:14px;color:#334155;line-height:1.7;">
+        During the selected maintenance period, <b>{selected_issue}</b> generated
+        <b>{issue_waste:,.3f} MT</b> waste out of total <b>{total_waste:,.3f} MT</b>.
+        This represents approximately <b>{issue_share:.1f}%</b> of total waste for the selected period.
+        The issue is observed across <b>{affected_editions}</b> affected edition records.
+    </p>
+
+    <p style="font-size:14px;color:#334155;line-height:1.7;">
+        <b>Operational Pattern:</b> {selected_issue} should be reviewed as a focused maintenance/process concern.
+        The uploaded records indicate issue concentration by editions, department remarks, and available
+        PU / PC / RS / BL / folder locations.
+    </p>
+
+    <p style="font-size:14px;color:#334155;line-height:1.7;">
+        <b>Likely Focus Area:</b> {rec["focus"]}<br>
+        <b>Suggested Ownership:</b> {rec["owner"]}
+    </p>
+</div>
         """,
         unsafe_allow_html=True,
     )
