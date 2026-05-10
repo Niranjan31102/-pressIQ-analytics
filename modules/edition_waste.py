@@ -65,18 +65,37 @@ def read_edition_file(uploaded_file, sheet_name):
     out = out[out["Edition Date"].notna()].copy()
 
     kg_cols = [
-        "White Kg", "Scum Kg", "Cut-off Kg", "Registration Kg",
-        "Density Variation Kg", "Other Kg", "Pasting Kg",
-        "Total Waste Kg", "Print Order"
+        "White Kg",
+        "Scum Kg",
+        "Cut-off Kg",
+        "Registration Kg",
+        "Density Variation Kg",
+        "Other Kg",
+        "Pasting Kg",
+        "Total Waste Kg",
+        "Print Order",
     ]
 
     for col in kg_cols:
         out[col] = to_num(out[col])
 
     text_cols = [
-        "Edition", "Edition Name", "Main/Supplement", "Press", "Folder",
-        "GNP/SNP", "Complexity", "Type of Start", "Department",
-        "Waste Reason", "RS", "PU", "PC", "BL", "Remarks", "Corrective Action"
+        "Edition",
+        "Edition Name",
+        "Main/Supplement",
+        "Press",
+        "Folder",
+        "GNP/SNP",
+        "Complexity",
+        "Type of Start",
+        "Department",
+        "Waste Reason",
+        "RS",
+        "PU",
+        "PC",
+        "BL",
+        "Remarks",
+        "Corrective Action",
     ]
 
     for col in text_cols:
@@ -114,6 +133,328 @@ def filter_by_date(df, start_date, end_date):
     ].copy()
 
 
+def clean_text_value(value):
+    value = str(value).strip()
+    if value.lower() in ["nan", "none", ""]:
+        return ""
+    return value
+
+
+def top_text_values(df, col, limit=5):
+    if col not in df.columns:
+        return []
+
+    data = df[col].apply(clean_text_value).replace("", pd.NA).dropna()
+
+    if data.empty:
+        return []
+
+    return data.value_counts().head(limit).index.tolist()
+
+
+def top_edition_lines(issue_df, selected_col, limit=5):
+    if issue_df.empty:
+        return []
+
+    edition_group = (
+        issue_df.groupby(["Edition", "Edition Name"], dropna=False)[selected_col]
+        .sum()
+        .reset_index()
+        .sort_values(selected_col, ascending=False)
+        .head(limit)
+    )
+
+    lines = []
+
+    for _, row in edition_group.iterrows():
+        edition = clean_text_value(row.get("Edition", ""))
+        edition_name = clean_text_value(row.get("Edition Name", ""))
+        waste = row[selected_col]
+
+        label = edition_name if edition_name else edition
+        if edition and edition_name:
+            label = f"{edition} - {edition_name}"
+
+        lines.append(f"{label}: {waste:,.3f} MT")
+
+    return lines
+
+
+def remark_lines(issue_df, selected_col, limit=8):
+    if issue_df.empty or "Remarks" not in issue_df.columns:
+        return []
+
+    remark_df = issue_df.copy()
+    remark_df["Remarks"] = remark_df["Remarks"].apply(clean_text_value)
+    remark_df = remark_df[remark_df["Remarks"] != ""]
+
+    if remark_df.empty:
+        return []
+
+    remark_df = remark_df.sort_values(selected_col, ascending=False).head(limit)
+
+    lines = []
+
+    for _, row in remark_df.iterrows():
+        date_val = row.get("Edition Date", "")
+
+        try:
+            date_text = pd.to_datetime(date_val).strftime("%d-%b")
+        except Exception:
+            date_text = ""
+
+        edition = clean_text_value(row.get("Edition", ""))
+        edition_name = clean_text_value(row.get("Edition Name", ""))
+        remarks = clean_text_value(row.get("Remarks", ""))
+        waste_reason = clean_text_value(row.get("Waste Reason", ""))
+        pu = clean_text_value(row.get("PU", ""))
+        pc = clean_text_value(row.get("PC", ""))
+
+        loc_parts = []
+        if pu:
+            loc_parts.append(pu)
+        if pc:
+            loc_parts.append(pc)
+
+        location_text = f" | Location: {' / '.join(loc_parts)}" if loc_parts else ""
+        reason_text = f" | Issue: {waste_reason}" if waste_reason else ""
+
+        edition_label = edition_name if edition_name else edition
+        if edition and edition_name:
+            edition_label = f"{edition} - {edition_name}"
+
+        lines.append(
+            f"{date_text} | {edition_label}{reason_text}{location_text} | Remark: {remarks}"
+        )
+
+    return lines
+
+
+def issue_action_recommendations(selected_issue):
+    recommendations = {
+        "Registration Waste": {
+            "focus": "Register control / correction response / start-up stabilization",
+            "owner": "Electrical + Production",
+            "checks": [
+                "Check register correction response on repeated PU / PC locations.",
+                "Inspect register camera / sensor cleanliness and feedback stability.",
+                "Verify plate lock, blanket condition, and register setting during start-up.",
+                "Check lateral and circumferential register correction movement.",
+                "Review first-good-copy approval delay with production team.",
+                "Monitor the same PU / PC locations in the next night run after action.",
+            ],
+            "priorities": [
+                (
+                    "Register Control / Correction Response",
+                    "Check correction response, camera/sensor cleanliness, register motor response, and stability of repeated PU / PC locations.",
+                ),
+                (
+                    "PU / PC Hotspot Verification",
+                    "Physically verify repeated PU / PC points and compare with previous register correction history.",
+                ),
+                (
+                    "Start-up Discipline",
+                    "Review first-good-copy approval timing and operator correction response during start-up.",
+                ),
+            ],
+        },
+        "Scum Waste": {
+            "focus": "Ink-water balance / dampening / plate condition",
+            "owner": "Production + Mechanical",
+            "checks": [
+                "Check dampening roller setting and roller condition.",
+                "Verify fountain solution pH, conductivity, and concentration.",
+                "Inspect plate surface for sensitivity, contamination, or chemical imbalance.",
+                "Check blanket surface for ink build-up, glazing, or contamination.",
+                "Review ink-water balance correction timing during start-up.",
+                "Track recurrence by PU / PC and edition for next 3 to 7 days.",
+            ],
+            "priorities": [
+                (
+                    "Dampening System Check",
+                    "Verify dampening roller setting, water flow, water pan condition, and fountain solution parameters.",
+                ),
+                (
+                    "Plate / Blanket Condition",
+                    "Inspect plate surface and blanket condition where scum was repeatedly reported.",
+                ),
+                (
+                    "Ink-Water Balance Discipline",
+                    "Review operator correction timing and standardize scum response during start-up.",
+                ),
+            ],
+        },
+        "White Waste": {
+            "focus": "Start-up stabilization / first good copy delay",
+            "owner": "Production",
+            "checks": [
+                "Review start-up readiness before machine run.",
+                "Check first-good-copy approval timing and delay points.",
+                "Verify edition changeover preparation and plate/ink readiness.",
+                "Check whether white copies are linked to cold start or warm planned start.",
+                "Monitor repeated editions where white waste is high.",
+                "Standardize start-up checklist and approval discipline.",
+            ],
+            "priorities": [
+                (
+                    "First Good Copy Control",
+                    "Reduce delay between machine start and first approved copy.",
+                ),
+                (
+                    "Start-up Readiness",
+                    "Confirm plate, ink, paper, and crew readiness before run.",
+                ),
+                (
+                    "Edition Changeover Discipline",
+                    "Review repeated editions where white copies are high.",
+                ),
+            ],
+        },
+        "Cut-off Waste": {
+            "focus": "Folder timing / cut-off variation / web tension",
+            "owner": "Mechanical + Production",
+            "checks": [
+                "Check folder timing and cut-off setting.",
+                "Inspect web tension and draw setting.",
+                "Verify mechanical play or adjustment issue in folder area.",
+                "Check if issue is linked to specific folder or run mode.",
+                "Review cut-off variation remarks from night team.",
+                "Monitor recurrence after mechanical adjustment.",
+            ],
+            "priorities": [
+                (
+                    "Folder / Cut-off Timing",
+                    "Check folder timing, cut-off setting, and related mechanical adjustment.",
+                ),
+                (
+                    "Web Tension / Draw Setting",
+                    "Verify web tension and draw settings during affected editions.",
+                ),
+                (
+                    "Mechanical Play Verification",
+                    "Inspect folder section for repeated cut-off variation.",
+                ),
+            ],
+        },
+        "Density Variation Waste": {
+            "focus": "Ink density control / ink flow / sensor calibration",
+            "owner": "Production + Electrical",
+            "checks": [
+                "Check ink key settings and density control response.",
+                "Verify ink flow consistency and ductor/roller condition.",
+                "Check sensor or measurement calibration if applicable.",
+                "Review density variation by edition and PU / PC.",
+                "Inspect whether variation is repeated on same unit.",
+                "Monitor density stability in next run.",
+            ],
+            "priorities": [
+                (
+                    "Density Control Response",
+                    "Check density correction response and ink key setting stability.",
+                ),
+                (
+                    "Ink Flow / Roller Condition",
+                    "Verify ink flow and roller condition on repeated locations.",
+                ),
+                (
+                    "Sensor / Measurement Check",
+                    "Validate density measurement and control feedback if repeated.",
+                ),
+            ],
+        },
+        "Other Waste": {
+            "focus": "Unclassified operational event review",
+            "owner": "Production + Concerned Department",
+            "checks": [
+                "Review remarks entered by night shift for each event.",
+                "Classify other waste into proper reason category where possible.",
+                "Check whether issue is repeated by edition, folder, PU, or PC.",
+                "Assign ownership based on remark and department.",
+                "Convert repeated other waste into standard reason code.",
+                "Monitor recurrence after classification.",
+            ],
+            "priorities": [
+                (
+                    "Reason Classification",
+                    "Review remarks and classify repeated other waste into proper reason codes.",
+                ),
+                (
+                    "Ownership Assignment",
+                    "Assign department ownership based on event remark and location.",
+                ),
+                (
+                    "Repeat Event Control",
+                    "Track repeated other waste by edition and location.",
+                ),
+            ],
+        },
+        "Pasting Waste": {
+            "focus": "Reel preparation / paster timing / splice quality",
+            "owner": "Mechanical + Production",
+            "checks": [
+                "Check paster timing and splice quality.",
+                "Review reel preparation before run.",
+                "Inspect reelstand condition and paster response.",
+                "Check if pasting waste is repeated on same reelstand.",
+                "Review operator procedure during splice.",
+                "Monitor recurrence after adjustment.",
+            ],
+            "priorities": [
+                (
+                    "Paster Timing / Splice Quality",
+                    "Check paster timing, splice quality, and paster response.",
+                ),
+                (
+                    "Reelstand Condition",
+                    "Verify reelstand condition where pasting waste is repeated.",
+                ),
+                (
+                    "Reel Preparation Discipline",
+                    "Review reel preparation and operator procedure before splice.",
+                ),
+            ],
+        },
+    }
+
+    return recommendations.get(selected_issue, recommendations["Other Waste"])
+
+
+def bullet_html(items):
+    if not items:
+        return "<li>No specific records available in uploaded file for this field.</li>"
+    return "".join([f"<li>{item}</li>" for item in items])
+
+
+def priority_card(title, evidence, action, owner):
+    st.markdown(
+        f"""
+        <div style="
+            background:#ffffff;
+            border:1px solid #e5e7eb;
+            border-left:7px solid #2563eb;
+            border-radius:18px;
+            padding:18px 20px;
+            margin-bottom:14px;
+            box-shadow:0 6px 16px rgba(15,23,42,0.07);
+        ">
+            <div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:8px;">
+                {title}
+            </div>
+            <div style="font-size:14px;color:#334155;margin-bottom:6px;">
+                <b>Evidence:</b> {evidence}
+            </div>
+            <div style="font-size:14px;color:#334155;margin-bottom:6px;">
+                <b>Action:</b> {action}
+            </div>
+            <div style="font-size:14px;color:#334155;">
+                <b>Owner:</b> {owner}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def action_card(title, subtitle, points, button_text, button_key, target_view, accent_color):
     st.markdown(
         f"""
@@ -138,7 +479,7 @@ def action_card(title, subtitle, points, button_text, button_key, target_view, a
             </ul>
         </div>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     if st.button(button_text, key=button_key, use_container_width=True):
@@ -159,7 +500,7 @@ def build_segment_df(filtered):
 
     segment_df = pd.DataFrame({
         "Waste Segment": list(top_segment.keys()),
-        "Waste MT": list(top_segment.values())
+        "Waste MT": list(top_segment.values()),
     }).sort_values("Waste MT", ascending=False)
 
     return segment_df, top_segment
@@ -200,7 +541,7 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
     tab1, tab2, tab5 = st.tabs([
         "Waste Segment",
         "Edition Performance",
-        "Download Report"
+        "Download Report",
     ])
 
     with tab1:
@@ -213,7 +554,7 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
             values="Waste MT",
             names="Waste Segment",
             hole=0.45,
-            title="Waste Segment Share"
+            title="Waste Segment Share",
         )
         st.plotly_chart(fig_pie, use_container_width=True)
 
@@ -242,7 +583,7 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
             y="Edition Name",
             orientation="h",
             text="Total Waste MT",
-            title="Top 20 Editions by Waste MT"
+            title="Top 20 Editions by Waste MT",
         )
         fig_edition.update_traces(texttemplate="%{text:.3f}")
         st.plotly_chart(fig_edition, use_container_width=True)
@@ -253,13 +594,31 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
         output = BytesIO()
 
         export_cols = [
-            "Edition Date", "Edition", "Edition Name", "Print Order",
-            "Main/Supplement", "Folder", "GNP/SNP",
-            "Complexity", "Type of Start", "White MT", "Scum MT",
-            "Cut-off MT", "Registration MT", "Density Variation MT",
-            "Other MT", "Pasting MT", "Total Waste MT",
-            "Department", "Waste Reason", "RS", "PU", "PC", "BL",
-            "Remarks", "Corrective Action"
+            "Edition Date",
+            "Edition",
+            "Edition Name",
+            "Print Order",
+            "Main/Supplement",
+            "Folder",
+            "GNP/SNP",
+            "Complexity",
+            "Type of Start",
+            "White MT",
+            "Scum MT",
+            "Cut-off MT",
+            "Registration MT",
+            "Density Variation MT",
+            "Other MT",
+            "Pasting MT",
+            "Total Waste MT",
+            "Department",
+            "Waste Reason",
+            "RS",
+            "PU",
+            "PC",
+            "BL",
+            "Remarks",
+            "Corrective Action",
         ]
 
         export_cols = [c for c in export_cols if c in filtered.columns]
@@ -274,7 +633,7 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
             "📥 Download Edition Wise Wastage Report",
             data=output.getvalue(),
             file_name="PressIQ_Edition_Wise_Wastage_Report.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
     st.markdown("---")
@@ -290,12 +649,12 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
                 "Identify affected editions and waste issue",
                 "Use night-shift remarks and shop-floor language",
                 "Prepare maintenance priority list",
-                "Generate PDF action plan in Phase 2"
+                "Generate PDF action plan in Phase 2",
             ],
             button_text="Open Daily Maintenance Action Desk",
             button_key="open_maintenance_desk",
             target_view="maintenance",
-            accent_color="#2563eb"
+            accent_color="#2563eb",
         )
 
     with action_col2:
@@ -306,12 +665,12 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
                 "Review repeated waste patterns",
                 "Identify high-loss segments and editions",
                 "Build improvement projects",
-                "Estimate MT saving opportunity in Phase 2"
+                "Estimate MT saving opportunity in Phase 2",
             ],
             button_text="Open Performance Review Board",
             button_key="open_performance_board",
             target_view="performance",
-            accent_color="#7c3aed"
+            accent_color="#7c3aed",
         )
 
 
@@ -332,12 +691,12 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
             padding:18px;
             margin-bottom:18px;
         ">
-            This desk is designed for morning maintenance action planning.
-            It uses the same uploaded file and will convert night-shift remarks, waste issue, and locations
-            into a maintenance priority plan.
+            This desk converts night-shift waste records into a morning maintenance action plan.
+            It highlights issue impact, affected editions, shop-floor remarks, repeated locations,
+            and AI-supported maintenance checks.
         </div>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     c1, c2 = st.columns(2)
@@ -348,7 +707,7 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
             max_date,
             min_value=min_date,
             max_value=max_date,
-            key="maintenance_start_date"
+            key="maintenance_start_date",
         )
 
     with c2:
@@ -357,7 +716,7 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
             max_date,
             min_value=min_date,
             max_value=max_date,
-            key="maintenance_end_date"
+            key="maintenance_end_date",
         )
 
     if maint_start > maint_end:
@@ -377,13 +736,13 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
         "Cut-off Waste",
         "Density Variation Waste",
         "Other Waste",
-        "Pasting Waste"
+        "Pasting Waste",
     ]
 
     selected_issue = st.selectbox(
         "Select Waste Issue for Maintenance Planning",
         issue_options,
-        key="maintenance_issue_selector"
+        key="maintenance_issue_selector",
     )
 
     issue_to_col = {
@@ -393,52 +752,178 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
         "Cut-off Waste": "Cut-off MT",
         "Density Variation Waste": "Density Variation MT",
         "Other Waste": "Other MT",
-        "Pasting Waste": "Pasting MT"
+        "Pasting Waste": "Pasting MT",
     }
 
     selected_col = issue_to_col[selected_issue]
-
     issue_df = maint_df[maint_df[selected_col] > 0].copy()
 
+    total_waste = maint_df["Total Waste MT"].sum()
     issue_waste = issue_df[selected_col].sum()
+    issue_share = (issue_waste / total_waste * 100) if total_waste else 0
     affected_editions = len(issue_df)
 
-    m1, m2, m3 = st.columns(3)
+    rec = issue_action_recommendations(selected_issue)
+
+    top_editions = top_edition_lines(issue_df, selected_col, limit=5)
+    top_departments = top_text_values(issue_df, "Department", limit=3)
+    top_reasons = top_text_values(issue_df, "Waste Reason", limit=5)
+    top_pu = top_text_values(issue_df, "PU", limit=5)
+    top_pc = top_text_values(issue_df, "PC", limit=5)
+    top_rs = top_text_values(issue_df, "RS", limit=5)
+    top_bl = top_text_values(issue_df, "BL", limit=5)
+    top_folders = top_text_values(issue_df, "Folder", limit=5)
+    remarks = remark_lines(issue_df, selected_col, limit=8)
+
+    m1, m2, m3, m4 = st.columns(4)
     m1.metric("Selected Issue", selected_issue)
     m2.metric("Issue Waste", f"{issue_waste:,.3f} MT")
-    m3.metric("Affected Editions", f"{affected_editions:,}")
+    m3.metric("Issue Share", f"{issue_share:.1f}%")
+    m4.metric("Affected Editions", f"{affected_editions:,}")
 
-    st.markdown("### Edition-wise Problem Evidence")
+    st.markdown("## 1. Maintenance Intelligence Brief")
 
-    evidence_cols = [
-        "Edition Date", "Edition", "Edition Name", "Folder", "Type of Start",
-        selected_col, "Total Waste MT", "Department", "Waste Reason",
-        "RS", "PU", "PC", "BL", "Remarks"
-    ]
-
-    evidence_cols = [c for c in evidence_cols if c in issue_df.columns]
-
-    if issue_df.empty:
-        st.warning("No edition-level evidence found for selected issue in this date range.")
-    else:
-        st.dataframe(
-            round_display(issue_df[evidence_cols].sort_values(selected_col, ascending=False).head(50)),
-            use_container_width=True,
-            hide_index=True
-        )
-
-    st.markdown("### Phase-2 AI Maintenance Suggestion Preview")
-    st.info(
+    st.markdown(
         f"""
-        Phase 2 will generate a maintenance action plan for **{selected_issue}** using:
-        affected editions, issue waste MT, night-shift remarks, department, PU / PC / RS / BL locations,
-        and process knowledge.
+        <div style="
+            background:#ffffff;
+            border:1px solid #e5e7eb;
+            border-left:7px solid #0f766e;
+            border-radius:18px;
+            padding:20px;
+            margin-bottom:18px;
+            box-shadow:0 6px 16px rgba(15,23,42,0.07);
+        ">
+            <div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:10px;">
+                {selected_issue} Intelligence Summary
+            </div>
 
-        Output will include recommended checks, ownership, closure format, and PDF action plan.
-        """
+            <div style="font-size:14px;color:#334155;line-height:1.7;">
+                During the selected maintenance period, <b>{selected_issue}</b> generated
+                <b>{issue_waste:,.3f} MT</b> waste out of total <b>{total_waste:,.3f} MT</b>.
+                This represents approximately <b>{issue_share:.1f}%</b> of total waste for the selected period.
+                The issue is observed across <b>{affected_editions}</b> affected edition records.
+                <br><br>
+                <b>Operational Pattern:</b> {selected_issue} should be reviewed as a focused maintenance/process concern.
+                The uploaded records indicate issue concentration by editions, department remarks, and available PU / PC / RS / BL / folder locations.
+                <br><br>
+                <b>Likely Focus Area:</b> {rec["focus"]}<br>
+                <b>Suggested Ownership:</b> {rec["owner"]}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    st.button("📥 Download Maintenance Action Plan PDF - Phase 2", disabled=True)
+    detail_col1, detail_col2 = st.columns(2)
+
+    with detail_col1:
+        st.markdown("### Top Affected Editions")
+        st.markdown(f"<ul>{bullet_html(top_editions)}</ul>", unsafe_allow_html=True)
+
+        st.markdown("### Reported Waste Reasons")
+        st.markdown(f"<ul>{bullet_html(top_reasons)}</ul>", unsafe_allow_html=True)
+
+    with detail_col2:
+        st.markdown("### Department / Ownership Signals")
+        st.markdown(f"<ul>{bullet_html(top_departments)}</ul>", unsafe_allow_html=True)
+
+        location_lines = []
+        if top_folders:
+            location_lines.append("Folder: " + ", ".join(top_folders))
+        if top_pu:
+            location_lines.append("PU: " + ", ".join(top_pu))
+        if top_pc:
+            location_lines.append("PC: " + ", ".join(top_pc))
+        if top_rs:
+            location_lines.append("RS: " + ", ".join(top_rs))
+        if top_bl:
+            location_lines.append("BL: " + ", ".join(top_bl))
+
+        st.markdown("### Reported Hotspots")
+        st.markdown(f"<ul>{bullet_html(location_lines)}</ul>", unsafe_allow_html=True)
+
+    st.markdown("## 2. Priority Action Areas")
+
+    if issue_waste <= 0:
+        st.warning("No waste impact found for selected issue in this date range.")
+    else:
+        for i, item in enumerate(rec["priorities"], start=1):
+            title, action = item
+
+            evidence_parts = []
+
+            if top_pu:
+                evidence_parts.append("PU: " + ", ".join(top_pu[:3]))
+            if top_pc:
+                evidence_parts.append("PC: " + ", ".join(top_pc[:3]))
+            if top_reasons:
+                evidence_parts.append("Reason: " + ", ".join(top_reasons[:3]))
+
+            evidence = (
+                f"{selected_issue} caused {issue_waste:,.3f} MT waste across "
+                f"{affected_editions} edition records."
+            )
+
+            if evidence_parts:
+                evidence += " Reported signals include " + "; ".join(evidence_parts) + "."
+
+            priority_card(
+                title=f"Priority {i} — {title}",
+                evidence=evidence,
+                action=action,
+                owner=rec["owner"],
+            )
+
+    st.markdown("## 3. Night Shift Remarks Captured")
+
+    if remarks:
+        for idx, line in enumerate(remarks, start=1):
+            st.markdown(
+                f"""
+                <div style="
+                    background:#f8fafc;
+                    border:1px solid #e5e7eb;
+                    border-left:5px solid #64748b;
+                    border-radius:14px;
+                    padding:12px 14px;
+                    margin-bottom:8px;
+                    font-size:14px;
+                    color:#334155;
+                ">
+                    <b>{idx}.</b> {line}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+    else:
+        st.info("No night-shift remarks found for the selected issue and date range.")
+
+    st.markdown("## 4. AI Suggested Maintenance Checks")
+
+    st.markdown(
+        f"""
+        <div style="
+            background:#fff7ed;
+            border:1px solid #fed7aa;
+            border-left:7px solid #f97316;
+            border-radius:18px;
+            padding:18px;
+            margin-bottom:14px;
+        ">
+            <div style="font-size:17px;font-weight:800;color:#7c2d12;margin-bottom:8px;">
+                Recommended checks for {selected_issue}
+            </div>
+            <ul style="font-size:14px;color:#431407;line-height:1.8;">
+                {bullet_html(rec["checks"])}
+            </ul>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("## 5. Maintenance Action Plan PDF")
+    st.button("📥 Download Maintenance Action Plan PDF - Coming Soon", disabled=True)
 
 
 def render_performance_review_board(df, min_date, max_date, plant_name):
@@ -462,7 +947,7 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
             It will identify repeated waste patterns, improvement projects, and saving opportunities.
         </div>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     c1, c2 = st.columns(2)
@@ -473,7 +958,7 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
             min_date,
             min_value=min_date,
             max_value=max_date,
-            key="performance_start_date"
+            key="performance_start_date",
         )
 
     with c2:
@@ -482,7 +967,7 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
             max_date,
             min_value=min_date,
             max_value=max_date,
-            key="performance_end_date"
+            key="performance_end_date",
         )
 
     if perf_start > perf_end:
@@ -511,7 +996,7 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
 
     st.markdown("### Phase-2 Performance Review Preview")
     st.info(
-        f"""
+        """
         Phase 2 will generate a management review report covering repeated patterns,
         top waste editions, department ownership, PU / PC hotspots, improvement projects,
         and expected MT saving opportunity.
@@ -541,7 +1026,7 @@ def run_edition_waste_analyzer():
                 st.session_state["edition_start_date"],
                 st.session_state["edition_end_date"],
                 min_date,
-                max_date
+                max_date,
             )
             return
 
@@ -558,7 +1043,7 @@ def run_edition_waste_analyzer():
     uploaded_file = st.file_uploader(
         "Upload Edition Wise Wastage Excel file",
         type=["xlsx"],
-        key="edition_waste_upload"
+        key="edition_waste_upload",
     )
 
     if not uploaded_file:
@@ -581,7 +1066,7 @@ def run_edition_waste_analyzer():
     sheet_name = st.selectbox(
         "Detected Plant / Select Plant Sheet",
         available_sheets,
-        index=default_index
+        index=default_index,
     )
 
     df = read_edition_file(uploaded_file, sheet_name)
@@ -605,7 +1090,7 @@ def run_edition_waste_analyzer():
             "From Date",
             min_date,
             min_value=min_date,
-            max_value=max_date
+            max_value=max_date,
         )
 
     with col2:
@@ -613,7 +1098,7 @@ def run_edition_waste_analyzer():
             "To Date",
             max_date,
             min_value=min_date,
-            max_value=max_date
+            max_value=max_date,
         )
 
     if start_date > end_date:
