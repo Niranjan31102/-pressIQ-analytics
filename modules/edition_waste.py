@@ -952,11 +952,7 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
     k4.metric("Avg Waste / Edition", avg_waste_display)
 
     segment_df, top_segment = build_segment_df(filtered)
-    top_segment_row = segment_df.iloc[0]
-    top_segment_name = str(top_segment_row["Waste by Category"])
-    top_segment_mt = top_segment_row["Waste MT"]
-    top_segment_share = (top_segment_mt / total_waste_mt * 100) if total_waste_mt else 0
-
+    
     tab1, tab2, tab5 = st.tabs([
         "Waste Segment",
         "Edition Performance",
@@ -973,17 +969,11 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
             values="Waste MT",
             names="Waste by Category",
             hole=0.45,
-            title="Waste Segment Share",
+            title="Waste category Share",
         )
         st.plotly_chart(fig_pie, use_container_width=True)
 
-        st.markdown("## Top Insight")
-        st.info(
-            f"Top waste segment is **{top_segment_name}**. "
-            f"It contributed **{top_segment_mt:,.3f} MT**, which is approximately "
-            f"**{top_segment_share:.1f}%** of total waste in the selected period."
-        )
-
+        
     with tab2:
         st.markdown("## Edition Wise Waste Performance")
 
