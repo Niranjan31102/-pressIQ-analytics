@@ -1358,7 +1358,7 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
     segment_df, _ = build_segment_df(perf_df)
     p1, p2, p3, p4 = st.columns(4) 
     with p1:
-        st.metric("Total Waste", f"{total_waste:,.3f} MT")
+        st.metric("Total Waste", f"{total_waste:,.3f} (MT)")
     with p2:
         st.empty()
     with p3:
