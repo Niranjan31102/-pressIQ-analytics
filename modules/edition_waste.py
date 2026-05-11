@@ -419,9 +419,11 @@ def action_card(title, subtitle, points, button_text, button_key, target_view, a
             <div style="font-size:14px;color:#475569;margin-bottom:14px;">
                 {subtitle}
             </div>
+            {f'''
             <ul style="font-size:14px;color:#334155;line-height:1.8;">
                 {''.join([f'<li>{p}</li>' for p in points])}
             </ul>
+            ''' if points else ''}
         </div>
         """,
         unsafe_allow_html=True,
@@ -1052,37 +1054,25 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
 
     with action_col1:
         action_card(
-            title="Daily Maintenance Action Desk",
-            subtitle="For morning maintenance and engineering action planning.",
-            points=[
-                "Identify affected editions and waste issue",
-                "Use night-shift remarks and shop-floor language",
-                "Prepare maintenance priority list",
-                "Generate PDF action plan in Phase 2",
-            ],
-            button_text="Open Daily Maintenance Action Desk",
-            button_key="open_maintenance_desk",
-            target_view="maintenance",
-            accent_color="#2563eb",
-        )
-
-    with action_col2:
-        action_card(
             title="Performance Review Board",
-            subtitle="For plant head, production manager, and leadership review.",
-            points=[
-                "Review repeated waste patterns",
-                "Identify high-loss segments and editions",
-                "Build improvement projects",
-                "Estimate MT saving opportunity in Phase 2",
-            ],
+            subtitle="AI-powered plant performance and waste review dashboard.",
+            points=[],
             button_text="Open Performance Review Board",
             button_key="open_performance_board",
             target_view="performance",
             accent_color="#7c3aed",
         )
-
-
+    with action_col2:
+        action_card(
+            title="Daily Maintenance Action Desk",
+            subtitle="AI-powered maintenance planning and action desk.",
+            points=[],
+            button_text="Open Daily Maintenance Action Desk",
+            button_key="open_maintenance_desk",
+            target_view="maintenance",
+            accent_color="#2563eb",
+        )
+        
 def render_maintenance_action_desk(df, min_date, max_date, plant_name):
     if st.button("← Back to Summary", key="back_from_maintenance"):
         st.session_state["edition_view"] = "summary"
