@@ -1082,11 +1082,29 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
         )
         
 def render_maintenance_action_desk(df, min_date, max_date, plant_name):
-    scroll_to_top()
-    
     if st.button("← Back to Summary", key="back_from_maintenance"):
-        st.session_state["edition_view"] = "summary"
-        st.rerun()
+       st.session_state["edition_view"] = "summary"
+       st.rerun()
+    scroll_to_top()
+    st.markdown(
+        """
+        <div id="page-top"></div>
+        <script>
+            setTimeout(function() {
+                const topElement = window.parent.document.getElementById("page-top");
+                if (topElement) {
+                    topElement.scrollIntoView({behavior: "instant", block: "start"});
+                }
+                window.parent.scrollTo(0, 0);
+                const main = window.parent.document.querySelector('section.main');
+                if (main) {
+                    main.scrollTo(0, 0);
+                }
+            }, 100);
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
 
     st.markdown(f"## Daily Maintenance Action Desk - {plant_name}")
 
@@ -1333,6 +1351,10 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
     render_pressiq_ai_assistant()
     
 def render_performance_review_board(df, min_date, max_date, plant_name):
+    if st.button("← Back to Summary", key="back_from_performance"):
+        st.session_state["edition_view"] = "summary"
+        st.rerun()
+
     scroll_to_top()
     
     if st.button("← Back to Summary", key="back_from_performance"):
