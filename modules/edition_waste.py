@@ -1400,13 +1400,23 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
         .reset_index()
     )
 
-    edition_perf["Waste KG"] = edition_perf["Total_Waste_MT"] * 1000
-    
-    edition_perf["Waste KG / 1000 Print Order"] = edition_perf.apply(
-        lambda r: (r["Waste KG"] / r["Print_Order"] * 1000) if r["Print_Order"] else 0,
-        axis=1,
+    gnp_runs_df = (
+        work.assign(
+            GNP_Flag=work["GNP/SNP"].astype(str).str.upper().str.strip().eq("GNP")
+        )
+        .groupby(["Edition", "Edition Name"], dropna=False)["GNP_Flag"]
+        .sum()
+        .reset_index()
+        .rename(columns={"GNP_Flag": "GNP Runs"})
     )
 
+    edition_perf = edition_perf.merge(
+        gnp_runs_df,
+        on=["Edition", "Edition Name"],
+        how="left",
+    )
+
+    edition_perf["GNP Runs"] = edition_perf["GNP Runs"].fillna(0)
     edition_perf["Edition Detail"] = edition_perf.apply(
         lambda r: (
             clean_text_value(r["Edition"]) + " - " + clean_text_value(r["Edition Name"])
@@ -1416,6 +1426,23 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
         axis=1,
     )
 
+    edition_display = edition_perf[
+        [
+            "Edition Detail",
+            "Total_Waste_MT",
+            "Runs",
+            "Print_Order",
+            "Total_Pages",
+            "GNP Runs",
+        ]
+    ].rename(
+        columns={
+            "Total_Waste_MT": "Total Waste MT",
+            "Runs": "No. of Runs",
+            "Print_Order": "Print Order",
+            "Total_Pages": "Total Pages",
+        }
+    )
     edition_perf = edition_perf.sort_values("Total_Waste_MT", ascending=False)
     
     edition_perf["GNP Runs"] = work.groupby(
