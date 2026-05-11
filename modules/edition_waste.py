@@ -1404,7 +1404,7 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
 
     gnp_runs_df = (
         work.assign(
-            GNP_Flag=work["GNP/SNP"].astype(str).str.upper().str.strip().eq("GNP")
+            GNP_Flag=work["GNP/SNP"].astype(str).str.strip().isin(["1", "GNP", "gnp"])
         )
         .groupby(["Edition", "Edition Name"], dropna=False)["GNP_Flag"]
         .sum()
