@@ -1089,7 +1089,7 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
     total_waste_kg = maint_df["Total Waste MT"].sum() * 1000
     segment_kg_df = build_segment_kg_df(maint_df)
 
-    st.markdown("### Segment-wise Waste")
+    st.markdown("### Waste by Category")
     st.dataframe(
         round_display(segment_kg_df),
         use_container_width=True,
