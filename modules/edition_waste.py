@@ -904,14 +904,14 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
 
     st.dataframe(round_display(segment_df), use_container_width=True, hide_index=True)
 
-        fig_pie = px.pie(
-            segment_df,
-            values="Waste MT",
-            names="Waste by Category",
-            hole=0.45,
-            title="Waste category Share",
-        )
-        st.plotly_chart(fig_pie, use_container_width=True)
+    fig_pie = px.pie(
+        segment_df,
+        values="Waste MT",
+        names="Waste by Category",
+        hole=0.45,
+        title="Waste category Share",
+    )
+    st.plotly_chart(fig_pie, use_container_width=True)
 
 
     st.markdown("---")
