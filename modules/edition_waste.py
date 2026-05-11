@@ -1158,7 +1158,6 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
             mime="application/pdf",
         )
 
-        render_pressiq_ai_assistant(plant_name, maint_start, maint_end, maint_df)
         return      
 
     st.markdown("## 1. Maintenance Event Summary")
