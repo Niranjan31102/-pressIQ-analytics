@@ -1060,7 +1060,7 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
 
     with c1:
         maint_start = st.date_input(
-            "Maintenance From Date",
+            "From Date",
             max_date,
             min_value=min_date,
             max_value=max_date,
@@ -1069,7 +1069,7 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
 
     with c2:
         maint_end = st.date_input(
-            "Maintenance To Date",
+            "To Date",
             max_date,
             min_value=min_date,
             max_value=max_date,
