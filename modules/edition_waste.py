@@ -55,6 +55,9 @@ def read_edition_file(uploaded_file, sheet_name):
         "Main/Supplement": find_col(df, ["Edition (Main/Supl)", "Main/Supplement"]),
         "Press": find_col(df, ["Press", "Press No", "Press Number", "Machine"]),
         "Folder": find_col(df, ["Folder", "Folder Type", "Folder Used"]),
+        "Machine": find_col(df, ["Machine"]),
+        "Main Pages": find_col(df, ["Total Main Pages (Broad sheet)", "Main Pages", "Total Main Pages"]),
+        "Ballooned Pages": find_col(df, ["Total Balooned pages(Broad sheet)", "Total Ballooned Pages", "Ballooned Pages"]),
         "GNP/SNP": find_col(df, ["GNP", "SNP/GNP"]),
         "Complexity": find_col(df, ["Complexity"]),
         "Type of Start": find_col(df, ["Type of Start"]),
@@ -97,6 +100,8 @@ def read_edition_file(uploaded_file, sheet_name):
         "Pasting Kg",
         "Total Waste Kg",
         "Print Order",
+        "Main Pages",
+        "Ballooned Pages",
     ]
 
     for col in kg_cols:
@@ -105,6 +110,7 @@ def read_edition_file(uploaded_file, sheet_name):
     text_cols = [
         "Edition",
         "Edition Name",
+        "Machine",
         "Main/Supplement",
         "Press",
         "Folder",
@@ -132,6 +138,7 @@ def read_edition_file(uploaded_file, sheet_name):
     out["Other MT"] = out["Other Kg"] / 1000
     out["Pasting MT"] = out["Pasting Kg"] / 1000
     out["Total Waste MT"] = out["Total Waste Kg"] / 1000
+    out["Total Pages"] = out["Main Pages"] + out["Ballooned Pages"]
 
     return out
 
@@ -1318,7 +1325,7 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
             margin-bottom:18px;
         ">
             This board is designed for plant head, production manager, and leadership review.
-            It will identify repeated waste patterns, improvement projects, and saving opportunities.
+            It identifies edition loss, start-type loss, press-wise waste, and management focus areas.
         </div>
         """,
         unsafe_allow_html=True,
@@ -1328,7 +1335,7 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
 
     with c1:
         perf_start = st.date_input(
-            "Review From Date",
+            "From Date",
             min_date,
             min_value=min_date,
             max_value=max_date,
@@ -1337,7 +1344,7 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
 
     with c2:
         perf_end = st.date_input(
-            "Review To Date",
+            "To Date",
             max_date,
             min_value=min_date,
             max_value=max_date,
@@ -1353,33 +1360,306 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
     if perf_df.empty:
         st.warning("No data found for selected performance review date range.")
         return
-        
+
     total_waste = perf_df["Total Waste MT"].sum()
     segment_df, _ = build_segment_df(perf_df)
-    p1, p2, p3, p4 = st.columns(4) 
+
+    p1, p2, p3, p4 = st.columns(4)
+
     with p1:
-        st.metric("Total Waste", f"{total_waste:,.3f} (MT)")
+        st.metric("Total Waste", f"{total_waste:,.3f}(MT)")
+
     with p2:
         st.empty()
+
     with p3:
         st.empty()
+
     with p4:
         st.empty()
-        
-    st.markdown("### Waste by Category")    
+
+    st.markdown("### Waste by Category")
     st.dataframe(round_display(segment_df), use_container_width=True, hide_index=True)
 
-    st.markdown("### Phase-2 Performance Review Preview")
-    st.info(
-        """
-        Phase 2 will generate a management review report covering repeated patterns,
-        top waste editions, department ownership, PU / PC hotspots, improvement projects,
-        and expected MT saving opportunity.
-        """
+    st.markdown("---")
+    st.markdown("## Edition Loss Intelligence")
+
+    work = perf_df.copy()
+
+    if "Total Pages" not in work.columns:
+        work["Total Pages"] = 0
+
+    edition_perf = (
+        work.groupby(["Edition", "Edition Name"], dropna=False)
+        .agg(
+            Total_Waste_MT=("Total Waste MT", "sum"),
+            Runs=("Edition Name", "count"),
+            Print_Order=("Print Order", "sum"),
+            Total_Pages=("Total Pages", "sum"),
+        )
+        .reset_index()
     )
 
-    st.button("📥 Download Performance Review PDF - Phase 2", disabled=True)
+    edition_perf["Waste KG"] = edition_perf["Total_Waste_MT"] * 1000
+    edition_perf["Waste KG / 1000 Print Order"] = edition_perf.apply(
+        lambda r: (r["Waste KG"] / r["Print_Order"] * 1000) if r["Print_Order"] else 0,
+        axis=1,
+    )
 
+    edition_perf["Edition Detail"] = edition_perf.apply(
+        lambda r: (
+            clean_text_value(r["Edition"]) + " - " + clean_text_value(r["Edition Name"])
+            if clean_text_value(r["Edition"]) and clean_text_value(r["Edition Name"])
+            else clean_text_value(r["Edition Name"]) or clean_text_value(r["Edition"])
+        ),
+        axis=1,
+    )
+
+    edition_perf = edition_perf.sort_values("Total_Waste_MT", ascending=False)
+
+    edition_display = edition_perf[
+        [
+            "Edition Detail",
+            "Total_Waste_MT",
+            "Runs",
+            "Print_Order",
+            "Total_Pages",
+            "Waste KG / 1000 Print Order",
+        ]
+    ].rename(
+        columns={
+            "Total_Waste_MT": "Total Waste MT",
+            "Runs": "No. of Runs",
+            "Print_Order": "Print Order",
+            "Total_Pages": "Total Pages",
+        }
+    )
+
+    st.dataframe(round_display(edition_display), use_container_width=True, hide_index=True)
+
+    st.markdown("### Edition Drill-down")
+
+    for _, ed_row in edition_perf.head(15).iterrows():
+        edition = ed_row["Edition"]
+        edition_name = ed_row["Edition Name"]
+        edition_label = ed_row["Edition Detail"]
+
+        ed_detail = work[
+            (work["Edition"].astype(str) == str(edition)) &
+            (work["Edition Name"].astype(str) == str(edition_name))
+        ].copy()
+
+        with st.expander(
+            f"{edition_label} | Waste: {ed_row['Total_Waste_MT']:,.3f}(MT) | Runs: {ed_row['Runs']}"
+        ):
+            start_summary = (
+                ed_detail.groupby("Type of Start", dropna=False)
+                .agg(
+                    Runs=("Type of Start", "count"),
+                    Waste_MT=("Total Waste MT", "sum"),
+                )
+                .reset_index()
+                .sort_values("Waste_MT", ascending=False)
+            )
+
+            start_summary = start_summary.rename(
+                columns={
+                    "Type of Start": "Start Type",
+                    "Waste_MT": "Waste MT",
+                }
+            )
+
+            st.markdown("#### Start Type Split")
+            st.dataframe(round_display(start_summary), use_container_width=True, hide_index=True)
+
+            drill_cols = [
+                "Edition Date",
+                "Type of Start",
+                "Print Order",
+                "GNP/SNP",
+                "Total Pages",
+                "Total Waste MT",
+                "Waste Reason",
+                "Remarks",
+            ]
+
+            drill_cols = [c for c in drill_cols if c in ed_detail.columns]
+            drill_df = ed_detail[drill_cols].copy()
+
+            if "Edition Date" in drill_df.columns:
+                drill_df["Edition Date"] = pd.to_datetime(drill_df["Edition Date"], errors="coerce").dt.strftime("%d-%b-%Y")
+
+            st.markdown("#### Date-wise Issue Detail")
+            st.dataframe(round_display(drill_df), use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+    st.markdown("## Start Type Waste Review")
+
+    start_type_df = (
+        perf_df.groupby("Type of Start", dropna=False)
+        .agg(
+            Runs=("Type of Start", "count"),
+            Waste_MT=("Total Waste MT", "sum"),
+        )
+        .reset_index()
+        .rename(
+            columns={
+                "Type of Start": "Start Type",
+                "Waste_MT": "Waste MT",
+            }
+        )
+        .sort_values("Waste MT", ascending=False)
+    )
+
+    st.dataframe(round_display(start_type_df), use_container_width=True, hide_index=True)
+
+    s1, s2, s3 = st.columns(3)
+
+    def start_type_metric(label, search_terms, col):
+        temp = perf_df[
+            perf_df["Type of Start"].astype(str).str.lower().apply(
+                lambda x: any(term in x for term in search_terms)
+            )
+        ]
+        runs = len(temp)
+        waste = temp["Total Waste MT"].sum()
+        with col:
+            st.metric(label, f"{waste:,.3f}(MT)", f"{runs} Runs")
+
+    start_type_metric("Cold Start Waste", ["cold"], s1)
+    start_type_metric("Warm Planned Waste", ["warm-planned", "warm planned"], s2)
+    start_type_metric("Warm Unplanned Waste", ["warm- unplanned", "warm-unplanned", "warm unplanned"], s3)
+
+    st.markdown("---")
+    st.markdown("## Press Wise Waste Review")
+
+    press_source_col = "Folder"
+
+    if press_source_col not in perf_df.columns:
+        perf_df[press_source_col] = "Not specified"
+
+    press_df = (
+        perf_df.groupby(press_source_col, dropna=False)
+        .agg(
+            Runs=(press_source_col, "count"),
+            Total_Waste_MT=("Total Waste MT", "sum"),
+        )
+        .reset_index()
+        .rename(
+            columns={
+                press_source_col: "Press",
+                "Total_Waste_MT": "Total Waste MT",
+            }
+        )
+        .sort_values("Total Waste MT", ascending=False)
+    )
+
+    press_df["Avg Waste / Run MT"] = press_df.apply(
+        lambda r: r["Total Waste MT"] / r["Runs"] if r["Runs"] else 0,
+        axis=1,
+    )
+
+    st.dataframe(round_display(press_df), use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+    st.markdown("## Management Insight Preview")
+
+    top_edition_text = edition_perf.iloc[0]["Edition Detail"] if not edition_perf.empty else "Not available"
+    top_edition_waste = edition_perf.iloc[0]["Total_Waste_MT"] if not edition_perf.empty else 0
+
+    top_press_text = press_df.iloc[0]["Press"] if not press_df.empty else "Not available"
+    top_press_waste = press_df.iloc[0]["Total Waste MT"] if not press_df.empty else 0
+
+    top_start_text = start_type_df.iloc[0]["Start Type"] if not start_type_df.empty else "Not available"
+    top_start_waste = start_type_df.iloc[0]["Waste MT"] if not start_type_df.empty else 0
+
+    insight_col1, insight_col2 = st.columns(2)
+
+    with insight_col1:
+        st.markdown(
+            f"""
+            <div style="
+                background:#ffffff;
+                border:1px solid #e5e7eb;
+                border-left:7px solid #7c3aed;
+                border-radius:18px;
+                padding:18px;
+                margin-bottom:12px;
+            ">
+                <div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:8px;">
+                    Top Edition Loss
+                </div>
+                <div style="font-size:14px;color:#334155;">
+                    <b>{top_edition_text}</b> generated <b>{top_edition_waste:,.3f}(MT)</b> waste in the selected period.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            f"""
+            <div style="
+                background:#ffffff;
+                border:1px solid #e5e7eb;
+                border-left:7px solid #2563eb;
+                border-radius:18px;
+                padding:18px;
+                margin-bottom:12px;
+            ">
+                <div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:8px;">
+                    Top Press Loss
+                </div>
+                <div style="font-size:14px;color:#334155;">
+                    <b>{top_press_text}</b> generated <b>{top_press_waste:,.3f}(MT)</b> waste.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with insight_col2:
+        st.markdown(
+            f"""
+            <div style="
+                background:#ffffff;
+                border:1px solid #e5e7eb;
+                border-left:7px solid #f97316;
+                border-radius:18px;
+                padding:18px;
+                margin-bottom:12px;
+            ">
+                <div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:8px;">
+                    Start Type Focus
+                </div>
+                <div style="font-size:14px;color:#334155;">
+                    <b>{top_start_text}</b> contributed <b>{top_start_waste:,.3f}(MT)</b> waste.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            f"""
+            <div style="
+                background:#ffffff;
+                border:1px solid #e5e7eb;
+                border-left:7px solid #16a34a;
+                border-radius:18px;
+                padding:18px;
+                margin-bottom:12px;
+            ">
+                <div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:8px;">
+                    Review Focus
+                </div>
+                <div style="font-size:14px;color:#334155;">
+                    Management should review high-waste editions along with print order, GNP/SNP, start type, page load, and press-wise run count before deciding improvement action.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 def run_edition_waste_analyzer():
     if "edition_view" not in st.session_state:
