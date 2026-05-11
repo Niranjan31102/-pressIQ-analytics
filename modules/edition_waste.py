@@ -1353,18 +1353,19 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
     if perf_df.empty:
         st.warning("No data found for selected performance review date range.")
         return
-
+        
     total_waste = perf_df["Total Waste MT"].sum()
     segment_df, _ = build_segment_df(perf_df)
-    top_segment = segment_df.iloc[0]
-    saving_20 = top_segment["Waste MT"] * 0.20
-
-    p1, p2, p3, p4 = st.columns(4)
-    p1.metric("Total Waste", f"{total_waste:,.3f} MT")
-    p2.metric("Top Waste Segment", top_segment["Waste by Category"])
-    p3.metric("Top Segment Waste", f"{top_segment['Waste MT']:,.3f} MT")
-    p4.metric("20% Saving Scope", f"{saving_20:,.3f} MT")
-
+    p1, p2, p3, p4 = st.columns(4) 
+    with p1:
+        st.metric("Total Waste", f"{total_waste:,.3f} MT")
+    with p2:
+        st.empty()
+    with p3:
+        st.empty()
+    with p4:
+        st.empty()
+        
     st.markdown("### Waste Segment Ranking")
     st.dataframe(round_display(segment_df), use_container_width=True, hide_index=True)
 
