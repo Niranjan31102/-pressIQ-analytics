@@ -953,7 +953,7 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
 
     segment_df, top_segment = build_segment_df(filtered)
     top_segment_row = segment_df.iloc[0]
-    top_segment_name = str(top_segment_row["Waste Segment"]).replace(" Waste (MT)", "")
+    top_segment_name = str(top_segment_row["Waste by Category"])
     top_segment_mt = top_segment_row["Waste MT"]
     top_segment_share = (top_segment_mt / total_waste_mt * 100) if total_waste_mt else 0
 
