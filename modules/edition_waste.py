@@ -898,11 +898,9 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
 
     segment_df, top_segment = build_segment_df(filtered)
 
-    tab1, tab2, tab5 = st.tabs([
+    tab1 = st.tabs([
         "Waste Segment",
-        "Edition Performance",
-        "Download Report",
-    ])
+    ])[0]
 
     with tab1:
         st.markdown("## Waste by Category")
@@ -918,76 +916,6 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
         )
         st.plotly_chart(fig_pie, use_container_width=True)
 
-    with tab2:
-        st.markdown("## Edition Wise Waste Performance")
-
-        edition_summary = (
-            filtered.groupby(["Edition", "Edition Name"], dropna=False)["Total Waste MT"]
-            .sum()
-            .reset_index()
-            .sort_values("Total Waste MT", ascending=False)
-        )
-
-        st.dataframe(round_display(edition_summary.head(50)), use_container_width=True, hide_index=True)
-
-        fig_edition = px.bar(
-            edition_summary.head(20),
-            x="Total Waste MT",
-            y="Edition Name",
-            orientation="h",
-            text="Total Waste MT",
-            title="Top 20 Editions by Waste MT",
-        )
-        fig_edition.update_traces(texttemplate="%{text:.3f}")
-        st.plotly_chart(fig_edition, use_container_width=True)
-
-    with tab5:
-        st.markdown("## Download Report")
-
-        output = BytesIO()
-
-        export_cols = [
-            "Edition Date",
-            "Edition",
-            "Edition Name",
-            "Print Order",
-            "Main/Supplement",
-            "Folder",
-            "GNP/SNP",
-            "Complexity",
-            "Type of Start",
-            "White MT",
-            "Scum MT",
-            "Cut-off MT",
-            "Registration MT",
-            "Density Variation MT",
-            "Other MT",
-            "Pasting MT",
-            "Total Waste MT",
-            "Department",
-            "Waste Reason",
-            "RS",
-            "PU",
-            "PC",
-            "BL",
-            "Remarks",
-            "Corrective Action",
-        ]
-
-        export_cols = [c for c in export_cols if c in filtered.columns]
-        export_data = filtered[export_cols].copy()
-
-        with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-            round_display(export_data).to_excel(writer, index=False, sheet_name="Filtered Data")
-            round_display(segment_df).to_excel(writer, index=False, sheet_name="Waste Segment")
-            round_display(edition_summary).to_excel(writer, index=False, sheet_name="Edition Summary")
-
-        st.download_button(
-            "📥 Download Edition Wise Wastage Report",
-            data=output.getvalue(),
-            file_name="PressIQ_Edition_Wise_Wastage_Report.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
 
     st.markdown("---")
     st.markdown("## Choose Next Action")
