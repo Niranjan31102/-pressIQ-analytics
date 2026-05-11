@@ -1303,8 +1303,7 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
 
     ai_context = build_ai_context(plant_name, maint_start, maint_end, maint_df)
     render_pressiq_ai_assistant(ai_context)
-
-
+    
 def render_performance_review_board(df, min_date, max_date, plant_name):
     if st.button("← Back to Summary", key="back_from_performance"):
         st.session_state["edition_view"] = "summary"
@@ -1389,6 +1388,9 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
     if "Total Pages" not in work.columns:
         work["Total Pages"] = 0
 
+    if "GNP/SNP" not in work.columns:
+        work["GNP/SNP"] = ""
+
     edition_perf = (
         work.groupby(["Edition", "Edition Name"], dropna=False)
         .agg(
@@ -1417,6 +1419,7 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
     )
 
     edition_perf["GNP Runs"] = edition_perf["GNP Runs"].fillna(0)
+
     edition_perf["Edition Detail"] = edition_perf.apply(
         lambda r: (
             clean_text_value(r["Edition"]) + " - " + clean_text_value(r["Edition Name"])
@@ -1426,30 +1429,7 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
         axis=1,
     )
 
-    edition_display = edition_perf[
-        [
-            "Edition Detail",
-            "Total_Waste_MT",
-            "Runs",
-            "Print_Order",
-            "Total_Pages",
-            "GNP Runs",
-        ]
-    ].rename(
-        columns={
-            "Total_Waste_MT": "Total Waste MT",
-            "Runs": "No. of Runs",
-            "Print_Order": "Print Order",
-            "Total_Pages": "Total Pages",
-        }
-    )
     edition_perf = edition_perf.sort_values("Total_Waste_MT", ascending=False)
-    
-    edition_perf["GNP Runs"] = work.groupby(
-        ["Edition", "Edition Name"]
-    )["GNP/SNP"].transform(
-        lambda x: (x.astype(str).str.upper() == "GNP").sum()
-    )
 
     edition_display = edition_perf[
         [
@@ -1461,15 +1441,6 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
             "GNP Runs",
         ]
     ].rename(
-        columns={
-            "Total_Waste_MT": "Total Waste MT",
-            "Runs": "No. of Runs",
-            "Print_Order": "Print Order",
-            "Total_Pages": "Total Pages",
-        }
-    )
-    
-    
         columns={
             "Total_Waste_MT": "Total Waste MT",
             "Runs": "No. of Runs",
@@ -1530,7 +1501,10 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
             drill_df = ed_detail[drill_cols].copy()
 
             if "Edition Date" in drill_df.columns:
-                drill_df["Edition Date"] = pd.to_datetime(drill_df["Edition Date"], errors="coerce").dt.strftime("%d-%b-%Y")
+                drill_df["Edition Date"] = pd.to_datetime(
+                    drill_df["Edition Date"],
+                    errors="coerce",
+                ).dt.strftime("%d-%b-%Y")
 
             st.markdown("#### Date-wise Issue Detail")
             st.dataframe(round_display(drill_df), use_container_width=True, hide_index=True)
@@ -1703,6 +1677,7 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
             """,
             unsafe_allow_html=True,
         )
+
 
 def run_edition_waste_analyzer():
     if "edition_view" not in st.session_state:
