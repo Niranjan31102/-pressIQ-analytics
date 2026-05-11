@@ -434,18 +434,18 @@ def action_card(title, subtitle, points, button_text, button_key, target_view, a
 
 def build_segment_df(filtered):
     top_segment = {
-        "White Waste (MT)": filtered["White MT"].sum(),
-        "Scum Waste (MT)": filtered["Scum MT"].sum(),
-        "Cut-off Waste (MT)": filtered["Cut-off MT"].sum(),
-        "Registration Waste (MT)": filtered["Registration MT"].sum(),
-        "Density Variation Waste (MT)": filtered["Density Variation MT"].sum(),
-        "Other Waste (MT)": filtered["Other MT"].sum(),
-        "Pasting Waste (MT)": filtered["Pasting MT"].sum(),
+        "White Waste": filtered["White MT"].sum(),
+        "Scum Waste": filtered["Scum MT"].sum(),
+        "Cut-off Waste": filtered["Cut-off MT"].sum(),
+        "Registration Waste": filtered["Registration MT"].sum(),
+        "Density Variation Waste": filtered["Density Variation MT"].sum(),
+        "Other Waste": filtered["Other MT"].sum(),
+        "Pasting Waste": filtered["Pasting MT"].sum(),
     }
 
     segment_df = pd.DataFrame({
-        "Waste Segment": list(top_segment.keys()),
-        "Waste MT": list(top_segment.values()),
+    "Waste by Category": list(top_segment.keys()),
+    "Waste MT": list(top_segment.values()),
     }).sort_values("Waste MT", ascending=False)
 
     return segment_df, top_segment
@@ -939,15 +939,17 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
     total_print_order = filtered["Print Order"].sum()
     total_editions = len(filtered)
     avg_waste_mt = total_waste_mt / total_editions if total_editions else 0
-
+    total_waste_display = f"{total_waste_mt:,.3f}(MT)"
+    avg_waste_display = f"{avg_waste_mt:,.3f}(MT)"
+    
     st.markdown(f"## Edition Wise Wastage Summary - {plant_name}")
     st.caption(f"Selected Period: {start_date} to {end_date}")
 
     k1, k2, k3, k4 = st.columns(4)
     k1.metric("Total Editions", f"{total_editions:,}")
-    k2.metric("Total Waste", f"{total_waste_mt:,.3f} MT")
+    k2.metric("Total Waste", total_waste_display)
     k3.metric("Total Print Order", f"{total_print_order:,.0f}")
-    k4.metric("Avg Waste / Edition", f"{avg_waste_mt:,.3f} MT")
+    k4.metric("Avg Waste / Edition", avg_waste_display)
 
     segment_df, top_segment = build_segment_df(filtered)
     top_segment_row = segment_df.iloc[0]
@@ -962,14 +964,14 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
     ])
 
     with tab1:
-        st.markdown("## Waste Segment Breakdown")
+        st.markdown("## Waste by Category")
 
         st.dataframe(round_display(segment_df), use_container_width=True, hide_index=True)
 
         fig_pie = px.pie(
             segment_df,
             values="Waste MT",
-            names="Waste Segment",
+            names="Waste by Category",
             hole=0.45,
             title="Waste Segment Share",
         )
