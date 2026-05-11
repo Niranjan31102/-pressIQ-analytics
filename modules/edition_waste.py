@@ -398,7 +398,15 @@ def priority_card(title, evidence, action, owner):
         """,
         unsafe_allow_html=True,
     )
-
+def scroll_to_top():
+    st.markdown(
+        """
+        <script>
+            window.parent.document.querySelector('section.main').scrollTo(0, 0);
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
 
 def action_card(title, subtitle, points, button_text, button_key, target_view, accent_color):
     st.markdown(
@@ -1074,6 +1082,8 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
         )
         
 def render_maintenance_action_desk(df, min_date, max_date, plant_name):
+    scroll_to_top()
+    
     if st.button("← Back to Summary", key="back_from_maintenance"):
         st.session_state["edition_view"] = "summary"
         st.rerun()
@@ -1321,7 +1331,10 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
         st.error("PDF package missing. Add reportlab to requirements.txt and reboot app.")
 
     render_pressiq_ai_assistant()
+    
 def render_performance_review_board(df, min_date, max_date, plant_name):
+    scroll_to_top()
+    
     if st.button("← Back to Summary", key="back_from_performance"):
         st.session_state["edition_view"] = "summary"
         st.rerun()
