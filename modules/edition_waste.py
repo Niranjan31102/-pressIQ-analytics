@@ -1144,41 +1144,30 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
     st.markdown("## Total Waste Overview")
 
     o1, o2, o3, o4 = st.columns(4)
-    o1.metric("Total Waste", f"{total_waste_kg:,.0f} KG")
-    with 02: 
+
+    with o1:
+        st.metric("Total Waste", f"{total_waste_kg:,.0f} KG")
+
+    with o2:
         st.markdown(
             f"""
-            <div style="
-            background:#ffffff;
-            border:1px solid #e5e7eb;
-            border-radius:12px;
-            padding:14px 16px;
-            height:95px;
-        ">
-        <div style="
-            font-size:13px;
-            color:#64748b;
-            margin-bottom:8px;
-            font-weight:600;
-        ">
-            Selected Issue
-        </div>
+            <div style="border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;height:95px;">
+                <div style="font-size:13px;color:#64748b;font-weight:600;margin-bottom:8px;">
+                    Selected Issue
+                </div>
+                <div style="font-size:22px;font-weight:700;color:#0f172a;line-height:1.2;">
+                    {selected_issue}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-        <div style="
-            font-size:24px;
-            font-weight:700;
-            color:#0f172a;
-            line-height:1.2;
-            word-break:break-word;
-        ">
-            {selected_issue}
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-    o3.metric("Issue Waste", f"{issue_waste_kg:,.0f} KG")
-    o4.metric("Issue Share", f"{issue_share:.1f}%")
+    with o3:
+        st.metric("Issue Waste", f"{issue_waste_kg:,.0f} KG")
+
+    with o4:
+        st.metric("Issue Share", f"{issue_share:.1f}%")
 
     if selected_issue == "White Waste":
         st.markdown("## 1. White Waste Summary")
