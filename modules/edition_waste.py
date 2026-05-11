@@ -638,7 +638,7 @@ User question:
         return f"Gemini Error: {e}"
 
 
-def render_pressiq_ai_assistant(plant_name, maint_start, maint_end, maint_df):
+
     st.markdown("---")
     st.markdown("## Ask PressIQ Assistant")
 
@@ -1257,7 +1257,7 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
             file_name=f"PressIQ_Daily_Maintenance_Action_Report_{plant_name}_{maint_start}_{maint_end}.pdf",
             mime="application/pdf",
         )
-    render_pressiq_ai_assistant(plant_name, maint_start, maint_end, maint_df)
+    
     else:
         st.error("PDF package missing. Add reportlab to requirements.txt and reboot app.")
 
