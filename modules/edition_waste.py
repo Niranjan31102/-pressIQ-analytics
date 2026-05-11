@@ -666,7 +666,22 @@ User question:
     if st.session_state.get("pressiq_ai_answer"):
         st.markdown("### PressIQ Answer")
         st.write(st.session_state["pressiq_ai_answer"])
+def render_pressiq_ai_assistant():
+    st.markdown("---")
+    st.markdown("## Ask PressIQ Assistant")
 
+    user_question = st.text_input(
+        "Type your question",
+        placeholder="Example: How does scum occur in newspaper printing?",
+        key="pressiq_ai_question",
+    )
+
+    if st.button("Ask PressIQ", key="ask_pressiq_button"):
+        if not user_question.strip():
+            st.warning("Please type a question.")
+        else:
+            st.info("AI Assistant UI is working. Gemini connection will be added next.")
+            
 def make_pdf_paragraph(text, style):
     text = escape(clean_text_value(text))
     return Paragraph(text, style)
