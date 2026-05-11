@@ -1190,9 +1190,6 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
         st.markdown("### Top Affected Editions")
         st.markdown(f"<ul>{bullet_html(top_editions)}</ul>", unsafe_allow_html=True)
 
-        st.markdown("### Reported Waste Reasons")
-        st.markdown(f"<ul>{bullet_html(top_reasons)}</ul>", unsafe_allow_html=True)
-
     with detail_col2:
         st.markdown("### Department / Ownership Signals")
         st.markdown(f"<ul>{bullet_html(top_departments)}</ul>", unsafe_allow_html=True)
