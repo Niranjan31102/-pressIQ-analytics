@@ -4,7 +4,11 @@ import plotly.express as px
 from io import BytesIO
 from datetime import datetime
 from xml.sax.saxutils import escape
-
+try:
+    from google import genai
+    GEMINI_AVAILABLE = True
+except Exception:
+    GEMINI_AVAILABLE = False
 try:
     from reportlab.lib import colors
     from reportlab.lib.enums import TA_CENTER, TA_LEFT
@@ -544,7 +548,124 @@ def build_all_remarks_df(df):
         "Remarks",
         "Total Waste KG",
     ]].sort_values("Date")
+def build_ai_context(plant_name, maint_start, maint_end, maint_df):
+    total_waste_kg = maint_df["Total Waste MT"].sum() * 1000
+    segment_df = build_segment_kg_df(maint_df)
+    action_area_df = build_reported_action_area_df(maint_df)
+    remarks_df = build_all_remarks_df(maint_df)
 
+    segment_lines = [
+        f"{row['Waste Segment']}: {row['Waste KG']:,.0f} KG"
+        for _, row in segment_df.iterrows()
+    ]
+
+    action_lines = []
+    for _, row in action_area_df.head(15).iterrows():
+        action_lines.append(
+            f"Issue: {row['Waste Reason']} | Department: {row['Department']} | "
+            f"Area: {row['Reported Area']} | Waste: {row['Total Waste KG']:,.0f} KG"
+        )
+
+    remark_lines_text = []
+    if not remarks_df.empty:
+        for _, row in remarks_df.head(20).iterrows():
+            remark_lines_text.append(
+                f"{row['Date']} | {row['Edition Detail']} | Issue: {row['Waste Reason']} | "
+                f"Area: {row['Reported Area']} | Remark: {row['Remarks']}"
+            )
+
+    return f"""
+Plant: {plant_name}
+Selected maintenance period: {maint_start} to {maint_end}
+Total waste: {total_waste_kg:,.0f} KG
+
+Segment-wise waste:
+{chr(10).join(segment_lines)}
+
+Reported action areas:
+{chr(10).join(action_lines) if action_lines else "No reported action areas available."}
+
+Night shift remarks:
+{chr(10).join(remark_lines_text) if remark_lines_text else "No night shift remarks available."}
+"""
+
+
+def ask_pressiq_ai(question, context_text):
+    if not GEMINI_AVAILABLE:
+        return "Gemini package is not installed. Add google-genai to requirements.txt and reboot the app."
+
+    api_key = st.secrets.get("GEMINI_API_KEY", "")
+
+    if not api_key:
+        return "Gemini API key is missing. Add GEMINI_API_KEY in Streamlit Secrets."
+
+    try:
+        client = genai.Client(api_key=api_key)
+
+        prompt = f"""
+You are PressIQ AI Assistant for newspaper offset printing operations.
+
+Answer in simple and practical language for maintenance, production, and shopfloor teams.
+
+Use these two knowledge sources:
+1. General newspaper offset printing knowledge.
+2. Uploaded file context provided below.
+
+Rules:
+- If the question is about the uploaded report, use the uploaded context.
+- If the question is about printing process, explain practically.
+- Do not invent plant-approved standards.
+- If exact plant standard is required, say it should be checked with plant SOP, chemical supplier, or process standard.
+- Keep the answer structured, direct, and action-oriented.
+- Use KG where waste quantity is discussed.
+- Avoid unnecessary long theory.
+
+Uploaded report context:
+{context_text}
+
+User question:
+{question}
+"""
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+        )
+
+        return response.text
+
+    except Exception as e:
+        return f"Gemini Error: {e}"
+
+
+def render_pressiq_ai_assistant(plant_name, maint_start, maint_end, maint_df):
+    st.markdown("---")
+    st.markdown("## Ask PressIQ Assistant")
+
+    st.caption(
+        "Ask about this uploaded report, scum, registration, dampening, cut-off, consumables, maintenance checks, or printing process."
+    )
+
+    user_question = st.text_input(
+        "Type your question",
+        placeholder="Example: How does scum occur in newspaper printing?",
+        key="pressiq_ai_question",
+    )
+
+    if st.button("Ask PressIQ", key="ask_pressiq_button"):
+        if not user_question.strip():
+            st.warning("Please type a question.")
+        else:
+            ai_context = build_ai_context(plant_name, maint_start, maint_end, maint_df)
+
+            with st.spinner("PressIQ Assistant is thinking..."):
+                answer = ask_pressiq_ai(user_question, ai_context)
+
+            st.session_state["pressiq_ai_answer"] = answer
+
+    if st.session_state.get("pressiq_ai_answer"):
+        st.markdown("### PressIQ Answer")
+        st.write(st.session_state["pressiq_ai_answer"])
 
 def make_pdf_paragraph(text, style):
     text = escape(clean_text_value(text))
@@ -1031,15 +1152,14 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
         if REPORTLAB_AVAILABLE:
             pdf_buffer = generate_maintenance_pdf(plant_name, maint_start, maint_end, maint_df)
             st.download_button(
-                "📥 Download Maintenance Action Plan PDF",
-                data=pdf_buffer.getvalue(),
-                file_name=f"PressIQ_Daily_Maintenance_Action_Report_{plant_name}_{maint_start}_{maint_end}.pdf",
-                mime="application/pdf",
-            )
-        else:
-            st.error("PDF package missing. Add reportlab to requirements.txt and reboot app.")
+            "📥 Download Maintenance Action Plan PDF",
+            data=pdf_buffer.getvalue(),
+            file_name=f"PressIQ_Daily_Maintenance_Action_Report_{plant_name}_{maint_start}_{maint_end}.pdf",
+            mime="application/pdf",
+        )
 
-        return
+        render_pressiq_ai_assistant(plant_name, maint_start, maint_end, maint_df)
+        return      
 
     st.markdown("## 1. Maintenance Event Summary")
 
@@ -1137,6 +1257,7 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
             file_name=f"PressIQ_Daily_Maintenance_Action_Report_{plant_name}_{maint_start}_{maint_end}.pdf",
             mime="application/pdf",
         )
+    render_pressiq_ai_assistant(plant_name, maint_start, maint_end, maint_df)
     else:
         st.error("PDF package missing. Add reportlab to requirements.txt and reboot app.")
 
