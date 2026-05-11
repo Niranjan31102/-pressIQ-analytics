@@ -898,14 +898,11 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
 
     segment_df, top_segment = build_segment_df(filtered)
 
-    tab1 = st.tabs([
-        "Waste Segment",
-    ])[0]
 
-    with tab1:
-        st.markdown("## Waste by Category")
+    
+    st.markdown("## Waste by Category")
 
-        st.dataframe(round_display(segment_df), use_container_width=True, hide_index=True)
+    st.dataframe(round_display(segment_df), use_container_width=True, hide_index=True)
 
         fig_pie = px.pie(
             segment_df,
