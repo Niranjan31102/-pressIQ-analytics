@@ -58,7 +58,7 @@ def read_edition_file(uploaded_file, sheet_name):
         "Machine": find_col(df, ["Machine"]),
         "Main Pages": find_col(df, ["Total Main Pages (Broad sheet)", "Main Pages", "Total Main Pages"]),
         "Ballooned Pages": find_col(df, ["Total Balooned pages(Broad sheet)", "Total Ballooned Pages", "Ballooned Pages"]),
-        "GNP/SNP": find_col(df, ["GNP", "SNP/GNP"]),
+        "GNP/SNP": find_col(df, ["GNP/SNP", "SNP/GNP", "GNP", "SNP"]),
         "Complexity": find_col(df, ["Complexity"]),
         "Type of Start": find_col(df, ["Type of Start"]),
         "White Kg": find_col(df, ["White copies in Kg"]),
