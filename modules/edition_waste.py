@@ -4,11 +4,13 @@ import plotly.express as px
 from io import BytesIO
 from datetime import datetime
 from xml.sax.saxutils import escape
+
 try:
     from google import genai
     GEMINI_AVAILABLE = True
 except Exception:
     GEMINI_AVAILABLE = False
+
 try:
     from reportlab.lib import colors
     from reportlab.lib.enums import TA_CENTER, TA_LEFT
@@ -56,7 +58,6 @@ def read_edition_file(uploaded_file, sheet_name):
         "GNP/SNP": find_col(df, ["GNP", "SNP/GNP"]),
         "Complexity": find_col(df, ["Complexity"]),
         "Type of Start": find_col(df, ["Type of Start"]),
-
         "White Kg": find_col(df, ["White copies in Kg"]),
         "Scum Kg": find_col(df, ["Scum Copies in Kg"]),
         "Cut-off Kg": find_col(df, ["Cut-off Copies in Kg"]),
@@ -65,7 +66,6 @@ def read_edition_file(uploaded_file, sheet_name):
         "Other Kg": find_col(df, ["Other waste copies in Kg"]),
         "Pasting Kg": find_col(df, ["Total pasting copies in Kg"]),
         "Total Waste Kg": find_col(df, ["Total waste in KG", "Total Waste in KG"]),
-
         "Department": find_col(df, ["Department", "Dept"]),
         "Waste Reason": find_col(df, ["Waste Reason", "Reason", "Reason for Waste"]),
         "RS": find_col(df, ["RS", "RS No", "Reelstand", "Reel Stand"]),
@@ -398,6 +398,8 @@ def priority_card(title, evidence, action, owner):
         """,
         unsafe_allow_html=True,
     )
+
+
 def scroll_to_top():
     st.markdown(
         """
@@ -407,6 +409,7 @@ def scroll_to_top():
         """,
         unsafe_allow_html=True,
     )
+
 
 def action_card(title, subtitle, points, button_text, button_key, target_view, accent_color):
     st.markdown(
@@ -454,8 +457,8 @@ def build_segment_df(filtered):
     }
 
     segment_df = pd.DataFrame({
-    "Waste by Category": list(top_segment.keys()),
-    "Waste MT": list(top_segment.values()),
+        "Waste by Category": list(top_segment.keys()),
+        "Waste MT": list(top_segment.values()),
     }).sort_values("Waste MT", ascending=False)
 
     return segment_df, top_segment
@@ -545,7 +548,7 @@ def build_all_remarks_df(df):
     work["Date"] = pd.to_datetime(work["Edition Date"], errors="coerce").dt.strftime("%d-%b-%Y")
     work["Edition Detail"] = work.apply(
         lambda r: clean_text_value(r.get("Edition", "")) + " - " + clean_text_value(r.get("Edition Name", "")),
-        axis=1
+        axis=1,
     )
     work["Reported Area"] = work.apply(combine_area, axis=1)
     work["Total Waste KG"] = work["Total Waste MT"] * 1000
@@ -558,6 +561,8 @@ def build_all_remarks_df(df):
         "Remarks",
         "Total Waste KG",
     ]].sort_values("Date")
+
+
 def build_ai_context(plant_name, maint_start, maint_end, maint_df):
     total_waste_kg = maint_df["Total Waste MT"].sum() * 1000
     segment_df = build_segment_kg_df(maint_df)
@@ -600,84 +605,7 @@ Night shift remarks:
 """
 
 
-def ask_pressiq_ai(question, context_text):
-    if not GEMINI_AVAILABLE:
-        return "Gemini package is not installed. Add google-genai to requirements.txt and reboot the app."
-
-    api_key = st.secrets.get("GEMINI_API_KEY", "")
-
-    if not api_key:
-        return "Gemini API key is missing. Add GEMINI_API_KEY in Streamlit Secrets."
-
-    try:
-        client = genai.Client(api_key=api_key)
-
-        prompt = f"""
-You are PressIQ AI Assistant for newspaper offset printing operations.
-
-Answer in simple and practical language for maintenance, production, and shopfloor teams.
-
-Use these two knowledge sources:
-1. General newspaper offset printing knowledge.
-2. Uploaded file context provided below.
-
-Rules:
-- If the question is about the uploaded report, use the uploaded context.
-- If the question is about printing process, explain practically.
-- Do not invent plant-approved standards.
-- If exact plant standard is required, say it should be checked with plant SOP, chemical supplier, or process standard.
-- Keep the answer structured, direct, and action-oriented.
-- Use KG where waste quantity is discussed.
-- Avoid unnecessary long theory.
-
-Uploaded report context:
-{context_text}
-
-User question:
-{question}
-"""
-
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-        )
-
-        return response.text
-
-    except Exception as e:
-        return f"Gemini Error: {e}"
-
-
-
-    st.markdown("---")
-    st.markdown("## Ask PressIQ Assistant")
-
-    st.caption(
-        "Ask about this uploaded report, scum, registration, dampening, cut-off, consumables, maintenance checks, or printing process."
-    )
-
-    user_question = st.text_input(
-        "Type your question",
-        placeholder="Example: How does scum occur in newspaper printing?",
-        key="pressiq_ai_question",
-    )
-
-    if st.button("Ask PressIQ", key="ask_pressiq_button"):
-        if not user_question.strip():
-            st.warning("Please type a question.")
-        else:
-            ai_context = build_ai_context(plant_name, maint_start, maint_end, maint_df)
-
-            with st.spinner("PressIQ Assistant is thinking..."):
-                answer = ask_pressiq_ai(user_question, ai_context)
-
-            st.session_state["pressiq_ai_answer"] = answer
-
-    if st.session_state.get("pressiq_ai_answer"):
-        st.markdown("### PressIQ Answer")
-        st.write(st.session_state["pressiq_ai_answer"])
-        
-def ask_pressiq_ai(question):
+def ask_pressiq_ai(question, context_text=None):
     if not GEMINI_AVAILABLE:
         return "Gemini package is not installed. Please add google-genai in requirements.txt and reboot app."
 
@@ -689,29 +617,28 @@ def ask_pressiq_ai(question):
     try:
         client = genai.Client(api_key=api_key)
 
+        uploaded_context = context_text if context_text else "No uploaded report context provided."
+
         prompt = f"""
 You are PressIQ AI Assistant for newspaper offset printing operations.
 
-Answer in simple, practical language for maintenance and production teams.
+Answer in simple, practical language for maintenance, production, and shopfloor teams.
 
-You can answer questions about:
-- scum
-- registration issue
-- cut-off variation
-- dampening water
-- ink-water balance
-- blanket
-- plate
-- rollers
-- consumables
-- newspaper printing process
-- maintenance checks
+Use:
+1. General newspaper offset printing knowledge.
+2. Uploaded report context when available.
 
 Rules:
-- Keep answer practical and action-oriented.
-- Do not invent plant-specific standards.
-- If exact plant standard is required, say to check plant SOP or chemical supplier recommendation.
+- If question is about uploaded report, use uploaded context.
+- If question is about printing process, explain practically.
+- Do not invent plant-approved standards.
+- If exact plant standard is required, say it should be checked with plant SOP, chemical supplier, or process standard.
+- Keep the answer structured, direct, and action-oriented.
+- Use KG where waste quantity is discussed.
 - Avoid unnecessary long theory.
+
+Uploaded report context:
+{uploaded_context}
 
 User question:
 {question}
@@ -728,17 +655,17 @@ User question:
         return f"Gemini Error: {e}"
 
 
-def render_pressiq_ai_assistant():
+def render_pressiq_ai_assistant(context_text=None):
     st.markdown("---")
     st.markdown("## Ask PressIQ Assistant")
 
     st.caption(
-        "Ask about scum, registration, dampening, cut-off, consumables, maintenance checks, or newspaper printing process."
+        "Ask about this report, scum, registration, dampening, cut-off, consumables, maintenance checks, or newspaper printing process."
     )
 
     user_question = st.text_input(
         "Type your question",
-        placeholder="Example: How does scum occur in newspaper printing?",
+        placeholder="Example: Which issue needs maintenance priority from this report?",
         key="pressiq_ai_question",
     )
 
@@ -747,14 +674,15 @@ def render_pressiq_ai_assistant():
             st.warning("Please type a question.")
         else:
             with st.spinner("PressIQ Assistant is thinking..."):
-                answer = ask_pressiq_ai(user_question)
+                answer = ask_pressiq_ai(user_question, context_text)
 
             st.session_state["pressiq_ai_answer"] = answer
 
     if st.session_state.get("pressiq_ai_answer"):
         st.markdown("### PressIQ Answer")
         st.write(st.session_state["pressiq_ai_answer"])
-        
+
+
 def make_pdf_paragraph(text, style):
     text = escape(clean_text_value(text))
     return Paragraph(text, style)
@@ -951,7 +879,7 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
     avg_waste_mt = total_waste_mt / total_editions if total_editions else 0
     total_waste_display = f"{total_waste_mt:,.3f}(MT)"
     avg_waste_display = f"{avg_waste_mt:,.3f}(MT)"
-    
+
     st.markdown(f"## Edition Wise Wastage Summary - {plant_name}")
     st.caption(f"Selected Period: {start_date} to {end_date}")
 
@@ -962,7 +890,7 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
     k4.metric("Avg Waste / Edition", avg_waste_display)
 
     segment_df, top_segment = build_segment_df(filtered)
-    
+
     tab1, tab2, tab5 = st.tabs([
         "Waste Segment",
         "Edition Performance",
@@ -983,7 +911,6 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
         )
         st.plotly_chart(fig_pie, use_container_width=True)
 
-        
     with tab2:
         st.markdown("## Edition Wise Waste Performance")
 
@@ -1080,12 +1007,15 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
             target_view="maintenance",
             accent_color="#2563eb",
         )
-        
+
+
 def render_maintenance_action_desk(df, min_date, max_date, plant_name):
     if st.button("← Back to Summary", key="back_from_maintenance"):
-       st.session_state["edition_view"] = "summary"
-       st.rerun()
+        st.session_state["edition_view"] = "summary"
+        st.rerun()
+
     scroll_to_top()
+
     st.markdown(
         """
         <div id="page-top"></div>
@@ -1159,6 +1089,13 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
     total_waste_kg = maint_df["Total Waste MT"].sum() * 1000
     segment_kg_df = build_segment_kg_df(maint_df)
 
+    st.markdown("### Segment-wise Waste")
+    st.dataframe(
+        round_display(segment_kg_df),
+        use_container_width=True,
+        hide_index=True,
+    )
+
     issue_options = [
         "Registration Waste",
         "Scum Waste",
@@ -1212,13 +1149,6 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
     o3.metric("Issue Waste", f"{issue_waste_kg:,.0f} KG")
     o4.metric("Issue Share", f"{issue_share:.1f}%")
 
-    st.markdown("### Segment-wise Waste")
-    st.dataframe(
-        round_display(segment_kg_df),
-        use_container_width=True,
-        hide_index=True,
-    )
-
     if selected_issue == "White Waste":
         st.markdown("## 1. White Waste Summary")
 
@@ -1240,13 +1170,17 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
         if REPORTLAB_AVAILABLE:
             pdf_buffer = generate_maintenance_pdf(plant_name, maint_start, maint_end, maint_df)
             st.download_button(
-            "📥 Download Maintenance Action Plan PDF",
-            data=pdf_buffer.getvalue(),
-            file_name=f"PressIQ_Daily_Maintenance_Action_Report_{plant_name}_{maint_start}_{maint_end}.pdf",
-            mime="application/pdf",
-        )
+                "📥 Download Maintenance Action Plan PDF",
+                data=pdf_buffer.getvalue(),
+                file_name=f"PressIQ_Daily_Maintenance_Action_Report_{plant_name}_{maint_start}_{maint_end}.pdf",
+                mime="application/pdf",
+            )
+        else:
+            st.error("PDF package missing. Add reportlab to requirements.txt and reboot app.")
 
-        return      
+        ai_context = build_ai_context(plant_name, maint_start, maint_end, maint_df)
+        render_pressiq_ai_assistant(ai_context)
+        return
 
     st.markdown("## 1. Maintenance Event Summary")
 
@@ -1344,22 +1278,19 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
             file_name=f"PressIQ_Daily_Maintenance_Action_Report_{plant_name}_{maint_start}_{maint_end}.pdf",
             mime="application/pdf",
         )
-    
     else:
         st.error("PDF package missing. Add reportlab to requirements.txt and reboot app.")
 
-    render_pressiq_ai_assistant()
-    
+    ai_context = build_ai_context(plant_name, maint_start, maint_end, maint_df)
+    render_pressiq_ai_assistant(ai_context)
+
+
 def render_performance_review_board(df, min_date, max_date, plant_name):
     if st.button("← Back to Summary", key="back_from_performance"):
         st.session_state["edition_view"] = "summary"
         st.rerun()
 
     scroll_to_top()
-    
-    if st.button("← Back to Summary", key="back_from_performance"):
-        st.session_state["edition_view"] = "summary"
-        st.rerun()
 
     st.markdown(f"## Performance Review Board - {plant_name}")
 
@@ -1417,7 +1348,7 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
 
     p1, p2, p3, p4 = st.columns(4)
     p1.metric("Total Waste", f"{total_waste:,.3f} MT")
-    p2.metric("Top Waste Segment", top_segment["Waste Segment"].replace(" Waste (MT)", ""))
+    p2.metric("Top Waste Segment", top_segment["Waste by Category"])
     p3.metric("Top Segment Waste", f"{top_segment['Waste MT']:,.3f} MT")
     p4.metric("20% Saving Scope", f"{saving_20:,.3f} MT")
 
