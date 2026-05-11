@@ -666,9 +666,65 @@ User question:
     if st.session_state.get("pressiq_ai_answer"):
         st.markdown("### PressIQ Answer")
         st.write(st.session_state["pressiq_ai_answer"])
+        
+def ask_pressiq_ai(question):
+    if not GEMINI_AVAILABLE:
+        return "Gemini package is not installed. Please add google-genai in requirements.txt and reboot app."
+
+    api_key = st.secrets.get("GEMINI_API_KEY", "")
+
+    if not api_key:
+        return "Gemini API key is missing. Please add GEMINI_API_KEY in Streamlit Secrets."
+
+    try:
+        client = genai.Client(api_key=api_key)
+
+        prompt = f"""
+You are PressIQ AI Assistant for newspaper offset printing operations.
+
+Answer in simple, practical language for maintenance and production teams.
+
+You can answer questions about:
+- scum
+- registration issue
+- cut-off variation
+- dampening water
+- ink-water balance
+- blanket
+- plate
+- rollers
+- consumables
+- newspaper printing process
+- maintenance checks
+
+Rules:
+- Keep answer practical and action-oriented.
+- Do not invent plant-specific standards.
+- If exact plant standard is required, say to check plant SOP or chemical supplier recommendation.
+- Avoid unnecessary long theory.
+
+User question:
+{question}
+"""
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+        )
+
+        return response.text
+
+    except Exception as e:
+        return f"Gemini Error: {e}"
+
+
 def render_pressiq_ai_assistant():
     st.markdown("---")
     st.markdown("## Ask PressIQ Assistant")
+
+    st.caption(
+        "Ask about scum, registration, dampening, cut-off, consumables, maintenance checks, or newspaper printing process."
+    )
 
     user_question = st.text_input(
         "Type your question",
@@ -680,8 +736,15 @@ def render_pressiq_ai_assistant():
         if not user_question.strip():
             st.warning("Please type a question.")
         else:
-            st.info("AI Assistant UI is working. Gemini connection will be added next.")
-            
+            with st.spinner("PressIQ Assistant is thinking..."):
+                answer = ask_pressiq_ai(user_question)
+
+            st.session_state["pressiq_ai_answer"] = answer
+
+    if st.session_state.get("pressiq_ai_answer"):
+        st.markdown("### PressIQ Answer")
+        st.write(st.session_state["pressiq_ai_answer"])
+        
 def make_pdf_paragraph(text, style):
     text = escape(clean_text_value(text))
     return Paragraph(text, style)
