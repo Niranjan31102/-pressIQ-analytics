@@ -1261,7 +1261,7 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
     else:
         st.error("PDF package missing. Add reportlab to requirements.txt and reboot app.")
 
-
+    render_pressiq_ai_assistant()
 def render_performance_review_board(df, min_date, max_date, plant_name):
     if st.button("← Back to Summary", key="back_from_performance"):
         st.session_state["edition_view"] = "summary"
