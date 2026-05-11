@@ -1366,7 +1366,7 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
     with p4:
         st.empty()
         
-    st.markdown("### Waste Segment Ranking")
+    st.markdown("### Waste by Category")    
     st.dataframe(round_display(segment_df), use_container_width=True, hide_index=True)
 
     st.markdown("### Phase-2 Performance Review Preview")
