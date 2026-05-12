@@ -1126,6 +1126,8 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
             st.rerun()
         ai_context = build_ai_context(plant_name, maint_start, maint_end, maint_df)
         render_pressiq_ai_assistant(ai_context)
+        st.markdown("---")
+        
         if st.button("← Back to Summary", key="back_from_maintenance_bottom"):
             st.session_state["edition_view"] = "summary"
             st.rerun()
