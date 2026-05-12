@@ -937,7 +937,7 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
 
     fig_pie = px.pie(
         segment_df,
-        values="Waste MT",
+        values="Waste (MT)",
         names="Waste by Category",
         hole=0.45,
         title="Waste Category Share",
