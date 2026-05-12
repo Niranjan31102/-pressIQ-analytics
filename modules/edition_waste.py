@@ -895,13 +895,18 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
     left_space, table_col, right_space = st.columns([0.2, 3.8, 1])
     
     with table_col:
+        styled_segment_df = round_display(segment_df).style.set_properties(
+            subset=["Waste MT"],
+            **{
+                "text-align": "center"
+            }
+        )
         st.dataframe(
-            round_display(segment_df),
+            styled_segment_df,
             use_container_width=True,
             hide_index=True,
             height=320,
         )
-
     fig_pie = px.pie(
         segment_df,
         values="Waste MT",
