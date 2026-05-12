@@ -405,39 +405,52 @@ def priority_card(title, evidence, action, owner):
         """,
         unsafe_allow_html=True,
     )
-
-
 def scroll_to_top():
     st.markdown(
         """
+        <div id="pressiq-page-top"></div>
+
         <script>
-            setTimeout(function() {
+        function pressiqScrollTop() {
+            try {
                 window.scrollTo(0, 0);
+                document.documentElement.scrollTop = 0;
+                document.body.scrollTop = 0;
+
+                const parentDoc = window.parent.document;
+
                 window.parent.scrollTo(0, 0);
+                parentDoc.documentElement.scrollTop = 0;
+                parentDoc.body.scrollTop = 0;
 
-                const doc = window.parent.document;
-                const main = doc.querySelector('section.main');
-                if (main) {
-                    main.scrollTop = 0;
-                    main.scrollTo(0, 0);
-                }
+                const containers = parentDoc.querySelectorAll(
+                    'section.main, .main, .block-container, [data-testid="stAppViewContainer"], [data-testid="stVerticalBlock"]'
+                );
 
-                const app = doc.querySelector('.stApp');
-                if (app) {
-                    app.scrollTop = 0;
-                    app.scrollTo(0, 0);
-                }
+                containers.forEach(function(el) {
+                    el.scrollTop = 0;
+                    if (el.scrollTo) {
+                        el.scrollTo(0, 0);
+                    }
+                });
 
-                const block = doc.querySelector('[data-testid="stAppViewContainer"]');
-                if (block) {
-                    block.scrollTop = 0;
-                    block.scrollTo(0, 0);
+                const topEl = parentDoc.getElementById("pressiq-page-top");
+                if (topEl) {
+                    topEl.scrollIntoView({behavior: "instant", block: "start"});
                 }
-            }, 50);
+            } catch (e) {}
+        }
+
+        pressiqScrollTop();
+        setTimeout(pressiqScrollTop, 50);
+        setTimeout(pressiqScrollTop, 150);
+        setTimeout(pressiqScrollTop, 300);
+        setTimeout(pressiqScrollTop, 600);
         </script>
         """,
         unsafe_allow_html=True,
     )
+
 
 def action_card(title, subtitle, points, button_text, button_key, target_view, accent_color):
     st.markdown(
@@ -470,7 +483,7 @@ def action_card(title, subtitle, points, button_text, button_key, target_view, a
 
     if st.button(button_text, key=button_key, use_container_width=True):
         st.session_state["edition_view"] = target_view
-        st.query_params["view"] = target_view
+        st.session_state["force_scroll_top"] = True
         st.rerun()
 
 
@@ -959,6 +972,8 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
             accent_color="#2563eb",
         )
 def render_maintenance_action_desk(df, min_date, max_date, plant_name):
+    scroll_to_top()
+    
     if st.button("← Back to Summary", key="back_from_maintenance_top"):
         st.session_state["edition_view"] = "summary"
         st.query_params["view"] = "summary"
@@ -1260,8 +1275,8 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
         st.query_params["view"] = "summary"
         st.rerun()
 def render_performance_review_board(df, min_date, max_date, plant_name):
-
     scroll_to_top()
+    
     if st.button("← Back to Summary", key="back_from_performance_top"):
         st.session_state["edition_view"] = "summary"
         st.query_params["view"] = "summary"
