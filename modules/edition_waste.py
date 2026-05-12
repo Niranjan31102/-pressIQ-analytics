@@ -1602,7 +1602,11 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
             """,
             unsafe_allow_html=True,
         )
+    st.markdown("---")
 
+    if st.button("← Back to Summary", key="back_from_performance_bottom"):
+        st.session_state["edition_view"] = "summary"
+        st.rerun()
 
 def run_edition_waste_analyzer():
     if "edition_view" not in st.session_state:
