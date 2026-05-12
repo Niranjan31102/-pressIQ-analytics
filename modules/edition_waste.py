@@ -932,7 +932,7 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
 
 
 def render_maintenance_action_desk(df, min_date, max_date, plant_name):
-    if st.button("← Back to Summary", key="back_from_maintenance"):
+    if st.button("← Back to Summary", key="back_from_maintenance_top"):
         st.session_state["edition_view"] = "summary"
         st.rerun()
 
@@ -1054,7 +1054,6 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
     rec = issue_action_recommendations(selected_issue)
 
     top_editions = top_edition_lines(issue_df, selected_col, limit=5)
-    top_departments = top_text_values(issue_df, "Department", limit=3)
     top_reasons = top_text_values(issue_df, "Waste Reason", limit=5)
     top_pu = top_text_values(issue_df, "PU", limit=5)
     top_pc = top_text_values(issue_df, "PC", limit=5)
@@ -1120,22 +1119,14 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
         else:
             st.error("PDF package missing. Add reportlab to requirements.txt and reboot app.")
 
-        st.markdown("---")
-        if st.button("← Back to Summary", key="back_from_maintenance_bottom"):
-            st.session_state["edition_view"] = "summary"
-            st.rerun()
         ai_context = build_ai_context(plant_name, maint_start, maint_end, maint_df)
         render_pressiq_ai_assistant(ai_context)
-        st.markdown("---")
-        
-        if st.button("← Back to Summary", key="back_from_maintenance_bottom"):
-            st.session_state["edition_view"] = "summary"
-            st.rerun()
-        st.markdown("---")
 
+        st.markdown("---")
         if st.button("← Back to Summary", key="back_from_maintenance_white_bottom"):
             st.session_state["edition_view"] = "summary"
             st.rerun()
+
         return
 
     st.markdown("## 1. Maintenance Event Summary")
@@ -1146,6 +1137,7 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
         st.markdown("### Top Affected Editions")
         st.markdown(f"<ul>{bullet_html(top_editions)}</ul>", unsafe_allow_html=True)
 
+    with detail_col2:
         location_lines = []
         if top_folders:
             location_lines.append("Folder: " + ", ".join(top_folders))
@@ -1160,8 +1152,6 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
 
         st.markdown("### Reported Hotspots")
         st.markdown(f"<ul>{bullet_html(location_lines)}</ul>", unsafe_allow_html=True)
-
-    
 
     st.markdown("## 2. Priority Action Areas")
 
@@ -1194,6 +1184,7 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
                 action=action,
                 owner=rec["owner"],
             )
+
     st.markdown("## 3. Overall Night Shift Remarks Captured")
 
     if remarks:
@@ -1230,15 +1221,14 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
         )
     else:
         st.error("PDF package missing. Add reportlab to requirements.txt and reboot app.")
-        st.markdown("---")
-
-        if st.button("← Back to Summary", key="back_from_maintenance_bottom"):
-            st.session_state["edition_view"] = "summary"
-            st.rerun()
 
     ai_context = build_ai_context(plant_name, maint_start, maint_end, maint_df)
     render_pressiq_ai_assistant(ai_context)
-    
+
+    st.markdown("---")
+    if st.button("← Back to Summary", key="back_from_maintenance_normal_bottom"):
+        st.session_state["edition_view"] = "summary"
+        st.rerun()
 def render_performance_review_board(df, min_date, max_date, plant_name):
 
     scroll_to_top()
