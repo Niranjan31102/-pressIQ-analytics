@@ -1147,31 +1147,9 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
         st.markdown("### Reported Hotspots")
         st.markdown(f"<ul>{bullet_html(location_lines)}</ul>", unsafe_allow_html=True)
 
-    st.markdown("## 2. Overall Night Shift Remarks Captured")
+    
 
-    if remarks:
-        for idx, line in enumerate(remarks, start=1):
-            st.markdown(
-                f"""
-                <div style="
-                    background:#f8fafc;
-                    border:1px solid #e5e7eb;
-                    border-left:5px solid #64748b;
-                    border-radius:14px;
-                    padding:12px 14px;
-                    margin-bottom:8px;
-                    font-size:14px;
-                    color:#334155;
-                ">
-                    <b>{idx}.</b> {line}
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-    else:
-        st.info("No night-shift remarks found for the selected issue and date range.")
-
-    st.markdown("## 3. Priority Action Areas")
+    st.markdown("## 2. Priority Action Areas")
 
     if issue_waste_kg <= 0:
         st.warning("No waste impact found for selected issue in this date range.")
@@ -1202,6 +1180,29 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
                 action=action,
                 owner=rec["owner"],
             )
+    st.markdown("## 3. Overall Night Shift Remarks Captured")
+
+    if remarks:
+        for idx, line in enumerate(remarks, start=1):
+            st.markdown(
+                f"""
+                <div style="
+                    background:#f8fafc;
+                    border:1px solid #e5e7eb;
+                    border-left:5px solid #64748b;
+                    border-radius:14px;
+                    padding:12px 14px;
+                    margin-bottom:8px;
+                    font-size:14px;
+                    color:#334155;
+                ">
+                    <b>{idx}.</b> {line}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+    else:
+        st.info("No night-shift remarks found for the selected issue and date range.")
 
     st.markdown("## 4. Maintenance Action Plan PDF")
 
