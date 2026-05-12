@@ -623,7 +623,14 @@ def ask_pressiq_ai(question, context_text=None):
 
     try:
         client = genai.Client(api_key=api_key)
+        models = client.models.list()
+        available_models = []
 
+        for model in models:
+            if "generateContent" in getattr(model, "supported_actions", []) or "generateContent" in getattr(model, "supported_generation_methods", []):
+                available_models.append(model.name)
+
+        return "Available Gemini models for this API key:\n" + "\n".join(available_models)
         uploaded_context = context_text if context_text else "No uploaded report context provided."
 
         prompt = f"""
