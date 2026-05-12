@@ -481,10 +481,25 @@ def action_card(title, subtitle, points, button_text, button_key, target_view, a
         unsafe_allow_html=True,
     )
 
-    if st.button(button_text, key=button_key, use_container_width=True):
-        st.session_state["edition_view"] = target_view
-        st.session_state["force_scroll_top"] = True
-        st.rerun()
+    st.markdown(
+        f"""
+        <a href="?edition_view={target_view}" target="_self"
+           style="
+               display:block;
+               text-align:center;
+               background:#0f172a;
+               color:white;
+               padding:12px 16px;
+               border-radius:12px;
+               text-decoration:none;
+               font-weight:700;
+               margin-top:8px;
+           ">
+           {button_text}
+        </a>
+        """,
+       unsafe_allow_html=True,
+    )
 
 
 def build_segment_df(filtered):
@@ -1661,6 +1676,9 @@ def run_edition_waste_analyzer():
 
     if "edition_analysis_ready" not in st.session_state:
         st.session_state["edition_analysis_ready"] = False
+    query_view = st.query_params.get("edition_view", None)
+    if query_view in ["summary", "maintenance", "performance"]:
+        st.session_state["edition_view"] = query_view
 
     if st.session_state.get("edition_analysis_ready", False):
         df = st.session_state["edition_df"]
