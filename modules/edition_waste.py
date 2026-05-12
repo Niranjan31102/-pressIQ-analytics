@@ -921,6 +921,7 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
     k4.metric("Avg Waste / Edition", avg_waste_display)
 
     segment_df, top_segment = build_segment_df(filtered)
+    segment_df = segment_df.rename(columns={"Waste MT": "Waste (MT)"})
 
     st.markdown("## Waste by Category")
 
@@ -1332,6 +1333,7 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
 
     total_waste = perf_df["Total Waste MT"].sum()
     segment_df, _ = build_segment_df(perf_df)
+    segment_df = segment_df.rename(columns={"Waste MT": "Waste (MT)"})
 
     p1, p2, p3, p4 = st.columns(4)
 
