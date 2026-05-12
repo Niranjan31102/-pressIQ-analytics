@@ -92,8 +92,13 @@ button[role="tab"] {
 """, unsafe_allow_html=True)
 
 # ---------------- LOGIN ----------------
+COMMON_PASSWORD = "BCCL123"
+
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
+
+if "user_email" not in st.session_state:
+    st.session_state.user_email = ""
 
 if not st.session_state.logged_in:
     st.markdown('<div class="main-title">🏭 PressIQ Analytics</div>', unsafe_allow_html=True)
@@ -104,17 +109,19 @@ if not st.session_state.logged_in:
     password = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        if email and password:
-            st.session_state.logged_in = True
-            st.rerun()
+        if not email:
+            st.error("Please enter email.")
+        elif password != COMMON_PASSWORD:
+            st.error("Invalid password.")
         else:
-            st.error("Please enter email and password")
+            st.session_state.logged_in = True
+            st.session_state.user_email = email
+            st.rerun()
 
     st.stop()
-
 # ---------------- SIDEBAR ----------------
 st.sidebar.title("🏭 PressIQ Analytics")
-st.sidebar.success("Logged in")
+st.sidebar.success(f"Logged in: {st.session_state.user_email}")
 
 area = st.sidebar.selectbox(
     "Select Intelligence Area",
