@@ -844,24 +844,7 @@ def generate_maintenance_pdf(plant_name, start_date, end_date, maint_df):
         story.append(remark_table)
 
     story.append(Spacer(1, 8))
-    story.append(Paragraph("Closure / Action Tracking", section_style))
-
-    closure_data = [
-        [make_pdf_paragraph("Action Taken", cell_style), ""],
-        [make_pdf_paragraph("Responsible Person", cell_style), ""],
-        [make_pdf_paragraph("Target Closure Date", cell_style), ""],
-        [make_pdf_paragraph("Status", cell_style), "Open / In Progress / Closed"],
-        [make_pdf_paragraph("Remarks After Maintenance", cell_style), ""],
-    ]
-
-    closure_table = Table(closure_data, colWidths=[45 * mm, 115 * mm], rowHeights=[9 * mm, 9 * mm, 9 * mm, 9 * mm, 14 * mm])
-    closure_table.setStyle(TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#94a3b8")),
-        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f1f5f9")),
-        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ]))
-    story.append(closure_table)
+    
 
     doc.build(story)
     buffer.seek(0)
