@@ -524,6 +524,13 @@ def build_reported_action_area_df(df):
     )
 
     action_df = action_df[action_df["Total Waste KG"] > 0]
+    action_df = action_df[
+        ~(
+            (action_df["Waste Reason"] == "Not specified") &
+            (action_df["Department"] == "Not specified") &
+            (action_df["Reported Area"].astype(str).str.startswith("Folder:"))
+        )
+    ]    
 
     return action_df
 
