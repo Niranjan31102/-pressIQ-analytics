@@ -881,7 +881,6 @@ def generate_maintenance_pdf(plant_name, start_date, end_date, maint_df):
 
 
 def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date):
-    scroll_to_top()
     filtered = filter_by_date(df, start_date, end_date)
 
     if filtered.empty:
@@ -908,21 +907,6 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
     k2.metric("Total Waste", total_waste_display)
     k3.metric("Total Print Order", f"{total_print_order:,.0f}")
     k4.metric("Avg Waste / Edition", avg_waste_display)
-
-    segment_df, top_segment = build_segment_df(filtered)
-    st.markdown("## Waste by Category")
-
-    table_col, blank_col = st.columns([2.2, 1])
-
-    with table_col:
-        st.dataframe(
-            round_display(segment_df),
-            use_container_width=True,
-            hide_index=True,
-            height=300,
-        )
-
-    st.markdown("---")
 
     segment_df, top_segment = build_segment_df(filtered)
 
@@ -974,7 +958,6 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
             target_view="maintenance",
             accent_color="#2563eb",
         )
-    
 def render_maintenance_action_desk(df, min_date, max_date, plant_name):
     if st.button("← Back to Summary", key="back_from_maintenance_top"):
         st.session_state["edition_view"] = "summary"
