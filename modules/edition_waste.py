@@ -1233,7 +1233,10 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
 def render_performance_review_board(df, min_date, max_date, plant_name):
 
     scroll_to_top()
-
+    if st.button("← Back to Summary", key="back_from_performance_top"):
+        st.session_state["edition_view"] = "summary"
+        st.rerun()
+        
     st.markdown(f"## Performance Review Board - {plant_name}")
 
     st.markdown(
