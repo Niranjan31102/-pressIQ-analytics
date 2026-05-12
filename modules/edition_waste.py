@@ -887,63 +887,70 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
     k4.metric("Avg Waste / Edition", avg_waste_display)
 
     segment_df, top_segment = build_segment_df(filtered)
-
-
-    
     st.markdown("## Waste by Category")
 
-    left_space, table_col, right_space = st.columns([0.2, 3.8, 1])
-    
+    table_col, blank_col = st.columns([2.2, 1])
+
     with table_col:
-        styled_segment_df = round_display(segment_df).style.set_properties(
-            subset=["Waste MT"],
-            **{
-                "text-align": "center"
-            }
-        )
         st.dataframe(
-            styled_segment_df,
+            round_display(segment_df),
             use_container_width=True,
             hide_index=True,
-            height=320,
+            height=300,
         )
-    fig_pie = px.pie(
-        segment_df,
-        values="Waste MT",
-        names="Waste by Category",
-        hole=0.45,
-        title="Waste category Share",
-    )
-    st.plotly_chart(fig_pie, use_container_width=True)
-
 
     st.markdown("---")
-    st.markdown("## Choose Next Action")
 
-    action_col1, action_col2 = st.columns(2)
+    left_col, right_col = st.columns([1.25, 1])
 
-    with action_col1:
+    with left_col:
+        fig_pie = px.pie(
+            segment_df,
+            values="Waste MT",
+            names="Waste by Category",
+            hole=0.45,
+            title="Waste Category Share",
+        )
+
+        fig_pie.update_layout(
+            height=430,
+            margin=dict(l=10, r=10, t=50, b=10),
+            legend=dict(
+                orientation="v",
+                yanchor="middle",
+                y=0.5,
+                xanchor="left",
+                x=1.02,
+            ),
+        )
+
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+    with right_col:
+        st.markdown("## Choose Next Action")
+
         action_card(
             title="Performance Review Board",
-            subtitle="AI-powered plant performance and waste review dashboard.",
+            subtitle="Management review for edition loss, start type, press-wise waste, and improvement focus.",
             points=[],
             button_text="Open Performance Review Board",
             button_key="open_performance_board",
             target_view="performance",
             accent_color="#7c3aed",
         )
-    with action_col2:
+
         action_card(
             title="Daily Maintenance Action Desk",
-            subtitle="AI-powered maintenance planning and action desk.",
+            subtitle="Morning maintenance action plan from night-shift waste records and remarks.",
             points=[],
             button_text="Open Daily Maintenance Action Desk",
             button_key="open_maintenance_desk",
             target_view="maintenance",
             accent_color="#2563eb",
-        )
+        )  
 
-
+    
+    
 def render_maintenance_action_desk(df, min_date, max_date, plant_name):
     if st.button("← Back to Summary", key="back_from_maintenance_top"):
         st.session_state["edition_view"] = "summary"
