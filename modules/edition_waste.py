@@ -411,12 +411,33 @@ def scroll_to_top():
     st.markdown(
         """
         <script>
-            window.parent.document.querySelector('section.main').scrollTo(0, 0);
+            setTimeout(function() {
+                window.scrollTo(0, 0);
+                window.parent.scrollTo(0, 0);
+
+                const doc = window.parent.document;
+                const main = doc.querySelector('section.main');
+                if (main) {
+                    main.scrollTop = 0;
+                    main.scrollTo(0, 0);
+                }
+
+                const app = doc.querySelector('.stApp');
+                if (app) {
+                    app.scrollTop = 0;
+                    app.scrollTo(0, 0);
+                }
+
+                const block = doc.querySelector('[data-testid="stAppViewContainer"]');
+                if (block) {
+                    block.scrollTop = 0;
+                    block.scrollTo(0, 0);
+                }
+            }, 50);
         </script>
         """,
         unsafe_allow_html=True,
     )
-
 
 def action_card(title, subtitle, points, button_text, button_key, target_view, accent_color):
     st.markdown(
@@ -449,6 +470,7 @@ def action_card(title, subtitle, points, button_text, button_key, target_view, a
 
     if st.button(button_text, key=button_key, use_container_width=True):
         st.session_state["edition_view"] = target_view
+        st.query_params["view"] = target_view
         st.rerun()
 
 
@@ -859,6 +881,7 @@ def generate_maintenance_pdf(plant_name, start_date, end_date, maint_df):
 
 
 def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date):
+    scroll_to_top()
     filtered = filter_by_date(df, start_date, end_date)
 
     if filtered.empty:
@@ -955,6 +978,7 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
 def render_maintenance_action_desk(df, min_date, max_date, plant_name):
     if st.button("← Back to Summary", key="back_from_maintenance_top"):
         st.session_state["edition_view"] = "summary"
+        st.query_params["view"] = "summary"
         st.rerun()
 
     scroll_to_top()
@@ -1146,6 +1170,7 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
         st.markdown("---")
         if st.button("← Back to Summary", key="back_from_maintenance_white_bottom"):
             st.session_state["edition_view"] = "summary"
+            st.query_params["view"] = "summary"
             st.rerun()
 
         return
@@ -1249,12 +1274,14 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
     st.markdown("---")
     if st.button("← Back to Summary", key="back_from_maintenance_normal_bottom"):
         st.session_state["edition_view"] = "summary"
+        st.query_params["view"] = "summary"
         st.rerun()
 def render_performance_review_board(df, min_date, max_date, plant_name):
 
     scroll_to_top()
     if st.button("← Back to Summary", key="back_from_performance_top"):
         st.session_state["edition_view"] = "summary"
+        st.query_params["view"] = "summary"
         st.rerun()
         
     st.markdown(f"## Performance Review Board - {plant_name}")
@@ -1627,6 +1654,7 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
 
     if st.button("← Back to Summary", key="back_from_performance_bottom"):
         st.session_state["edition_view"] = "summary"
+        st.query_params["view"] = "summary"
         st.rerun()
 
 def run_edition_waste_analyzer():
@@ -1739,6 +1767,7 @@ def run_edition_waste_analyzer():
         st.session_state["edition_end_date"] = end_date
         st.session_state["edition_analysis_ready"] = True
         st.session_state["edition_view"] = "summary"
+        st.query_params["view"] = "summary"
         st.rerun()
 
     st.info("Select date range and click 'Run Edition Wise Wastage Analysis' to view output.")
