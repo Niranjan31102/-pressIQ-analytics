@@ -892,8 +892,8 @@ def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date
     
     st.markdown("## Waste by Category")
 
-    left_space, table_col, right_space = st.columns([1, 3, 1])
-
+    left_space, table_col, right_space = st.columns([0.2, 3.8, 1])
+    
     with table_col:
         st.dataframe(
             round_display(segment_df),
