@@ -890,6 +890,295 @@ def generate_maintenance_pdf(plant_name, start_date, end_date, maint_df):
     doc.build(story)
     buffer.seek(0)
     return buffer
+    
+def generate_performance_review_pdf(plant_name, start_date, end_date, perf_df):
+    buffer = BytesIO()
+
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=10 * mm,
+        leftMargin=10 * mm,
+        topMargin=10 * mm,
+        bottomMargin=10 * mm,
+    )
+
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        "PerformanceTitle",
+        parent=styles["Title"],
+        fontSize=15,
+        alignment=TA_CENTER,
+        spaceAfter=6,
+        textColor=colors.HexColor("#0f172a"),
+    )
+
+    section_style = ParagraphStyle(
+        "PerformanceSection",
+        parent=styles["Heading2"],
+        fontSize=10,
+        textColor=colors.HexColor("#0f172a"),
+        spaceBefore=6,
+        spaceAfter=4,
+    )
+
+    normal_style = ParagraphStyle(
+        "PerformanceNormal",
+        parent=styles["Normal"],
+        fontSize=7,
+        leading=9,
+        alignment=TA_LEFT,
+    )
+
+    cell_style = ParagraphStyle(
+        "PerformanceCell",
+        parent=styles["Normal"],
+        fontSize=6.5,
+        leading=8,
+        alignment=TA_LEFT,
+    )
+
+    story = []
+
+    total_waste_mt = perf_df["Total Waste MT"].sum()
+    total_editions = len(perf_df)
+    total_print_order = perf_df["Print Order"].sum() if "Print Order" in perf_df.columns else 0
+    avg_waste_mt = total_waste_mt / total_editions if total_editions else 0
+
+    segment_df, _ = build_segment_df(perf_df)
+    segment_df = segment_df.rename(columns={"Waste MT": "Waste (MT)"})
+
+    story.append(Paragraph("PressIQ Performance Review Report", title_style))
+    story.append(Paragraph(f"Plant: {plant_name}", normal_style))
+    story.append(Paragraph(f"Review Period: {start_date} to {end_date}", normal_style))
+    story.append(Paragraph(f"Generated: {datetime.now().strftime('%d-%b-%Y %H:%M')}", normal_style))
+    story.append(Spacer(1, 5))
+
+    story.append(Paragraph("1. Executive Waste Snapshot", section_style))
+    snapshot_data = [
+        [make_pdf_paragraph("Total Waste", cell_style), make_pdf_paragraph(f"{total_waste_mt:,.3f} MT", cell_style)],
+        [make_pdf_paragraph("Total Editions / Runs", cell_style), make_pdf_paragraph(f"{total_editions:,}", cell_style)],
+        [make_pdf_paragraph("Total Print Order", cell_style), make_pdf_paragraph(f"{total_print_order:,.0f}", cell_style)],
+        [make_pdf_paragraph("Avg Waste / Edition", cell_style), make_pdf_paragraph(f"{avg_waste_mt:,.3f} MT", cell_style)],
+    ]
+
+    snapshot_table = Table(snapshot_data, colWidths=[60 * mm, 80 * mm])
+    snapshot_table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#cbd5e1")),
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f1f5f9")),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(snapshot_table)
+    story.append(Spacer(1, 6))
+
+    story.append(Paragraph("2. Waste by Category", section_style))
+
+    seg_data = [[
+        make_pdf_paragraph("Waste by Category", cell_style),
+        make_pdf_paragraph("Waste (MT)", cell_style),
+    ]]
+
+    for _, row in segment_df.iterrows():
+        seg_data.append([
+            make_pdf_paragraph(row["Waste by Category"], cell_style),
+            make_pdf_paragraph(f"{row['Waste (MT)']:,.3f}", cell_style),
+        ])
+
+    seg_table = Table(seg_data, colWidths=[110 * mm, 40 * mm])
+    seg_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#cbd5e1")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ALIGN", (1, 1), (1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(seg_table)
+    story.append(Spacer(1, 6))
+
+    story.append(Paragraph("3. Top Edition Loss Contributors", section_style))
+
+    work = perf_df.copy()
+
+    if "Total Pages" not in work.columns:
+        work["Total Pages"] = 0
+
+    if "GNP/SNP" not in work.columns:
+        work["GNP/SNP"] = ""
+
+    edition_df = (
+        work.groupby(["Edition", "Edition Name"], dropna=False)
+        .agg(
+            Waste_MT=("Total Waste MT", "sum"),
+            Runs=("Edition Name", "count"),
+            Print_Order=("Print Order", "sum"),
+            Total_Pages=("Total Pages", "sum"),
+        )
+        .reset_index()
+        .sort_values("Waste_MT", ascending=False)
+        .head(10)
+    )
+
+    edition_df["Edition Detail"] = edition_df.apply(
+        lambda r: (
+            clean_text_value(r["Edition"]) + " - " + clean_text_value(r["Edition Name"])
+            if clean_text_value(r["Edition"]) and clean_text_value(r["Edition Name"])
+            else clean_text_value(r["Edition Name"]) or clean_text_value(r["Edition"])
+        ),
+        axis=1,
+    )
+
+    edition_data = [[
+        make_pdf_paragraph("Edition", cell_style),
+        make_pdf_paragraph("Waste (MT)", cell_style),
+        make_pdf_paragraph("Runs", cell_style),
+        make_pdf_paragraph("Print Order", cell_style),
+        make_pdf_paragraph("Total Pages", cell_style),
+    ]]
+
+    for _, row in edition_df.iterrows():
+        edition_data.append([
+            make_pdf_paragraph(row["Edition Detail"], cell_style),
+            make_pdf_paragraph(f"{row['Waste_MT']:,.3f}", cell_style),
+            make_pdf_paragraph(f"{row['Runs']:,.0f}", cell_style),
+            make_pdf_paragraph(f"{row['Print_Order']:,.0f}", cell_style),
+            make_pdf_paragraph(f"{row['Total_Pages']:,.0f}", cell_style),
+        ])
+
+    edition_table = Table(edition_data, colWidths=[65 * mm, 25 * mm, 18 * mm, 32 * mm, 25 * mm])
+    edition_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#cbd5e1")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(edition_table)
+    story.append(Spacer(1, 6))
+
+    story.append(Paragraph("4. Start Type Waste Review", section_style))
+
+    start_type_df = (
+        perf_df.groupby("Type of Start", dropna=False)
+        .agg(
+            Runs=("Type of Start", "count"),
+            Waste_MT=("Total Waste MT", "sum"),
+        )
+        .reset_index()
+        .rename(columns={"Type of Start": "Start Type"})
+        .sort_values("Waste_MT", ascending=False)
+    )
+
+    start_data = [[
+        make_pdf_paragraph("Start Type", cell_style),
+        make_pdf_paragraph("Runs", cell_style),
+        make_pdf_paragraph("Waste (MT)", cell_style),
+    ]]
+
+    for _, row in start_type_df.iterrows():
+        start_data.append([
+            make_pdf_paragraph(row["Start Type"], cell_style),
+            make_pdf_paragraph(f"{row['Runs']:,.0f}", cell_style),
+            make_pdf_paragraph(f"{row['Waste_MT']:,.3f}", cell_style),
+        ])
+
+    start_table = Table(start_data, colWidths=[80 * mm, 35 * mm, 40 * mm])
+    start_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#cbd5e1")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(start_table)
+    story.append(Spacer(1, 6))
+
+    story.append(Paragraph("5. Press Wise Waste Review", section_style))
+
+    press_source_col = "Folder"
+
+    if press_source_col not in perf_df.columns:
+        perf_df[press_source_col] = "Not specified"
+
+    press_df = (
+        perf_df.groupby(press_source_col, dropna=False)
+        .agg(
+            Runs=(press_source_col, "count"),
+            Waste_MT=("Total Waste MT", "sum"),
+        )
+        .reset_index()
+        .rename(columns={press_source_col: "Press"})
+        .sort_values("Waste_MT", ascending=False)
+    )
+
+    press_df["Avg Waste / Run MT"] = press_df.apply(
+        lambda r: r["Waste_MT"] / r["Runs"] if r["Runs"] else 0,
+        axis=1,
+    )
+
+    press_data = [[
+        make_pdf_paragraph("Press", cell_style),
+        make_pdf_paragraph("Runs", cell_style),
+        make_pdf_paragraph("Waste (MT)", cell_style),
+        make_pdf_paragraph("Avg Waste / Run", cell_style),
+    ]]
+
+    for _, row in press_df.iterrows():
+        press_data.append([
+            make_pdf_paragraph(row["Press"], cell_style),
+            make_pdf_paragraph(f"{row['Runs']:,.0f}", cell_style),
+            make_pdf_paragraph(f"{row['Waste_MT']:,.3f}", cell_style),
+            make_pdf_paragraph(f"{row['Avg Waste / Run MT']:,.3f}", cell_style),
+        ])
+
+    press_table = Table(press_data, colWidths=[65 * mm, 30 * mm, 35 * mm, 40 * mm])
+    press_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#cbd5e1")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(press_table)
+    story.append(Spacer(1, 6))
+
+    story.append(Paragraph("6. Management Review Intelligence", section_style))
+
+    top_category = segment_df.iloc[0]["Waste by Category"] if not segment_df.empty else "Not available"
+    top_category_waste = segment_df.iloc[0]["Waste (MT)"] if not segment_df.empty else 0
+    top_edition = edition_df.iloc[0]["Edition Detail"] if not edition_df.empty else "Not available"
+    top_press = press_df.iloc[0]["Press"] if not press_df.empty else "Not available"
+
+    review_points = [
+        f"Top waste category is {top_category} with {top_category_waste:,.3f} MT waste.",
+        f"Highest edition loss contributor is {top_edition}.",
+        f"Highest press-wise waste contributor is {top_press}.",
+        "Management should review high-waste editions along with print order, GNP/SNP, start type, page load, and press-wise run count before deciding improvement action.",
+        "Repeat issue signals should be reviewed from night-shift remarks, PU / PC locations, reelstand references, and reported waste reasons.",
+        "Saving opportunity can be estimated by targeting the top waste category and top repeat edition contributors first.",
+    ]
+
+    for point in review_points:
+        story.append(Paragraph(f"- {point}", normal_style))
+
+    story.append(Spacer(1, 6))
+    story.append(Paragraph("7. Suggested Management Focus", section_style))
+
+    focus_points = [
+        "Review daily and weekly waste spikes for unstable production days.",
+        "Identify repeated registration, scum, cut-off, density, and pasting issues by edition and press.",
+        "Use start-type waste to separate cold start loss from warm planned and warm unplanned stoppage loss.",
+        "Use press-wise runs and average waste per run to identify press-level stability concerns.",
+        "Prioritize improvement projects where high waste, high frequency, and repeated remarks overlap.",
+    ]
+
+    for point in focus_points:
+        story.append(Paragraph(f"- {point}", normal_style))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
 
 
 def render_summary_page(df, plant_name, start_date, end_date, min_date, max_date):
@@ -1649,6 +1938,26 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
             """,
             unsafe_allow_html=True,
         )
+    st.markdown("---")
+    st.markdown("## Download Management Review PDF")
+
+    if REPORTLAB_AVAILABLE:
+        performance_pdf = generate_performance_review_pdf(
+            plant_name,
+            perf_start,
+            perf_end,
+            perf_df,
+        )
+
+        st.download_button(
+            "📥 Download Performance Review PDF",
+            data=performance_pdf.getvalue(),
+            file_name=f"PressIQ_Performance_Review_Report_{plant_name}_{perf_start}_{perf_end}.pdf",
+            mime="application/pdf",
+        )
+    else:
+        st.error("PDF package missing. Add reportlab to requirements.txt and reboot app.")
+        
     st.markdown("---")
 
     if st.button("← Back to Summary", key="back_from_performance_bottom"):
