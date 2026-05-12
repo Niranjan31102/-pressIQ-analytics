@@ -1120,11 +1120,18 @@ def render_maintenance_action_desk(df, min_date, max_date, plant_name):
         else:
             st.error("PDF package missing. Add reportlab to requirements.txt and reboot app.")
 
+        st.markdown("---")
+        if st.button("← Back to Summary", key="back_from_maintenance_bottom"):
+            st.session_state["edition_view"] = "summary"
+            st.rerun()
         ai_context = build_ai_context(plant_name, maint_start, maint_end, maint_df)
         render_pressiq_ai_assistant(ai_context)
+        if st.button("← Back to Summary", key="back_from_maintenance_bottom"):
+            st.session_state["edition_view"] = "summary"
+            st.rerun()
         st.markdown("---")
 
-        if st.button("← Back to Summary", key="back_from_maintenance_bottom"):
+        if st.button("← Back to Summary", key="back_from_maintenance_white_bottom"):
             st.session_state["edition_view"] = "summary"
             st.rerun()
         return
