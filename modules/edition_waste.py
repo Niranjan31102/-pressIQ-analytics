@@ -5,6 +5,8 @@ import os
 from io import BytesIO
 from datetime import datetime
 from xml.sax.saxutils import escape
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 try:
     from google import genai
@@ -164,7 +166,24 @@ def filter_by_date(df, start_date, end_date):
         (df["Edition Date"].dt.date >= start_date) &
         (df["Edition Date"].dt.date <= end_date)
     ].copy()
+def get_google_sheet():
+    scope = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/drive",
+    ]
 
+    creds_dict = st.secrets["gcp_service_account"]
+
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(
+        creds_dict,
+        scope,
+    )
+
+    client = gspread.authorize(creds)
+
+    sheet = client.open("PressIQ User Logs").worksheet("Logs")
+
+    return sheet
 
 def clean_text_value(value):
     value = str(value).strip()
@@ -172,22 +191,22 @@ def clean_text_value(value):
         return ""
     return value
 def log_pressiq_ai_question(question, answer):
-    log_file = "pressiq_ai_question_logs.csv"
+    try:
+        sheet = get_google_sheet()
 
-    user_email = st.session_state.get("user_email", "Unknown User")
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        user_email = st.session_state.get("user_email", "Unknown User")
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    log_row = pd.DataFrame([{
-        "Timestamp": timestamp,
-        "User Email": user_email,
-        "Question": question,
-        "Answer": answer,
-    }])
+        sheet.append_row([
+            timestamp,
+            user_email,
+            "AI Question",
+            question,
+            answer,
+        ])
 
-    if os.path.exists(log_file):
-        log_row.to_csv(log_file, mode="a", header=False, index=False)
-    else:
-        log_row.to_csv(log_file, mode="w", header=True, index=False)
+    except Exception as e:
+        st.warning(f"Google Sheet logging failed: {e}")
 
 def top_text_values(df, col, limit=5):
     if col not in df.columns:
