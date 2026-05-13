@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import os
 from io import BytesIO
 from datetime import datetime
 from xml.sax.saxutils import escape
@@ -170,7 +171,23 @@ def clean_text_value(value):
     if value.lower() in ["nan", "none", ""]:
         return ""
     return value
+def log_pressiq_ai_question(question, answer):
+    log_file = "pressiq_ai_question_logs.csv"
 
+    user_email = st.session_state.get("user_email", "Unknown User")
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    log_row = pd.DataFrame([{
+        "Timestamp": timestamp,
+        "User Email": user_email,
+        "Question": question,
+        "Answer": answer,
+    }])
+
+    if os.path.exists(log_file):
+        log_row.to_csv(log_file, mode="a", header=False, index=False)
+    else:
+        log_row.to_csv(log_file, mode="w", header=True, index=False)
 
 def top_text_values(df, col, limit=5):
     if col not in df.columns:
