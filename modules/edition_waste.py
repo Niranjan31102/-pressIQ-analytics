@@ -740,7 +740,8 @@ def render_pressiq_ai_assistant(context_text=None):
         else:
             with st.spinner("PressIQ Assistant is thinking..."):
                 answer = ask_pressiq_ai(user_question, context_text)
-
+                
+            log_pressiq_ai_question(user_question, answer)
             st.session_state["pressiq_ai_answer"] = answer
 
     if st.session_state.get("pressiq_ai_answer"):
