@@ -116,6 +116,37 @@ if not st.session_state.logged_in:
         else:
             st.session_state.logged_in = True
             st.session_state.user_email = email
+
+            try:
+                import gspread
+                from oauth2client.service_account import ServiceAccountCredentials
+                from datetime import datetime
+
+                scope = [
+                    "https://spreadsheets.google.com/feeds",
+                    "https://www.googleapis.com/auth/drive",
+                ]
+
+                creds = ServiceAccountCredentials.from_json_keyfile_dict(
+                    st.secrets["gcp_service_account"],
+                    scope,
+                )
+
+                client = gspread.authorize(creds)
+
+                sheet = client.open("PressIQ User Logs").worksheet("Logs")
+
+                sheet.append_row([
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    email,
+                    "Login",
+                    "",
+                    "",
+                ])
+
+            except Exception as e:
+                st.warning(f"Login logging failed: {e}")
+
             st.rerun()
 
     st.stop()
