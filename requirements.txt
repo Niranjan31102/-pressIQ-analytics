@@ -7,3 +7,5 @@ xlsxwriter
 streamlit-aggrid
 reportlab
 google-genai
+gspread
+oauth2client
