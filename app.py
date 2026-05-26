@@ -154,14 +154,35 @@ if not st.session_state.logged_in:
 st.sidebar.title("🏭 PressIQ Analytics")
 st.sidebar.success(f"Logged in: {st.session_state.user_email}")
 
-st.sidebar.markdown("### Waste Intelligence")
+st.sidebar.markdown("### Main Intelligence")
 
-module = st.sidebar.radio(
-    "Select Tool",
+main_intelligence = st.sidebar.radio(
+    "Select Intelligence",
     [
-        "Edition Wise Wastage Analyzer",
+        "Waste Intelligence",
+        "Utility Intelligence",
     ]
 )
+
+if main_intelligence == "Waste Intelligence":
+    st.sidebar.markdown("### Waste Intelligence")
+
+    module = st.sidebar.radio(
+        "Select Tool",
+        [
+            "Edition Wise Wastage Analyzer",
+        ]
+    )
+
+elif main_intelligence == "Utility Intelligence":
+    st.sidebar.markdown("### Utility Intelligence")
+
+    module = st.sidebar.radio(
+        "Select Tool",
+        [
+            "Utility Performance Analyzer",
+        ]
+    )
 
 if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
