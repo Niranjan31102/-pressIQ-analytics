@@ -5,6 +5,7 @@ from modules.edition_waste import run_edition_waste_analyzer
 from modules.adam_analyzer import run_adam_analyzer
 from modules.downtime import run_downtime_analyzer
 from modules.micro_stoppage import run_micro_stoppage_analyzer
+from modules.utility_performance import run_utility_performance_analyzer
 
 st.set_page_config(
     page_title="PressIQ Analytics",
@@ -211,14 +212,5 @@ elif module == "Web Break Downtime Analyzer":
     st.info("🧵 Web Break Downtime Analyzer will be added later.")
     
 elif module == "Utility Performance Analyzer":
-    st.header("Utility Performance Analyzer")
-    st.caption("EMS Daily Utility Performance File Analysis")
-
-    uploaded_file = st.file_uploader(
-        "Upload EMS Daily Utility Performance File",
-        type=["xlsx", "xls", "csv"]
-    )
-
-    if uploaded_file is not None:
-        st.success("File uploaded successfully.")
+    run_utility_performance_analyzer()
     
