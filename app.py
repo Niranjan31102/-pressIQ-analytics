@@ -154,27 +154,14 @@ if not st.session_state.logged_in:
 st.sidebar.title("🏭 PressIQ Analytics")
 st.sidebar.success(f"Logged in: {st.session_state.user_email}")
 
-area = st.sidebar.selectbox(
-    "Select Intelligence Area",
-    ["Waste Intelligence", "Downtime Intelligence"]
-)
+st.sidebar.markdown("### Waste Intelligence")
 
-if area == "Waste Intelligence":
-    module = st.sidebar.radio(
-        "Select Waste Tool",
-        [
-            "Edition Wise Wastage Analyzer",
-        ]
-    )
-else:
-    module = st.sidebar.radio(
-        "Select Downtime Tool",
-        [
-            "Overall Downtime Analyzer",
-            "0–4 Min Micro Stoppage Analyzer",
-            "Web Break Downtime Analyzer"
-        ]
-    )
+module = st.sidebar.radio(
+    "Select Tool",
+    [
+        "Edition Wise Wastage Analyzer",
+    ]
+)
 
 if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
