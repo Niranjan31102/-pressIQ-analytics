@@ -1,338 +1,704 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
 
+
+ZONE_ORDER = [
+    "Zone 1 | 06:00-08:00",
+    "Zone 2 | 09:00-16:00",
+    "Zone 3 | 17:00-23:00",
+    "Zone 4 | 00:00-05:00",
+]
 
 ZONE_MAP = {
-    "06:00": "Zone 1 | 06:00-08:00 | Low Load",
-    "07:00": "Zone 1 | 06:00-08:00 | Low Load",
-    "08:00": "Zone 1 | 06:00-08:00 | Low Load",
+    "06:00": "Zone 1 | 06:00-08:00",
+    "07:00": "Zone 1 | 06:00-08:00",
+    "08:00": "Zone 1 | 06:00-08:00",
 
-    "09:00": "Zone 2 | 09:00-16:00 | Maintenance + Office",
-    "10:00": "Zone 2 | 09:00-16:00 | Maintenance + Office",
-    "11:00": "Zone 2 | 09:00-16:00 | Maintenance + Office",
-    "12:00": "Zone 2 | 09:00-16:00 | Maintenance + Office",
-    "13:00": "Zone 2 | 09:00-16:00 | Maintenance + Office",
-    "14:00": "Zone 2 | 09:00-16:00 | Maintenance + Office",
-    "15:00": "Zone 2 | 09:00-16:00 | Maintenance + Office",
-    "16:00": "Zone 2 | 09:00-16:00 | Maintenance + Office",
+    "09:00": "Zone 2 | 09:00-16:00",
+    "10:00": "Zone 2 | 09:00-16:00",
+    "11:00": "Zone 2 | 09:00-16:00",
+    "12:00": "Zone 2 | 09:00-16:00",
+    "13:00": "Zone 2 | 09:00-16:00",
+    "14:00": "Zone 2 | 09:00-16:00",
+    "15:00": "Zone 2 | 09:00-16:00",
+    "16:00": "Zone 2 | 09:00-16:00",
 
-    "17:00": "Zone 3 | 17:00-23:00 | Supplement Printing",
-    "18:00": "Zone 3 | 17:00-23:00 | Supplement Printing",
-    "19:00": "Zone 3 | 17:00-23:00 | Supplement Printing",
-    "20:00": "Zone 3 | 17:00-23:00 | Supplement Printing",
-    "21:00": "Zone 3 | 17:00-23:00 | Supplement Printing",
-    "22:00": "Zone 3 | 17:00-23:00 | Supplement Printing",
-    "23:00": "Zone 3 | 17:00-23:00 | Supplement Printing",
+    "17:00": "Zone 3 | 17:00-23:00",
+    "18:00": "Zone 3 | 17:00-23:00",
+    "19:00": "Zone 3 | 17:00-23:00",
+    "20:00": "Zone 3 | 17:00-23:00",
+    "21:00": "Zone 3 | 17:00-23:00",
+    "22:00": "Zone 3 | 17:00-23:00",
+    "23:00": "Zone 3 | 17:00-23:00",
 
-    "00:00": "Zone 4 | 00:00-05:00 | Main Book Printing",
-    "01:00": "Zone 4 | 00:00-05:00 | Main Book Printing",
-    "02:00": "Zone 4 | 00:00-05:00 | Main Book Printing",
-    "03:00": "Zone 4 | 00:00-05:00 | Main Book Printing",
-    "04:00": "Zone 4 | 00:00-05:00 | Main Book Printing",
-    "05:00": "Zone 4 | 00:00-05:00 | Main Book Printing",
+    "00:00": "Zone 4 | 00:00-05:00",
+    "01:00": "Zone 4 | 00:00-05:00",
+    "02:00": "Zone 4 | 00:00-05:00",
+    "03:00": "Zone 4 | 00:00-05:00",
+    "04:00": "Zone 4 | 00:00-05:00",
+    "05:00": "Zone 4 | 00:00-05:00",
 }
 
 
+def add_utility_css():
+    st.markdown("""
+    <style>
+    .utility-hero {
+        background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 45%, #2563eb 100%);
+        padding: 26px 30px;
+        border-radius: 24px;
+        color: white;
+        margin-bottom: 22px;
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.20);
+    }
+    .utility-title {
+        font-size: 34px;
+        font-weight: 900;
+        margin-bottom: 4px;
+    }
+    .utility-subtitle {
+        font-size: 16px;
+        color: #dbeafe;
+    }
+    .kpi-card {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 20px;
+        padding: 18px 20px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+        min-height: 112px;
+    }
+    .kpi-label {
+        font-size: 13px;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+    .kpi-value {
+        font-size: 30px;
+        font-weight: 900;
+        color: #0f172a;
+        margin-top: 8px;
+    }
+    .feeder-card {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 22px;
+        padding: 20px;
+        margin-bottom: 18px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+    .feeder-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 15px;
+        border-bottom: 1px solid #e5e7eb;
+        padding-bottom: 12px;
+    }
+    .feeder-name {
+        font-size: 20px;
+        font-weight: 900;
+        color: #0f172a;
+    }
+    .feeder-meta {
+        font-size: 13px;
+        color: #64748b;
+        margin-top: 4px;
+    }
+    .status-pill {
+        padding: 8px 13px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+    .status-in {
+        background: #dcfce7;
+        color: #166534;
+    }
+    .status-warning {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    .status-out {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    .status-data {
+        background: #f3e8ff;
+        color: #6b21a8;
+    }
+    .status-pending {
+        background: #e2e8f0;
+        color: #334155;
+    }
+    .zone-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+    }
+    .zone-box {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 14px;
+    }
+    .zone-title {
+        font-size: 12px;
+        font-weight: 900;
+        color: #475569;
+        margin-bottom: 6px;
+    }
+    .zone-value {
+        font-size: 24px;
+        font-weight: 900;
+        color: #0f172a;
+    }
+    .zone-base {
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 5px;
+    }
+    .zone-status {
+        font-size: 12px;
+        font-weight: 900;
+        margin-top: 8px;
+    }
+    .remark-box {
+        background: #f8fafc;
+        border-left: 5px solid #2563eb;
+        border-radius: 14px;
+        padding: 12px 14px;
+        margin-top: 14px;
+        color: #334155;
+        font-size: 14px;
+    }
+    @media (max-width: 900px) {
+        .zone-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
 def normalize_hour(col):
-    """
-    Converts EMS hourly column names into HH:00 format.
-    Handles datetime, timestamp, and text style headers.
-    """
     try:
         dt = pd.to_datetime(col)
         return dt.strftime("%H:00")
     except Exception:
-        pass
-
-    text = str(col).strip()
-
-    if ":" in text:
-        try:
-            return pd.to_datetime(text).strftime("%H:00")
-        except Exception:
-            return text
-
-    return text
+        text = str(col).strip()
+        if ":" in text:
+            try:
+                return pd.to_datetime(text).strftime("%H:00")
+            except Exception:
+                return text
+        return text
 
 
-def read_hourly_sheet(uploaded_file):
-    """
-    Reads EMS Hourly sheet.
-    Expected structure:
-    Row 1: title
-    Row 2: date
-    Row 3: headers
-    Row 4 onward: feeder data
-    """
+def read_hourly_sheet(uploaded_file, sheet_name="Hourly"):
+    uploaded_file.seek(0)
     xls = pd.ExcelFile(uploaded_file)
 
-    if "Hourly" not in xls.sheet_names:
-        st.error("Hourly sheet not found in uploaded EMS file.")
-        st.stop()
+    if sheet_name not in xls.sheet_names:
+        raise ValueError(f"'{sheet_name}' sheet not found.")
 
-    raw_df = pd.read_excel(uploaded_file, sheet_name="Hourly", header=None)
+    uploaded_file.seek(0)
+    raw_df = pd.read_excel(uploaded_file, sheet_name=sheet_name, header=None)
 
-    # Header row is row index 2 based on studied EMS file
     header_row = 2
     headers = raw_df.iloc[header_row].tolist()
 
     df = raw_df.iloc[header_row + 1:].copy()
     df.columns = headers
-
-    # Remove completely blank rows
     df = df.dropna(how="all")
 
-    # First two columns are Sr No and Feeder Name
     df = df.rename(columns={
         df.columns[0]: "Sr No",
         df.columns[1]: "Feeder Name"
     })
 
     df = df[pd.notna(df["Feeder Name"])].copy()
-
-    # Keep only 72 feeder rows if extra rows exist
     df = df.head(72)
 
-    # Create feeder identity because SPARE is repeated
     df["Sr No"] = df["Sr No"].astype(str).str.replace(".0", "", regex=False)
-    df["Feeder ID"] = df["Sr No"] + " - " + df["Feeder Name"].astype(str)
+    df["Feeder Name"] = df["Feeder Name"].astype(str).str.strip()
+    df["Feeder ID"] = df["Sr No"] + " - " + df["Feeder Name"]
 
-    hour_cols = df.columns[2:-1]
+    hour_source_cols = df.columns[2:-1]
+    clean_map = {col: normalize_hour(col) for col in hour_source_cols}
+    df = df.rename(columns=clean_map)
 
-    clean_hour_map = {}
+    hour_cols = [h for h in clean_map.values() if h in ZONE_MAP]
+
     for col in hour_cols:
-        clean_hour_map[col] = normalize_hour(col)
-
-    df = df.rename(columns=clean_hour_map)
-
-    hour_cols_clean = list(clean_hour_map.values())
-
-    # Convert hourly values to numeric
-    for col in hour_cols_clean:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    return df, hour_cols_clean
+    return df, hour_cols
 
 
-def create_long_data(df, hour_cols):
+def read_baseline_workbook(uploaded_file):
+    uploaded_file.seek(0)
+    xls = pd.ExcelFile(uploaded_file)
+    all_days = []
+
+    for sheet in xls.sheet_names:
+        uploaded_file.seek(0)
+        raw_df = pd.read_excel(uploaded_file, sheet_name=sheet, header=None)
+
+        if raw_df.shape[0] < 5:
+            continue
+
+        headers = raw_df.iloc[2].tolist()
+        df = raw_df.iloc[3:].copy()
+        df.columns = headers
+        df = df.dropna(how="all")
+
+        df = df.rename(columns={
+            df.columns[0]: "Sr No",
+            df.columns[1]: "Feeder Name"
+        })
+
+        df = df[pd.notna(df["Feeder Name"])].copy()
+        df = df.head(72)
+
+        df["Sr No"] = df["Sr No"].astype(str).str.replace(".0", "", regex=False)
+        df["Feeder Name"] = df["Feeder Name"].astype(str).str.strip()
+        df["Feeder ID"] = df["Sr No"] + " - " + df["Feeder Name"]
+        df["Baseline Day"] = str(sheet)
+
+        hour_source_cols = df.columns[2:-2]
+        clean_map = {col: normalize_hour(col) for col in hour_source_cols}
+        df = df.rename(columns=clean_map)
+
+        hour_cols = [h for h in clean_map.values() if h in ZONE_MAP]
+
+        for col in hour_cols:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        long_df = df.melt(
+            id_vars=["Baseline Day", "Sr No", "Feeder Name", "Feeder ID"],
+            value_vars=hour_cols,
+            var_name="Hour",
+            value_name="Consumption"
+        )
+
+        all_days.append(long_df)
+
+    if not all_days:
+        return pd.DataFrame()
+
+    baseline_long = pd.concat(all_days, ignore_index=True)
+    baseline_long["Zone"] = baseline_long["Hour"].map(ZONE_MAP)
+
+    return baseline_long
+
+
+def long_format(df, hour_cols):
     long_df = df.melt(
         id_vars=["Sr No", "Feeder Name", "Feeder ID"],
         value_vars=hour_cols,
         var_name="Hour",
         value_name="Consumption"
     )
-
-    long_df["Consumption"] = pd.to_numeric(long_df["Consumption"], errors="coerce")
     long_df["Zone"] = long_df["Hour"].map(ZONE_MAP)
-
+    long_df["Consumption"] = pd.to_numeric(long_df["Consumption"], errors="coerce")
     return long_df
 
 
-def classify_data_quality(long_df):
-    """
-    First version data quality logic:
-    - Negative values are invalid and excluded.
-    - Very high positive spikes are only flagged if extremely unusual inside same feeder.
-    """
+def clean_consumption_data(long_df):
     df = long_df.copy()
-
     df["Quality Status"] = "Valid"
     df["Clean Consumption"] = df["Consumption"]
 
-    # Negative values
     negative_mask = df["Consumption"] < 0
     df.loc[negative_mask, "Quality Status"] = "Invalid Negative"
     df.loc[negative_mask, "Clean Consumption"] = np.nan
 
-    # Positive spike detection feeder-wise
     valid_positive = df[df["Consumption"] >= 0].copy()
 
-    feeder_stats = valid_positive.groupby("Feeder ID")["Consumption"].agg(
-        feeder_median="median",
-        feeder_p95=lambda x: x.quantile(0.95)
-    ).reset_index()
+    if not valid_positive.empty:
+        stats = valid_positive.groupby("Feeder ID")["Consumption"].agg(
+            feeder_median="median",
+            feeder_p95=lambda x: x.quantile(0.95)
+        ).reset_index()
 
-    df = df.merge(feeder_stats, on="Feeder ID", how="left")
+        df = df.merge(stats, on="Feeder ID", how="left")
 
-    suspect_mask = (
-        (df["Consumption"] > 100) &
-        (df["feeder_median"] > 0) &
-        (
-            (df["Consumption"] > df["feeder_median"] * 8) |
-            (df["Consumption"] > df["feeder_p95"] * 2)
+        suspect_mask = (
+            (df["Consumption"] > 100) &
+            (df["feeder_median"] > 0) &
+            (
+                (df["Consumption"] > df["feeder_median"] * 8) |
+                (df["Consumption"] > df["feeder_p95"] * 2)
+            )
         )
-    )
 
-    df.loc[suspect_mask, "Quality Status"] = "Data Quality Suspect"
-    df.loc[suspect_mask, "Clean Consumption"] = np.nan
+        df.loc[suspect_mask, "Quality Status"] = "Data Error Suspect"
+        df.loc[suspect_mask, "Clean Consumption"] = np.nan
 
     return df
 
 
-def run_utility_performance_analyzer():
-    st.header("Utility Performance Analyzer")
-    st.caption("EMS Daily Utility Performance File Analysis")
+def build_baseline(baseline_files):
+    if not baseline_files:
+        return None, 0
 
-    uploaded_file = st.file_uploader(
-        "Upload EMS Daily Utility Performance File",
-        type=["xlsx", "xls", "csv"]
-    )
+    baseline_frames = []
 
-    if uploaded_file is None:
-        st.info("Upload EMS daily utility file to start analysis.")
-        return
+    for file in baseline_files:
+        try:
+            base_long = read_baseline_workbook(file)
+            if not base_long.empty:
+                baseline_frames.append(base_long)
+        except Exception as e:
+            st.warning(f"Baseline file skipped: {file.name}. Error: {e}")
 
-    try:
-        feeder_df, hour_cols = read_hourly_sheet(uploaded_file)
-        long_df = create_long_data(feeder_df, hour_cols)
-        analyzed_df = classify_data_quality(long_df)
+    if not baseline_frames:
+        return None, 0
 
-    except Exception as e:
-        st.error(f"File reading failed: {e}")
-        return
+    baseline_long = pd.concat(baseline_frames, ignore_index=True)
+    baseline_clean = clean_consumption_data(baseline_long)
 
-    valid_df = analyzed_df[analyzed_df["Quality Status"] == "Valid"].copy()
+    valid_base = baseline_clean[baseline_clean["Quality Status"] == "Valid"].copy()
 
-    st.success("File uploaded and hourly feeder data processed successfully.")
-
-    # ---------------- KPI SUMMARY ----------------
-    total_feeders = feeder_df["Feeder ID"].nunique()
-    total_recorded_units = valid_df["Clean Consumption"].sum()
-    negative_count = (analyzed_df["Quality Status"] == "Invalid Negative").sum()
-    suspect_count = (analyzed_df["Quality Status"] == "Data Quality Suspect").sum()
-
-    col1, col2, col3, col4 = st.columns(4)
-
-    col1.metric("Total Feeders", total_feeders)
-    col2.metric("Total Recorded Feeder Units", f"{total_recorded_units:,.1f}")
-    col3.metric("Negative Values Ignored", negative_count)
-    col4.metric("Suspect Spikes Ignored", suspect_count)
-
-    st.info(
-        "Note: Total Recorded Feeder Units is the sum of all 72 feeder readings. "
-        "It is not treated as final plant total because parent and child feeders may overlap."
-    )
-
-    # ---------------- DATA QUALITY ALERTS ----------------
-    st.subheader("Data Quality Alerts")
-
-    dq_alerts = analyzed_df[analyzed_df["Quality Status"] != "Valid"][
-        ["Feeder ID", "Feeder Name", "Hour", "Zone", "Consumption", "Quality Status"]
-    ].copy()
-
-    if dq_alerts.empty:
-        st.success("No negative values or suspect positive spikes found.")
-    else:
-        st.warning("Some values are ignored from analysis because they look like EMS/data quality issues.")
-        st.dataframe(dq_alerts, use_container_width=True, hide_index=True)
-
-    # ---------------- ZONE SUMMARY ----------------
-    st.subheader("Zone-wise Consumption Summary")
-
-    zone_summary = valid_df.groupby("Zone", as_index=False)["Clean Consumption"].sum()
-    zone_summary = zone_summary.rename(columns={"Clean Consumption": "Units"})
-    zone_summary["Share %"] = zone_summary["Units"] / zone_summary["Units"].sum() * 100
-
-    st.dataframe(
-        zone_summary.sort_values("Zone"),
-        use_container_width=True,
-        hide_index=True
-    )
-
-    fig_zone = px.bar(
-        zone_summary,
-        x="Zone",
-        y="Units",
-        text="Units",
-        title="Zone-wise Recorded Feeder Consumption"
-    )
-    fig_zone.update_traces(texttemplate="%{text:,.0f}", textposition="outside")
-    st.plotly_chart(fig_zone, use_container_width=True)
-
-    # ---------------- HOURLY TREND ----------------
-    st.subheader("Hourly Consumption Pattern")
-
-    hourly_summary = valid_df.groupby("Hour", as_index=False)["Clean Consumption"].sum()
-    hourly_summary = hourly_summary.rename(columns={"Clean Consumption": "Units"})
-
-    fig_hour = px.line(
-        hourly_summary,
-        x="Hour",
-        y="Units",
-        markers=True,
-        title="Hourly Recorded Feeder Consumption Trend"
-    )
-    st.plotly_chart(fig_hour, use_container_width=True)
-
-    # ---------------- TOP FEEDERS ----------------
-    st.subheader("Top Consuming Feeders")
-
-    feeder_summary = valid_df.groupby(
-        ["Feeder ID", "Feeder Name"],
+    daily_zone = valid_base.groupby(
+        ["Baseline Day", "Feeder ID", "Feeder Name", "Zone"],
         as_index=False
     )["Clean Consumption"].sum()
 
-    feeder_summary = feeder_summary.rename(columns={"Clean Consumption": "Units"})
-    feeder_summary = feeder_summary.sort_values("Units", ascending=False)
-
-    st.dataframe(feeder_summary, use_container_width=True, hide_index=True)
-
-    top10 = feeder_summary.head(10)
-
-    fig_top = px.bar(
-        top10,
-        x="Units",
-        y="Feeder ID",
-        orientation="h",
-        text="Units",
-        title="Top 10 Feeders by Recorded Consumption"
+    baseline = daily_zone.groupby(
+        ["Feeder ID", "Feeder Name", "Zone"],
+        as_index=False
+    )["Clean Consumption"].agg(
+        baseline_median="median",
+        baseline_mean="mean",
+        baseline_p75=lambda x: x.quantile(0.75),
+        baseline_p90=lambda x: x.quantile(0.90)
     )
-    fig_top.update_traces(texttemplate="%{text:,.0f}", textposition="outside")
-    fig_top.update_layout(yaxis={"categoryorder": "total ascending"})
-    st.plotly_chart(fig_top, use_container_width=True)
 
-    # ---------------- HEATMAP ----------------
-    st.subheader("Feeder × Hour Heatmap")
+    day_count = baseline_long["Baseline Day"].nunique()
 
-    heatmap_data = valid_df.pivot_table(
-        index="Feeder ID",
-        columns="Hour",
-        values="Clean Consumption",
-        aggfunc="sum"
-    ).fillna(0)
+    return baseline, day_count
 
-    fig_heatmap = px.imshow(
-        heatmap_data,
-        aspect="auto",
-        title="Hourly Consumption Heatmap - All 72 Feeders"
+
+def create_feeder_zone_summary(current_long, baseline):
+    current_clean = clean_consumption_data(current_long)
+
+    zone_summary = current_clean.groupby(
+        ["Feeder ID", "Feeder Name", "Zone"],
+        as_index=False
+    ).agg(
+        current_units=("Clean Consumption", "sum"),
+        issue_count=("Quality Status", lambda x: (x != "Valid").sum())
     )
-    st.plotly_chart(fig_heatmap, use_container_width=True)
 
-    # ---------------- FEEDER ZONE HEATMAP ----------------
-    st.subheader("Feeder × Zone Heatmap")
+    if baseline is not None:
+        zone_summary = zone_summary.merge(
+            baseline,
+            on=["Feeder ID", "Feeder Name", "Zone"],
+            how="left"
+        )
+    else:
+        zone_summary["baseline_median"] = np.nan
+        zone_summary["baseline_mean"] = np.nan
+        zone_summary["baseline_p75"] = np.nan
+        zone_summary["baseline_p90"] = np.nan
 
-    zone_heatmap_data = valid_df.pivot_table(
-        index="Feeder ID",
-        columns="Zone",
-        values="Clean Consumption",
-        aggfunc="sum"
-    ).fillna(0)
+    def zone_status(row):
+        if row["issue_count"] > 0:
+            return "Data Error Suspect"
 
-    fig_zone_heatmap = px.imshow(
-        zone_heatmap_data,
-        aspect="auto",
-        title="Zone-wise Consumption Heatmap - All 72 Feeders"
-    )
-    st.plotly_chart(fig_zone_heatmap, use_container_width=True)
+        if pd.isna(row["baseline_median"]):
+            return "Baseline Pending"
 
-    # ---------------- INTERPRETATION ----------------
-    st.subheader("Production-aware Interpretation")
+        if row["current_units"] > row["baseline_p90"]:
+            return "Out Control"
+
+        if row["current_units"] > row["baseline_p75"]:
+            return "Warning"
+
+        return "In Control"
+
+    zone_summary["Zone Status"] = zone_summary.apply(zone_status, axis=1)
+
+    return zone_summary
+
+
+def final_feeder_status(statuses):
+    statuses = list(statuses)
+
+    if "Data Error Suspect" in statuses:
+        return "Data Error Suspect"
+    if "Out Control" in statuses:
+        return "Out Control"
+    if "Warning" in statuses:
+        return "Warning"
+    if all(s == "Baseline Pending" for s in statuses):
+        return "Baseline Pending"
+
+    return "In Control"
+
+
+def status_class(status):
+    if status == "In Control":
+        return "status-in"
+    if status == "Warning":
+        return "status-warning"
+    if status == "Out Control":
+        return "status-out"
+    if status == "Data Error Suspect":
+        return "status-data"
+    return "status-pending"
+
+
+def format_units(value):
+    if pd.isna(value):
+        return "-"
+    return f"{value:,.0f}"
+
+
+def create_remark(feeder_name, feeder_status, zone_rows):
+    if feeder_status == "Baseline Pending":
+        return "Baseline not uploaded yet. Upload April/May baseline files to activate control prediction."
+
+    if feeder_status == "Data Error Suspect":
+        return "EMS data issue found in this feeder. Negative or unusual spike is ignored from control calculation. Verify meter/data fetch."
+
+    out_zones = zone_rows[zone_rows["Zone Status"] == "Out Control"]["Zone"].tolist()
+    warn_zones = zone_rows[zone_rows["Zone Status"] == "Warning"]["Zone"].tolist()
+
+    if out_zones:
+        zone_text = ", ".join([z.split("|")[0].strip() for z in out_zones])
+        return f"Consumption is out of seasonal control in {zone_text}. Review this feeder for abnormal running, idle load, or production/load variation."
+
+    if warn_zones:
+        zone_text = ", ".join([z.split("|")[0].strip() for z in warn_zones])
+        return f"Consumption is above normal range in {zone_text}. Keep under watch and compare with production activity."
+
+    return "Consumption is within seasonal control range for all zones."
+
+
+def render_feeder_card(feeder_id, feeder_name, zone_rows, feeder_status):
+    status_css = status_class(feeder_status)
+    remark = create_remark(feeder_name, feeder_status, zone_rows)
+
+    zone_html = ""
+
+    for zone in ZONE_ORDER:
+        row = zone_rows[zone_rows["Zone"] == zone]
+
+        if row.empty:
+            current = 0
+            median = np.nan
+            zstatus = "Baseline Pending"
+        else:
+            row = row.iloc[0]
+            current = row["current_units"]
+            median = row["baseline_median"]
+            zstatus = row["Zone Status"]
+
+        z_color = {
+            "In Control": "#166534",
+            "Warning": "#92400e",
+            "Out Control": "#991b1b",
+            "Data Error Suspect": "#6b21a8",
+            "Baseline Pending": "#334155",
+        }.get(zstatus, "#334155")
+
+        zone_html += f"""
+        <div class="zone-box">
+            <div class="zone-title">{zone}</div>
+            <div class="zone-value">{format_units(current)}</div>
+            <div class="zone-base">Baseline median: {format_units(median)}</div>
+            <div class="zone-status" style="color:{z_color};">{zstatus}</div>
+        </div>
+        """
+
+    st.markdown(f"""
+    <div class="feeder-card">
+        <div class="feeder-head">
+            <div>
+                <div class="feeder-name">{feeder_name}</div>
+                <div class="feeder-meta">{feeder_id}</div>
+            </div>
+            <div class="status-pill {status_css}">{feeder_status}</div>
+        </div>
+        <div class="zone-grid">
+            {zone_html}
+        </div>
+        <div class="remark-box">
+            <b>Remark:</b> {remark}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def run_utility_performance_analyzer():
+    add_utility_css()
 
     st.markdown("""
-    - **Zone 1** is low/no production period. High consumption here needs review for idle load, AC, compressor, pump, lighting, or machines left ON.
-    - **Zone 2** is maintenance and office activity period. Consumption should be compared with maintenance baseline.
-    - **Zone 3** is supplement printing period. Higher load is expected due to printing activity.
-    - **Zone 4** is main book/newspaper printing period. Highest load is expected here, so it should be judged against Zone 4 baseline, not simply marked abnormal.
-    """)
+    <div class="utility-hero">
+        <div class="utility-title">Utility Performance Analyzer</div>
+        <div class="utility-subtitle">
+            Feeder-wise Zone Control Dashboard | EMS Daily Utility Performance Analysis
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    upload_col1, upload_col2 = st.columns([1, 1])
+
+    with upload_col1:
+        current_file = st.file_uploader(
+            "Upload EMS Daily Utility Performance File",
+            type=["xls", "xlsx"],
+            key="current_ems_file"
+        )
+
+    with upload_col2:
+        baseline_files = st.file_uploader(
+            "Upload Baseline Files - April / May",
+            type=["xlsx", "xls"],
+            accept_multiple_files=True,
+            key="baseline_files"
+        )
+
+    if current_file is None:
+        st.info("Upload current EMS daily file to view feeder-wise zone control dashboard.")
+        return
+
+    try:
+        feeder_df, hour_cols = read_hourly_sheet(current_file, sheet_name="Hourly")
+        current_long = long_format(feeder_df, hour_cols)
+    except Exception as e:
+        st.error(f"Current EMS file reading failed: {e}")
+        return
+
+    baseline = None
+    baseline_days = 0
+
+    if baseline_files:
+        with st.spinner("Building seasonal baseline from uploaded April/May files..."):
+            baseline, baseline_days = build_baseline(baseline_files)
+
+    zone_summary = create_feeder_zone_summary(current_long, baseline)
+
+    feeder_status_df = zone_summary.groupby(
+        ["Feeder ID", "Feeder Name"],
+        as_index=False
+    )["Zone Status"].agg(lambda x: final_feeder_status(x))
+
+    feeder_status_df = feeder_status_df.rename(columns={"Zone Status": "Feeder Status"})
+
+    total_units = zone_summary["current_units"].sum()
+    total_feeders = feeder_status_df["Feeder ID"].nunique()
+    in_control = (feeder_status_df["Feeder Status"] == "In Control").sum()
+    warning = (feeder_status_df["Feeder Status"] == "Warning").sum()
+    out_control = (feeder_status_df["Feeder Status"] == "Out Control").sum()
+    data_error = (feeder_status_df["Feeder Status"] == "Data Error Suspect").sum()
+
+    k1, k2, k3, k4, k5 = st.columns(5)
+
+    k1.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Total Feeders</div>
+        <div class="kpi-value">{total_feeders}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    k2.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Recorded Units</div>
+        <div class="kpi-value">{total_units:,.0f}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    k3.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">In Control</div>
+        <div class="kpi-value">{in_control}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    k4.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Warning</div>
+        <div class="kpi-value">{warning}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    k5.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Out / Error</div>
+        <div class="kpi-value">{out_control + data_error}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("")
+
+    if baseline is None:
+        st.warning("Baseline not active. Upload April and May baseline files to enable prediction control status.")
+    else:
+        st.success(f"Seasonal baseline active using {baseline_days} historical days.")
+
+    st.caption(
+        "Note: Recorded Units means sum of all 72 feeder readings. "
+        "It is shown for visibility, not as final plant net consumption."
+    )
+
+    st.markdown("### Feeder-wise Zone Control")
+
+    f1, f2 = st.columns([1, 1])
+
+    with f1:
+        selected_status = st.selectbox(
+            "Filter by status",
+            ["All", "In Control", "Warning", "Out Control", "Data Error Suspect", "Baseline Pending"]
+        )
+
+    with f2:
+        search_text = st.text_input("Search feeder", "")
+
+    display_df = feeder_status_df.copy()
+
+    if selected_status != "All":
+        display_df = display_df[display_df["Feeder Status"] == selected_status]
+
+    if search_text.strip():
+        display_df = display_df[
+            display_df["Feeder Name"].str.contains(search_text, case=False, na=False) |
+            display_df["Feeder ID"].str.contains(search_text, case=False, na=False)
+        ]
+
+    status_rank = {
+        "Data Error Suspect": 1,
+        "Out Control": 2,
+        "Warning": 3,
+        "In Control": 4,
+        "Baseline Pending": 5,
+    }
+
+    display_df["rank"] = display_df["Feeder Status"].map(status_rank).fillna(9)
+    display_df = display_df.sort_values(["rank", "Feeder ID"])
+
+    if display_df.empty:
+        st.info("No feeder found for selected filter.")
+        return
+
+    for _, feeder in display_df.iterrows():
+        feeder_id = feeder["Feeder ID"]
+        feeder_name = feeder["Feeder Name"]
+        feeder_status = feeder["Feeder Status"]
+
+        zone_rows = zone_summary[zone_summary["Feeder ID"] == feeder_id].copy()
+
+        render_feeder_card(
+            feeder_id=feeder_id,
+            feeder_name=feeder_name,
+            zone_rows=zone_rows,
+            feeder_status=feeder_status
+        )
