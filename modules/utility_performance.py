@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from textwrap import dedent
+import html
 
 
 ZONE_ORDER = [
@@ -488,7 +488,11 @@ def render_feeder_card(feeder_id, feeder_name, zone_rows, feeder_status):
     status_css = status_class(feeder_status)
     remark = create_remark(feeder_name, feeder_status, zone_rows)
 
-    zone_html = ""
+    safe_feeder_id = html.escape(str(feeder_id))
+    safe_feeder_name = html.escape(str(feeder_name))
+    safe_remark = html.escape(str(remark))
+
+    zone_html_parts = []
 
     for zone in ZONE_ORDER:
         row = zone_rows[zone_rows["Zone"] == zone]
@@ -511,32 +515,30 @@ def render_feeder_card(feeder_id, feeder_name, zone_rows, feeder_status):
             "Baseline Pending": "#334155",
         }.get(zstatus, "#334155")
 
-        zone_html += dedent(f"""
-        <div class="zone-box">
-            <div class="zone-title">{zone}</div>
-            <div class="zone-value">{format_units(current)}</div>
-            <div class="zone-base">Baseline median: {format_units(median)}</div>
-            <div class="zone-status" style="color:{z_color};">{zstatus}</div>
-        </div>
-        """)
+        zone_html_parts.append(
+            f'<div class="zone-box">'
+            f'<div class="zone-title">{html.escape(zone)}</div>'
+            f'<div class="zone-value">{format_units(current)}</div>'
+            f'<div class="zone-base">Baseline median: {format_units(median)}</div>'
+            f'<div class="zone-status" style="color:{z_color};">{html.escape(zstatus)}</div>'
+            f'</div>'
+        )
 
-    card_html = dedent(f"""
-    <div class="feeder-card">
-        <div class="feeder-head">
-            <div>
-                <div class="feeder-name">{feeder_name}</div>
-                <div class="feeder-meta">{feeder_id}</div>
-            </div>
-            <div class="status-pill {status_css}">{feeder_status}</div>
-        </div>
-        <div class="zone-grid">
-            {zone_html}
-        </div>
-        <div class="remark-box">
-            <b>Remark:</b> {remark}
-        </div>
-    </div>
-    """)
+    zone_html = "".join(zone_html_parts)
+
+    card_html = (
+        f'<div class="feeder-card">'
+        f'<div class="feeder-head">'
+        f'<div>'
+        f'<div class="feeder-name">{safe_feeder_name}</div>'
+        f'<div class="feeder-meta">{safe_feeder_id}</div>'
+        f'</div>'
+        f'<div class="status-pill {status_css}">{html.escape(feeder_status)}</div>'
+        f'</div>'
+        f'<div class="zone-grid">{zone_html}</div>'
+        f'<div class="remark-box"><b>Remark:</b> {safe_remark}</div>'
+        f'</div>'
+    )
 
     st.markdown(card_html, unsafe_allow_html=True)
     
