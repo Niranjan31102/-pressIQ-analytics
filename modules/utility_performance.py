@@ -313,38 +313,39 @@ def long_format(df, hour_cols):
 
 def clean_consumption_data(long_df):
     df = long_df.copy()
+
     df["Quality Status"] = "Valid"
     df["Clean Consumption"] = df["Consumption"]
 
+    # Negative values are treated as EMS / meter data issue.
+    # Positive high/low values are NOT treated as data error because production timing changes daily.
     negative_mask = df["Consumption"] < 0
-    df.loc[negative_mask, "Quality Status"] = "Invalid Negative"
+
+    df.loc[negative_mask, "Quality Status"] = "Data Error Suspect"
     df.loc[negative_mask, "Clean Consumption"] = np.nan
 
-    valid_positive = df[df["Consumption"] >= 0].copy()
+    return df
+def create_data_error_remark(feeder_id, current_long):
+    feeder_issues = current_long[
+        (current_long["Feeder ID"] == feeder_id) &
+        (current_long["Consumption"] < 0)
+    ].copy()
 
-    if not valid_positive.empty:
-        stats = valid_positive.groupby("Feeder ID")["Consumption"].agg(
-            feeder_median="median",
-            feeder_p95=lambda x: x.quantile(0.95)
-        ).reset_index()
+    if feeder_issues.empty:
+        return "EMS data issue found. Kindly verify source reading."
 
-        df = df.merge(stats, on="Feeder ID", how="left")
+    issue_text = []
 
-        suspect_mask = (
-            (df["Consumption"] > 100) &
-            (df["feeder_median"] > 0) &
-            (
-                (df["Consumption"] > df["feeder_median"] * 8) |
-                (df["Consumption"] > df["feeder_p95"] * 2)
-            )
+    for _, row in feeder_issues.iterrows():
+        issue_text.append(
+            f"{row['Hour']} value {row['Consumption']:,.1f}"
         )
 
-        df.loc[suspect_mask, "Quality Status"] = "Data Error Suspect"
-        df.loc[suspect_mask, "Clean Consumption"] = np.nan
-
-    return df
-
-
+    return (
+        "Negative consumption found: "
+        + "; ".join(issue_text)
+        + ". This may be EMS/meter data error. Kindly check source reading."
+    )
 def build_baseline(baseline_files):
     if not baseline_files:
         return None, 0
@@ -463,12 +464,12 @@ def format_units(value):
     return f"{value:,.0f}"
 
 
-def create_remark(feeder_name, feeder_status, zone_rows):
+def create_remark(feeder_id, feeder_name, feeder_status, zone_rows, current_long):
     if feeder_status == "Baseline Pending":
         return "Baseline not uploaded yet. Upload April/May baseline files to activate control prediction."
 
     if feeder_status == "Data Error Suspect":
-        return "EMS data issue found in this feeder. Negative or unusual spike is ignored from control calculation. Verify meter/data fetch."
+        return create_data_error_remark(feeder_id, current_long)
 
     out_zones = zone_rows[zone_rows["Zone Status"] == "Out Control"]["Zone"].tolist()
     warn_zones = zone_rows[zone_rows["Zone Status"] == "Warning"]["Zone"].tolist()
@@ -484,9 +485,9 @@ def create_remark(feeder_name, feeder_status, zone_rows):
     return "Consumption is within seasonal control range for all zones."
 
 
-def render_feeder_card(feeder_id, feeder_name, zone_rows, feeder_status):
+def render_feeder_card(feeder_id, feeder_name, zone_rows, feeder_status, current_long):
     status_css = status_class(feeder_status)
-    remark = create_remark(feeder_name, feeder_status, zone_rows)
+    remark = create_remark(feeder_id, feeder_name, feeder_status, zone_rows, current_long)
 
     safe_feeder_id = html.escape(str(feeder_id))
     safe_feeder_name = html.escape(str(feeder_name))
@@ -704,5 +705,6 @@ def run_utility_performance_analyzer():
             feeder_id=feeder_id,
             feeder_name=feeder_name,
             zone_rows=zone_rows,
-            feeder_status=feeder_status
+            feeder_status=feeder_status,
+            current_long=current_long
         )
