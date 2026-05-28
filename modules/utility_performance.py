@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+from textwrap import dedent
 
 
 ZONE_ORDER = [
@@ -510,16 +511,16 @@ def render_feeder_card(feeder_id, feeder_name, zone_rows, feeder_status):
             "Baseline Pending": "#334155",
         }.get(zstatus, "#334155")
 
-        zone_html += f"""
+        zone_html += dedent(f"""
         <div class="zone-box">
             <div class="zone-title">{zone}</div>
             <div class="zone-value">{format_units(current)}</div>
             <div class="zone-base">Baseline median: {format_units(median)}</div>
             <div class="zone-status" style="color:{z_color};">{zstatus}</div>
         </div>
-        """
+        """)
 
-    st.markdown(f"""
+    card_html = dedent(f"""
     <div class="feeder-card">
         <div class="feeder-head">
             <div>
@@ -535,9 +536,10 @@ def render_feeder_card(feeder_id, feeder_name, zone_rows, feeder_status):
             <b>Remark:</b> {remark}
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
-
+    st.markdown(card_html, unsafe_allow_html=True)
+    
 def run_utility_performance_analyzer():
     add_utility_css()
 
