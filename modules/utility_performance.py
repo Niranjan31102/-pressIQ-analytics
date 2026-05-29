@@ -3,6 +3,12 @@ import pandas as pd
 import numpy as np
 import html
 from pathlib import Path
+BASELINE_DIR = Path("baseline_data")
+
+BASELINE_FILES = [
+    BASELINE_DIR / "APR26_Utility_performance.xlsx",
+    BASELINE_DIR / "MAY26_Utility_performance.xlsx",
+]
 
 
 ZONE_ORDER = [
@@ -359,7 +365,7 @@ def build_baseline(baseline_files):
             if not base_long.empty:
                 baseline_frames.append(base_long)
         except Exception as e:
-            st.warning(f"Baseline file skipped: {file.name}. Error: {e}")
+            st.warning(f"Baseline file skipped: {file}. Error: {e}")
 
     if not baseline_frames:
         return None, 0
@@ -556,23 +562,12 @@ def run_utility_performance_analyzer():
     </div>
     """, unsafe_allow_html=True)
 
-    upload_col1, upload_col2 = st.columns([1, 1])
-
-    with upload_col1:
-        current_file = st.file_uploader(
-            "Upload EMS Daily Utility Performance File",
-            type=["xls", "xlsx"],
-            key="current_ems_file"
-        )
-
-    with upload_col2:
-        baseline_files = st.file_uploader(
-            "Upload Baseline Files - April / May",
-            type=["xlsx", "xls"],
-            accept_multiple_files=True,
-            key="baseline_files"
-        )
-
+     current_file = st.file_uploader(
+        "Upload EMS Daily Utility Performance File",
+        type=["xls", "xlsx"],
+        key="current_ems_file"
+    )
+    
     if current_file is None:
         st.info("Upload current EMS daily file to view feeder-wise zone control dashboard.")
         return
@@ -587,11 +582,13 @@ def run_utility_performance_analyzer():
     baseline = None
     baseline_days = 0
 
-    if baseline_files:
-        with st.spinner("Building seasonal baseline from uploaded April/May files..."):
-            baseline, baseline_days = build_baseline(baseline_files)
+    available_baseline_files = [str(file) for file in BASELINE_FILES if file.exists()]
 
-    zone_summary = create_feeder_zone_summary(current_long, baseline)
+    if available_baseline_files:
+        with st.spinner("Loading seasonal baseline from app data..."):
+            baseline, baseline_days = build_baseline(available_baseline_files)
+    else:
+        st.warning("Seasonal baseline files not found in baseline_data folder.")
 
     feeder_status_df = zone_summary.groupby(
         ["Feeder ID", "Feeder Name"],
@@ -647,9 +644,9 @@ def run_utility_performance_analyzer():
     st.markdown("")
 
     if baseline is None:
-        st.warning("Baseline not active. Upload April and May baseline files to enable prediction control status.")
+        st.warning("Baseline not active. Please check baseline_data folder in GitHub.")
     else:
-        st.success(f"Seasonal baseline active using {baseline_days} historical days.")
+        st.success(f"Seasonal baseline active automatically: April–May 2026 | {baseline_days} historical days.")
 
     st.caption(
         "Note: Recorded Units means sum of all 72 feeder readings. "
