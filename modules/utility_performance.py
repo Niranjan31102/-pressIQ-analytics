@@ -589,6 +589,8 @@ def run_utility_performance_analyzer():
             baseline, baseline_days = build_baseline(available_baseline_files)
     else:
         st.warning("Seasonal baseline files not found in baseline_data folder.")
+        
+    zone_summary = create_feeder_zone_summary(current_long, baseline)
 
     feeder_status_df = zone_summary.groupby(
         ["Feeder ID", "Feeder Name"],
