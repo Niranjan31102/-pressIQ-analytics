@@ -249,14 +249,12 @@ def read_hourly_sheet(uploaded_file, sheet_name="Hourly"):
     return df, hour_cols
 
 
-def read_baseline_workbook(uploaded_file):
-    uploaded_file.seek(0)
-    xls = pd.ExcelFile(uploaded_file)
+def read_baseline_workbook(baseline_file):
+    xls = pd.ExcelFile(baseline_file)
     all_days = []
 
     for sheet in xls.sheet_names:
-        uploaded_file.seek(0)
-        raw_df = pd.read_excel(uploaded_file, sheet_name=sheet, header=None)
+        raw_df = pd.read_excel(baseline_file, sheet_name=sheet, header=None)
 
         if raw_df.shape[0] < 5:
             continue
@@ -304,8 +302,7 @@ def read_baseline_workbook(uploaded_file):
     baseline_long["Zone"] = baseline_long["Hour"].map(ZONE_MAP)
 
     return baseline_long
-
-
+    
 def long_format(df, hour_cols):
     long_df = df.melt(
         id_vars=["Sr No", "Feeder Name", "Feeder ID"],
