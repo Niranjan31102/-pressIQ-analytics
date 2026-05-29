@@ -562,12 +562,12 @@ def run_utility_performance_analyzer():
     </div>
     """, unsafe_allow_html=True)
 
-     current_file = st.file_uploader(
+    current_file = st.file_uploader(
         "Upload EMS Daily Utility Performance File",
         type=["xls", "xlsx"],
         key="current_ems_file"
     )
-    
+
     if current_file is None:
         st.info("Upload current EMS daily file to view feeder-wise zone control dashboard.")
         return
