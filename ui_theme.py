@@ -48,14 +48,14 @@ def apply_premium_theme():
         }
          
        .sidebar-simple-logo {
-            width: 58px;
-            height: 58px;
-            min-width: 58px;
+            width: 50px;
+            height: 50px;
+            min-width: 50px;
             border-radius: 18px;
             background: linear-gradient(135deg, #38bdf8 0%, #2563eb 55%, #1e3a8a 100%);
             color: #ffffff !important;
             font-weight: 950;
-            font-size: 1.05rem;
+            font-size: 0.95rem;
             letter-spacing: -0.04em;
             display: flex;
             align-items: center;
@@ -67,40 +67,35 @@ def apply_premium_theme():
         .sidebar-brand {
             display: flex;
             align-items: center;
-            gap: 0.95rem;
-            padding: 0.9rem 0.2rem 1.5rem 0.2rem;
+            gap: 0.75rem;
+            padding: 0rem 0.1rem 0.8rem 0.1rem;
         }
 
         .sidebar-title {
             color: #ffffff !important;
-            font-size: 1.65rem;
+            font-size: 1.35rem;
             font-weight: 950;
             line-height: 1.05;
             letter-spacing: -0.04em;
+            white-space: nowrap;
         }   
-
-        .sidebar-title {
-            color: #ffffff !important;
-            font-size: 1.65rem;
-            font-weight: 950;
-            line-height: 1.05;
-            letter-spacing: -0.04em;
-        }
 
         /* =========================
            SIDEBAR LOGIN CARD
         ========================= */
         section[data-testid="stSidebar"] .stAlert {
-            background: rgba(20, 83, 85, 0.55) !important;
-            border: 1px solid rgba(45, 212, 191, 0.16) !important;
-            border-radius: 16px !important;
-            padding: 1rem !important;
+            background: rgba(20, 83, 85, 0.42) !important;
+            border: 1px solid rgba(45, 212, 191, 0.14) !important;
+            border-radius: 12px !important;
+            padding: 0.45rem 0.55rem !important;
+            margin-bottom: 0.75rem !important;
         }
 
         section[data-testid="stSidebar"] .stAlert p {
-            font-size: 1rem !important;
-            font-weight: 700 !important;
-            line-height: 1.5 !important;
+            font-size: 0.72rem !important;
+            font-weight: 650 !important;
+            line-height: 1.25 !important;
+            word-break: break-word !important;
         }
 
         /* =========================
@@ -114,30 +109,30 @@ def apply_premium_theme():
         }
 
         section[data-testid="stSidebar"] h3 {
-            font-size: 1.2rem !important;
-            margin-top: 1.2rem !important;
-            margin-bottom: 0.8rem !important;
+            font-size: 1rem !important;
+            margin-top: 0.65rem !important;
+            margin-bottom: 0.45rem !important;
         }
 
         /* Select Intelligence / Select Tool label */
         section[data-testid="stSidebar"] .stRadio > label {
             color: #dbeafe !important;
-            font-size: 0.95rem !important;
+            font-size: 0.72rem !important;
             text-transform: uppercase;
             letter-spacing: 0.12em;
             font-weight: 900;
-            margin-bottom: 0.55rem;
+            margin-bottom: 0.25rem;
         }
 
         /* Radio option cards */
         section[data-testid="stSidebar"] div[role="radiogroup"] label {
             background: rgba(255,255,255,0.07);
             border: 1px solid rgba(255,255,255,0.14);
-            border-radius: 16px;
-            padding: 0.9rem 1rem;
-            margin-bottom: 0.65rem;
+            border-radius: 13px;
+            padding: 0.55rem 0.65rem;
+            margin-bottom: 0.4rem;
             transition: all 0.2s ease;
-            min-width: 250px;
+            min-width: 210px;
         }
 
         section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
@@ -148,9 +143,9 @@ def apply_premium_theme():
 
         /* Radio option text */
         section[data-testid="stSidebar"] div[role="radiogroup"] label p {
-            font-size: 1.03rem !important;
-            font-weight: 850 !important;
-            line-height: 1.35 !important;
+            font-size: 0.86rem !important;
+            font-weight: 800 !important;
+            line-height: 1.15 !important;
         }
 
         /* Selected radio dot */
