@@ -161,7 +161,6 @@ st.sidebar.markdown(
         <div class="sidebar-logo">PIQ</div>
         <div>
             <div class="sidebar-title">PressIQ Analytics</div>
-            <div class="sidebar-subtitle">Plant Intelligence Suite</div>
         </div>
     </div>
     """,
