@@ -105,7 +105,15 @@ if "user_email" not in st.session_state:
     st.session_state.user_email = ""
 
 if not st.session_state.logged_in:
-    st.markdown('<div class="main-title">🏭 PressIQ Analytics</div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="login-brand-row">
+            <div class="login-simple-logo">PIQ</div>
+            <div class="login-main-title">PressIQ Analytics</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
     st.markdown('<div class="sub-title">AI Powered Plant Performance Intelligence Platform</div>', unsafe_allow_html=True)
 
     st.write("### Login")
