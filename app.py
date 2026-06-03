@@ -155,7 +155,18 @@ if not st.session_state.logged_in:
 
     st.stop()
 # ---------------- SIDEBAR ----------------
-st.sidebar.title("🏭 PressIQ Analytics")
+st.sidebar.markdown(
+    """
+    <div class="sidebar-brand">
+        <div class="sidebar-logo">PIQ</div>
+        <div>
+            <div class="sidebar-title">PressIQ Analytics</div>
+            <div class="sidebar-subtitle">Plant Intelligence Suite</div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 st.sidebar.success(f"Logged in: {st.session_state.user_email}")
 
 st.sidebar.markdown("### Main Intelligence")
