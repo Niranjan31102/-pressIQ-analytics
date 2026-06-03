@@ -117,10 +117,14 @@ if not st.session_state.logged_in:
     st.markdown('<div class="sub-title">AI Powered Plant Performance Intelligence Platform</div>', unsafe_allow_html=True)
 
     st.write("### Login")
-    email = st.text_input("Email")
-    password = st.text_input("Password", type="password")
 
-    if st.button("Login"):
+    with st.form("login_form", clear_on_submit=False):
+        email = st.text_input("Email")
+        password = st.text_input("Password", type="password")
+
+        login_clicked = st.form_submit_button("Login")
+
+    if login_clicked:
         if not email:
             st.error("Please enter email.")
         elif password != COMMON_PASSWORD:
@@ -158,7 +162,7 @@ if not st.session_state.logged_in:
 
             except Exception as e:
                 st.warning(f"Login logging failed: {e}")
-
+    
             st.rerun()
 
     st.stop()
