@@ -44,7 +44,7 @@ def apply_premium_theme():
             display: flex;
             align-items: center;
             gap: 0.95rem;
-            padding: 0.9rem 0.2rem 1.5rem 0.2rem;
+            padding: 0.14rem 0.2rem 1.0rem 0.2rem;
         }
          
        .sidebar-simple-logo {
