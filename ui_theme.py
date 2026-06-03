@@ -391,10 +391,64 @@ def apply_premium_theme():
         div[data-testid="stDataFrame"] td {
             text-align: center !important;
         }
+        /* =========================
+            INPUT BOX VISIBILITY
+        ========================= */
+        /* Text input, password input, number input */
+        div[data-baseweb="input"] {
+            background: #ffffff !important;
+            border: 1.8px solid #94a3b8 !important;
+            border-radius: 14px !important;
+            box-shadow: 0 6px 16px rgba(15,23,42,0.06) !important;
+        }
+        /* Actual input text area */
+        div[data-baseweb="input"] input {
+            background: #ffffff !important;
+            color: #0f172a !important;
+            font-weight: 600 !important
+        }
+        /* Input hover */
+        div[data-baseweb="input"]:hover {
+            border-color: #2563eb !important;
+            box-shadow: 0 8px 20px rgba(37,99,235,0.12) !important;
+        }
 
+        /* Input focus */
+        div[data-baseweb="input"]:focus-within {
+            border-color: #2563eb !important;
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.16) !important;
+        }
+
+        /* Text area */
+        textarea {
+            background: #ffffff !important;
+            border: 1.8px solid #94a3b8 !important;
+            border-radius: 14px !important;
+            color: #0f172a !important;
+            font-weight: 600 !important;
+        }
+        /* Select box */
+        div[data-baseweb="select"] > div {
+            background: #ffffff !important;
+            border: 1.8px solid #94a3b8 !important;
+            border-radius: 14px !important;
+            box-shadow: 0 6px 16px rgba(15,23,42,0.06) !important;
+        }
+        /* Select box focus/hover */
+        div[data-baseweb="select"] > div:hover {
+            border-color: #2563eb !important;
+        }
+        /* Labels */   
+        label, .stTextInput label, .stSelectbox label, .stNumberInput label, .stTextArea label {
+            color: #0f172a !important;
+            font-weight: 700 !important;
+        }
+
+        
         /* =========================
            LOGIN
         ========================= */
+        
         .login-wrapper {
             max-width: 460px;
             margin: 5vh auto 0 auto;
