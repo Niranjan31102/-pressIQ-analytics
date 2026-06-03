@@ -1,5 +1,7 @@
 import streamlit as st
 
+from ui_theme import apply_premium_theme
+
 from modules.waste_tracker import run_waste_tracker
 from modules.edition_waste import run_edition_waste_analyzer
 from modules.adam_analyzer import run_adam_analyzer
@@ -12,6 +14,7 @@ st.set_page_config(
     page_icon="🏭",
     layout="wide"
 )
+apply_premium_theme()
 
 # ---------------- STYLE ----------------
 st.markdown("""
