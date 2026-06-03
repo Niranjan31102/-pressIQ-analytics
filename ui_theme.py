@@ -46,79 +46,39 @@ def apply_premium_theme():
             gap: 0.95rem;
             padding: 0.9rem 0.2rem 1.5rem 0.2rem;
         }
-
-        .sidebar-logo {
-            width: 64px;
-            height: 64px;
-            min-width: 64px;
-            border-radius: 50%;
-            background: radial-gradient(circle at 35% 25%, #67e8f9 0%, #38bdf8 25%, #2563eb 65%, #1e3a8a 100%);
-            color: white;
+         
+       .sidebar-simple-logo {
+            width: 58px;
+            height: 58px;
+            min-width: 58px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, #38bdf8 0%, #2563eb 55%, #1e3a8a 100%);
+            color: #ffffff !important;
             font-weight: 950;
+            font-size: 1.05rem;
+            letter-spacing: -0.04em;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 18px 34px rgba(37,99,235,0.42);
-            position: relative;
-            overflow: hidden;
-            border: 3px solid rgba(96,165,250,0.85);
-        }
-        .sidebar-logo::before {
-            content: "";
-            position: absolute;
-            inset: 8px;
-            border-radius: 50%;
-            background: #0f172a;
-            box-shadow: inset 0 0 0 2px rgba(96,165,250,0.40);
-            z-index: 1;
-        .gear-icon {
-            position: absolute;
-            z-index: 2;
-            font-size: 4.5rem;
-            color: #3b82f6 !important;
-            opacity: 0.95;
-            line-height: 1;
-            transform: scale(1.08);
+            box-shadow: 0 16px 32px rgba(37,99,235,0.38);
+            border: 1px solid rgba(147,197,253,0.55);
         }
 
-        .logo-text {
-            position: absolute;
-            z-index: 4;
-            top: 17px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 0.95rem;
-            font-weight: 950;
-            letter-spacing: -0.03em;
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.95rem;
+            padding: 0.9rem 0.2rem 1.5rem 0.2rem;
+        }
+
+        .sidebar-title {
             color: #ffffff !important;
-            text-shadow: 0 2px 8px rgba(0,0,0,0.45);
-        }
+            font-size: 1.65rem;
+            font-weight: 950;
+            line-height: 1.05;
+            letter-spacing: -0.04em;
+        }   
 
-        .bar {
-            position: absolute;
-            bottom: 15px;
-            z-index: 4;
-            width: 6px;
-            border-radius: 4px 4px 2px 2px;
-            background: linear-gradient(180deg, #67e8f9, #2563eb);
-            box-shadow: 0 4px 8px rgba(37,99,235,0.35);
-        }
-
-        .bar-1 {
-            height: 10px;
-            left: 23px;
-        }
-
-        .bar-2 {
-            height: 14px;
-            left: 32px;
-        }
-
-        .bar-3 {
-            height: 19px;
-            left: 41px;
-        }
-        }
         .sidebar-title {
             color: #ffffff !important;
             font-size: 1.65rem;
