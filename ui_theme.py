@@ -51,9 +51,10 @@ def apply_premium_theme():
 
         .sidebar-title {
             color: #ffffff;
-            font-size: 1.28rem;
+            font-size: 1.65rem;
             font-weight: 950;
-            line-height: 1.1;
+            line-height: 1.05;
+            letter-spacing: -0.04em;
         }
 
         .sidebar-subtitle {
