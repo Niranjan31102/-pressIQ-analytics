@@ -158,7 +158,7 @@ if not st.session_state.logged_in:
 st.sidebar.markdown(
     """
     <div class="sidebar-brand">
-        <div class="sidebar-logo">PIQ</div>
+        <div class="sidebar-logo"><span>⚙</span><small>PIQ</small></div>
         <div>
             <div class="sidebar-title">PressIQ Analytics</div>
         </div>
