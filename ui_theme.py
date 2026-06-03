@@ -432,7 +432,37 @@ def apply_premium_theme():
             font-size: 0.92rem;
             margin-bottom: 1.4rem;
         }
+        .login-brand-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.7rem;
+        }
 
+        .login-simple-logo {
+            width: 62px;
+            height: 62px;
+            min-width: 62px;
+            border-radius: 19px;
+            background: linear-gradient(135deg, #38bdf8 0%, #2563eb 55%, #1e3a8a 100%);
+            color: #ffffff !important;
+            font-weight: 950;
+            font-size: 1.15rem;
+            letter-spacing: -0.04em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 16px 32px rgba(37,99,235,0.30);
+            border: 1px solid rgba(147,197,253,0.55);
+        }
+
+        .login-main-title {
+            color: #0f172a !important;
+            font-size: 2.7rem;
+            font-weight: 950;
+            line-height: 1.05;
+            letter-spacing: -0.05em;
+        }
         /* =========================
            SMALL UTILITY
         ========================= */
