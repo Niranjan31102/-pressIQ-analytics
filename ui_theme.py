@@ -52,7 +52,7 @@ def apply_premium_theme():
             height: 64px;
             min-width: 64px;
             border-radius: 50%;
-            background: radial-gradient(circle at 35% 25%, #67e8f9 0%, #38bdf8 22%, #2563eb 62%, #1e3a8a 100%);
+            background: radial-gradient(circle at 35% 25%, #67e8f9 0%, #38bdf8 25%, #2563eb 65%, #1e3a8a 100%);
             color: white;
             font-weight: 950;
             display: flex;
@@ -63,41 +63,41 @@ def apply_premium_theme():
             overflow: hidden;
             border: 3px solid rgba(96,165,250,0.85);
         }
-
         .sidebar-logo::before {
             content: "";
             position: absolute;
-            inset: 7px;
+            inset: 8px;
             border-radius: 50%;
             background: #0f172a;
-            box-shadow: inset 0 0 0 2px rgba(96,165,250,0.35);
+            box-shadow: inset 0 0 0 2px rgba(96,165,250,0.40);
             z-index: 1;
-        }
-
         .gear-icon {
             position: absolute;
-            z-index: 0;
-            font-size: 4.2rem;
-            color: #3b82f6;
+            z-index: 2;
+            font-size: 4.5rem;
+            color: #3b82f6 !important;
             opacity: 0.95;
             line-height: 1;
+            transform: scale(1.08);
         }
 
         .logo-text {
             position: absolute;
-            z-index: 3;
+            z-index: 4;
             top: 17px;
-            font-size: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.95rem;
             font-weight: 950;
-            letter-spacing: -0.04em;
+            letter-spacing: -0.03em;
             color: #ffffff !important;
-            text-shadow: 0 2px 8px rgba(0,0,0,0.35);
+            text-shadow: 0 2px 8px rgba(0,0,0,0.45);
         }
 
         .bar {
             position: absolute;
             bottom: 15px;
-            z-index: 3;
+            z-index: 4;
             width: 6px;
             border-radius: 4px 4px 2px 2px;
             background: linear-gradient(180deg, #67e8f9, #2563eb);
@@ -106,19 +106,19 @@ def apply_premium_theme():
 
         .bar-1 {
             height: 10px;
-            left: 24px;
+            left: 23px;
         }
 
         .bar-2 {
             height: 14px;
-            left: 33px;
+            left: 32px;
         }
 
         .bar-3 {
             height: 19px;
-            left: 42px;
+            left: 41px;
         }
-
+        }
         .sidebar-title {
             color: #ffffff !important;
             font-size: 1.65rem;
