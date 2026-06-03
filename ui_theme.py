@@ -29,8 +29,8 @@ def apply_premium_theme():
            SIDEBAR
         ========================= */
         section[data-testid="stSidebar"] {
-            background: linear-gradient(180deg, #0f172a 0%, #111827 55%, #020617 100%);
-            border-right: 1px solid rgba(255,255,255,0.08);
+            background: linear-gradient(180deg, #1e293b 0%, #243044 55%, #182235 100%);
+            border-right: 1px solid rgba(255,255,255,0.10);
         }
 
         section[data-testid="stSidebar"] * {
@@ -38,19 +38,27 @@ def apply_premium_theme():
         }
 
         section[data-testid="stSidebar"] .stRadio > label {
-            color: #94a3b8 !important;
-            font-size: 0.78rem;
+            color: #cbd5e1 !important;
+            font-size: 0.9rem;
             text-transform: uppercase;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.10em;
+            font-weight: 800;
+            margin-bottom: 0.45rem;
+        }
+        section[data-testid="stSidebar"] div[role="radiogroup"] label p {
+            font-size: 1rem !important;
+            font-weight: 800 !important;
+            line-height: 1.3 !important;
         }
 
         section[data-testid="stSidebar"] div[role="radiogroup"] label {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 14px;
-            padding: 0.65rem 0.8rem;
-            margin-bottom: 0.35rem;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 16px;
+            padding: 0.85rem 1rem;
+            margin-bottom: 0.55rem;
             transition: all 0.2s ease;
+            min-width: 250px;
         }
 
         section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
