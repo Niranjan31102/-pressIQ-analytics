@@ -26,43 +26,8 @@ def apply_premium_theme():
         }
 
         /* =========================
-           SIDEBAR
+           SIDEBAR MAIN STYLE
         ========================= */
-        .sidebar-brand {
-            display: flex;
-            align-items: center;
-            gap: 0.85rem;
-            padding: 0.8rem 0.2rem 1.4rem 0.2rem;
-        }
-
-        .sidebar-logo {
-            width: 46px;
-            height: 46px;
-            border-radius: 16px;
-            background: linear-gradient(135deg, #60a5fa, #2563eb);
-            color: white;
-            font-weight: 950;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 14px 28px rgba(37,99,235,0.35);
-            letter-spacing: -0.03em;
-        }
-
-        .sidebar-title {
-            color: #ffffff;
-            font-size: 1.65rem;
-            font-weight: 950;
-            line-height: 1.05;
-            letter-spacing: -0.04em;
-        }
-
-        .sidebar-subtitle {
-            color: #cbd5e1;
-            font-size: 0.78rem;
-            font-weight: 600;
-            margin-top: 0.2rem;
-        }
         section[data-testid="stSidebar"] {
             background: linear-gradient(180deg, #1e293b 0%, #243044 55%, #182235 100%);
             border-right: 1px solid rgba(255,255,255,0.10);
@@ -72,33 +37,178 @@ def apply_premium_theme():
             color: #e5e7eb !important;
         }
 
-        section[data-testid="stSidebar"] .stRadio > label {
-            color: #cbd5e1 !important;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 0.10em;
-            font-weight: 800;
-            margin-bottom: 0.45rem;
-        }
-        section[data-testid="stSidebar"] div[role="radiogroup"] label p {
-            font-size: 1rem !important;
-            font-weight: 800 !important;
-            line-height: 1.3 !important;
+        /* =========================
+           SIDEBAR BRAND / LOGO
+        ========================= */
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.95rem;
+            padding: 0.9rem 0.2rem 1.5rem 0.2rem;
         }
 
-        section[data-testid="stSidebar"] div[role="radiogroup"] label {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 16px;
-            padding: 0.85rem 1rem;
+        .sidebar-logo {
+            width: 64px;
+            height: 64px;
+            min-width: 64px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 25%, #67e8f9 0%, #38bdf8 22%, #2563eb 62%, #1e3a8a 100%);
+            color: white;
+            font-weight: 950;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 18px 34px rgba(37,99,235,0.42);
+            position: relative;
+            overflow: hidden;
+            border: 3px solid rgba(96,165,250,0.85);
+        }
+
+        .sidebar-logo::before {
+            content: "";
+            position: absolute;
+            inset: 7px;
+            border-radius: 50%;
+            background: #0f172a;
+            box-shadow: inset 0 0 0 2px rgba(96,165,250,0.35);
+            z-index: 1;
+        }
+
+        .gear-icon {
+            position: absolute;
+            z-index: 0;
+            font-size: 4.2rem;
+            color: #3b82f6;
+            opacity: 0.95;
+            line-height: 1;
+        }
+
+        .logo-text {
+            position: absolute;
+            z-index: 3;
+            top: 17px;
+            font-size: 1rem;
+            font-weight: 950;
+            letter-spacing: -0.04em;
+            color: #ffffff !important;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.35);
+        }
+
+        .bar {
+            position: absolute;
+            bottom: 15px;
+            z-index: 3;
+            width: 6px;
+            border-radius: 4px 4px 2px 2px;
+            background: linear-gradient(180deg, #67e8f9, #2563eb);
+            box-shadow: 0 4px 8px rgba(37,99,235,0.35);
+        }
+
+        .bar-1 {
+            height: 10px;
+            left: 24px;
+        }
+
+        .bar-2 {
+            height: 14px;
+            left: 33px;
+        }
+
+        .bar-3 {
+            height: 19px;
+            left: 42px;
+        }
+
+        .sidebar-title {
+            color: #ffffff !important;
+            font-size: 1.65rem;
+            font-weight: 950;
+            line-height: 1.05;
+            letter-spacing: -0.04em;
+        }
+
+        /* =========================
+           SIDEBAR LOGIN CARD
+        ========================= */
+        section[data-testid="stSidebar"] .stAlert {
+            background: rgba(20, 83, 85, 0.55) !important;
+            border: 1px solid rgba(45, 212, 191, 0.16) !important;
+            border-radius: 16px !important;
+            padding: 1rem !important;
+        }
+
+        section[data-testid="stSidebar"] .stAlert p {
+            font-size: 1rem !important;
+            font-weight: 700 !important;
+            line-height: 1.5 !important;
+        }
+
+        /* =========================
+           SIDEBAR HEADINGS
+        ========================= */
+        section[data-testid="stSidebar"] h1,
+        section[data-testid="stSidebar"] h2,
+        section[data-testid="stSidebar"] h3 {
+            color: #ffffff !important;
+            font-weight: 900 !important;
+        }
+
+        section[data-testid="stSidebar"] h3 {
+            font-size: 1.2rem !important;
+            margin-top: 1.2rem !important;
+            margin-bottom: 0.8rem !important;
+        }
+
+        /* Select Intelligence / Select Tool label */
+        section[data-testid="stSidebar"] .stRadio > label {
+            color: #dbeafe !important;
+            font-size: 0.95rem !important;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            font-weight: 900;
             margin-bottom: 0.55rem;
+        }
+
+        /* Radio option cards */
+        section[data-testid="stSidebar"] div[role="radiogroup"] label {
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 16px;
+            padding: 0.9rem 1rem;
+            margin-bottom: 0.65rem;
             transition: all 0.2s ease;
             min-width: 250px;
         }
 
         section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
-            background: rgba(59,130,246,0.18);
-            border-color: rgba(96,165,250,0.45);
+            background: rgba(59,130,246,0.20);
+            border-color: rgba(96,165,250,0.55);
+            transform: translateY(-1px);
+        }
+
+        /* Radio option text */
+        section[data-testid="stSidebar"] div[role="radiogroup"] label p {
+            font-size: 1.03rem !important;
+            font-weight: 850 !important;
+            line-height: 1.35 !important;
+        }
+
+        /* Selected radio dot */
+        section[data-testid="stSidebar"] input[type="radio"] {
+            transform: scale(1.12);
+        }
+
+        /* Sidebar logout button */
+        section[data-testid="stSidebar"] .stButton > button {
+            margin-top: 1rem;
+            width: 100%;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #ffffff !important;
+            border: 1px solid rgba(147,197,253,0.35);
+            font-weight: 850;
+            padding: 0.7rem 1rem;
+            box-shadow: 0 12px 26px rgba(37,99,235,0.28);
         }
 
         /* =========================
@@ -312,6 +422,19 @@ def apply_premium_theme():
             overflow: hidden;
             border: 1px solid rgba(148,163,184,0.25);
             box-shadow: 0 10px 24px rgba(15,23,42,0.05);
+        }
+
+        div[data-testid="stDataFrame"] table {
+            text-align: center !important;
+        }
+
+        div[data-testid="stDataFrame"] th {
+            text-align: center !important;
+            font-weight: 600 !important;
+        }
+
+        div[data-testid="stDataFrame"] td {
+            text-align: center !important;
         }
 
         /* =========================
