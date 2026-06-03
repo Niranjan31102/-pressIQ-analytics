@@ -28,6 +28,40 @@ def apply_premium_theme():
         /* =========================
            SIDEBAR
         ========================= */
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            padding: 0.8rem 0.2rem 1.4rem 0.2rem;
+        }
+
+        .sidebar-logo {
+            width: 46px;
+            height: 46px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #60a5fa, #2563eb);
+            color: white;
+            font-weight: 950;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 14px 28px rgba(37,99,235,0.35);
+            letter-spacing: -0.03em;
+        }
+
+        .sidebar-title {
+            color: #ffffff;
+            font-size: 1.28rem;
+            font-weight: 950;
+            line-height: 1.1;
+        }
+
+        .sidebar-subtitle {
+            color: #cbd5e1;
+            font-size: 0.78rem;
+            font-weight: 600;
+            margin-top: 0.2rem;
+        }
         section[data-testid="stSidebar"] {
             background: linear-gradient(180deg, #1e293b 0%, #243044 55%, #182235 100%);
             border-right: 1px solid rgba(255,255,255,0.10);
