@@ -562,59 +562,59 @@ def run_utility_performance_analyzer():
     </div>
     """, unsafe_allow_html=True)
 
-data_source = st.radio(
-    "Select Data Source",
-    ["Google Drive Folder", "Manual Upload"],
-    horizontal=True
-)
-
-current_file = None
-
-if data_source == "Google Drive Folder":
-    st.markdown("### Analyze from Google Drive")
-
-    selected_date = st.date_input(
-        "Select EMS file date",
-        value=date.today()
+    data_source = st.radio(
+        "Select Data Source",
+        ["Google Drive Folder", "Manual Upload"],
+        horizontal=True
     )
 
-    if st.button("Analyze Selected Date"):
-        folder_id = st.secrets["UTILITY_DRIVE_FOLDER_ID"]
-        file_name = expected_ems_filename(selected_date)
+    current_file = None
 
-        file_info = find_file_in_drive(folder_id, file_name)
+    if data_source == "Google Drive Folder":
+        st.markdown("### Analyze from Google Drive")
 
-        if file_info is None:
-            st.error(
-                f"File not found: {file_name}. "
-                "Please ask Utility team to upload this file in the shared Drive folder."
-            )
+        selected_date = st.date_input(
+            "Select EMS file date",
+            value=date.today()
+        )
+
+        if st.button("Analyze Selected Date"):
+            folder_id = st.secrets["UTILITY_DRIVE_FOLDER_ID"]
+            file_name = expected_ems_filename(selected_date)
+
+            file_info = find_file_in_drive(folder_id, file_name)
+
+            if file_info is None:
+                st.error(
+                    f"File not found: {file_name}. "
+                    "Please ask Utility team to upload this file in the shared Drive folder."
+                )
+                return
+
+            st.success(f"File found: {file_info['name']}")
+            current_file = download_drive_file(file_info["id"])
+
+        else:
+            st.info("Select date and click Analyze Selected Date.")
             return
 
-        st.success(f"File found: {file_info['name']}")
-        current_file = download_drive_file(file_info["id"])
-
     else:
-        st.info("Select date and click Analyze Selected Date.")
-        return
+        current_file = st.file_uploader(
+            "Upload EMS Daily Utility Performance File",
+            type=["xls", "xlsx"],
+            key="current_ems_file"
+        )
 
-else:
-    current_file = st.file_uploader(
-        "Upload EMS Daily Utility Performance File",
-        type=["xls", "xlsx"],
-        key="current_ems_file"
-    )
+        if current_file is None:
+            st.info("Upload current EMS daily file to view feeder-wise zone control dashboard.")
+            return
 
-    if current_file is None:
-        st.info("Upload current EMS daily file to view feeder-wise zone control dashboard.")
-        return
     try:
         feeder_df, hour_cols = read_hourly_sheet(current_file, sheet_name="Hourly")
         current_long = long_format(feeder_df, hour_cols)
     except Exception as e:
         st.error(f"Current EMS file reading failed: {e}")
         return
-
     baseline = None
     baseline_days = 0
 
