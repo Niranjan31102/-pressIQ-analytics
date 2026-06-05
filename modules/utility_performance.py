@@ -3,6 +3,23 @@ import pandas as pd
 import numpy as np
 import html
 from pathlib import Path
+from datetime import date
+from modules.drive_loader import expected_ems_filename, find_file_in_drive, download_drive_file
+
+st.markdown("### Analyze from Google Drive")
+
+selected_date = st.date_input("Select EMS file date", value=date.today())
+
+if st.button("Check file in Drive"):
+    folder_id = st.secrets["UTILITY_DRIVE_FOLDER_ID"]
+    file_name = expected_ems_filename(selected_date)
+
+    file_info = find_file_in_drive(folder_id, file_name)
+
+    if file_info is None:
+        st.error(f"File not found: {file_name}")
+    else:
+        st.success(f"File found: {file_info['name']}")
 BASELINE_DIR = Path("baseline_data")
 
 BASELINE_FILES = [
