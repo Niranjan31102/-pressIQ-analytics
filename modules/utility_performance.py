@@ -1,18 +1,46 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
 import html
 from pathlib import Path
-from datetime import date
-from modules.drive_loader import expected_ems_filename, find_file_in_drive, download_drive_file
+from datetime import date, timedelta
+
+import numpy as np
+import pandas as pd
+import streamlit as st
+
+from modules.drive_loader import (
+    expected_ems_filename,
+    find_file_in_drive,
+    download_drive_file,
+)
+
+
+# ============================================================
+# BASELINE FILES
+# ============================================================
 
 BASELINE_DIR = Path("baseline_data")
 
-BASELINE_FILES = [
-    BASELINE_DIR / "APR26_Utility_performance.xlsx",
-    BASELINE_DIR / "MAY26_Utility_performance.xlsx",
+# Keep only the real baseline files in baseline_data folder.
+# This auto-detects common file names to avoid file-name mismatch issues.
+BASELINE_FILE_CANDIDATES = [
+    "APR26_Utility_performance.xlsx",
+    "APR_26_Utility_performance.xlsx",
+    "APR_26 Utility performance.xlsx",
+    "MAY26_Utility_performance.xlsx",
+    "May26_Utility_performance.xlsx",
+    "May_26_Utility_performance.xlsx",
+    "May_26 Utility performance.xlsx",
 ]
 
+BASELINE_FILES = [
+    BASELINE_DIR / file_name
+    for file_name in BASELINE_FILE_CANDIDATES
+    if (BASELINE_DIR / file_name).exists()
+]
+
+
+# ============================================================
+# ZONE LOGIC
+# ============================================================
 
 ZONE_ORDER = [
     "Zone 1 | 06:00-08:00",
@@ -52,6 +80,10 @@ ZONE_MAP = {
 }
 
 
+# ============================================================
+# CSS
+# ============================================================
+
 def add_utility_css():
     st.markdown("""
     <style>
@@ -81,14 +113,14 @@ def add_utility_css():
         min-height: 112px;
     }
     .kpi-label {
-        font-size: 13px;
-        font-weight: 700;
+        font-size: 12px;
+        font-weight: 800;
         color: #64748b;
         text-transform: uppercase;
         letter-spacing: .04em;
     }
     .kpi-value {
-        font-size: 30px;
+        font-size: 28px;
         font-weight: 900;
         color: #0f172a;
         margin-top: 8px;
@@ -188,6 +220,15 @@ def add_utility_css():
         color: #334155;
         font-size: 14px;
     }
+    .mode-note {
+        background: #eff6ff;
+        border-left: 5px solid #2563eb;
+        padding: 14px 16px;
+        border-radius: 14px;
+        color: #1e3a8a;
+        margin-top: 12px;
+        margin-bottom: 18px;
+    }
     @media (max-width: 900px) {
         .zone-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -195,6 +236,21 @@ def add_utility_css():
     }
     </style>
     """, unsafe_allow_html=True)
+
+
+# ============================================================
+# HELPERS
+# ============================================================
+
+def get_date_list(start_date, end_date):
+    dates = []
+    current = start_date
+
+    while current <= end_date:
+        dates.append(current)
+        current = current + timedelta(days=1)
+
+    return dates
 
 
 def normalize_hour(col):
@@ -211,14 +267,41 @@ def normalize_hour(col):
         return text
 
 
+def safe_seek(file_obj):
+    if hasattr(file_obj, "seek"):
+        file_obj.seek(0)
+
+
+def format_units(value):
+    if pd.isna(value):
+        return "-"
+    return f"{value:,.0f}"
+
+
+def status_class(status):
+    if status == "In Control":
+        return "status-in"
+    if status == "Warning":
+        return "status-warning"
+    if status == "Out Control":
+        return "status-out"
+    if status == "Data Error Suspect":
+        return "status-data"
+    return "status-pending"
+
+
+# ============================================================
+# READ CURRENT EMS DAILY FILE
+# ============================================================
+
 def read_hourly_sheet(uploaded_file, sheet_name="Hourly"):
-    uploaded_file.seek(0)
+    safe_seek(uploaded_file)
     xls = pd.ExcelFile(uploaded_file)
 
     if sheet_name not in xls.sheet_names:
         raise ValueError(f"'{sheet_name}' sheet not found.")
 
-    uploaded_file.seek(0)
+    safe_seek(uploaded_file)
     raw_df = pd.read_excel(uploaded_file, sheet_name=sheet_name, header=None)
 
     header_row = 2
@@ -230,7 +313,7 @@ def read_hourly_sheet(uploaded_file, sheet_name="Hourly"):
 
     df = df.rename(columns={
         df.columns[0]: "Sr No",
-        df.columns[1]: "Feeder Name"
+        df.columns[1]: "Feeder Name",
     })
 
     df = df[pd.notna(df["Feeder Name"])].copy()
@@ -252,6 +335,71 @@ def read_hourly_sheet(uploaded_file, sheet_name="Hourly"):
     return df, hour_cols
 
 
+def long_format(df, hour_cols):
+    long_df = df.melt(
+        id_vars=["Sr No", "Feeder Name", "Feeder ID"],
+        value_vars=hour_cols,
+        var_name="Hour",
+        value_name="Consumption",
+    )
+
+    long_df["Consumption"] = pd.to_numeric(long_df["Consumption"], errors="coerce")
+    long_df["Zone"] = long_df["Hour"].map(ZONE_MAP)
+
+    return long_df
+
+
+# ============================================================
+# CLEANING LOGIC
+# ============================================================
+
+def clean_consumption_data(long_df):
+    df = long_df.copy()
+
+    df["Quality Status"] = "Valid"
+    df["Clean Consumption"] = df["Consumption"]
+
+    # Important:
+    # Only negative values are treated as data quality issue.
+    # Positive high/low jumps are NOT treated as data error because print timing changes daily.
+    negative_mask = df["Consumption"] < 0
+
+    df.loc[negative_mask, "Quality Status"] = "Data Error Suspect"
+    df.loc[negative_mask, "Clean Consumption"] = np.nan
+
+    return df
+
+
+def create_data_error_remark(feeder_id, current_long):
+    feeder_issues = current_long[
+        (current_long["Feeder ID"] == feeder_id) &
+        (current_long["Consumption"] < 0)
+    ].copy()
+
+    if feeder_issues.empty:
+        return "EMS data issue found. Kindly verify source reading."
+
+    issue_text = []
+
+    for _, row in feeder_issues.iterrows():
+        date_part = ""
+        if "Analysis Date" in feeder_issues.columns:
+            date_part = f"{row.get('Analysis Date', '')} "
+        issue_text.append(
+            f"{date_part}{row['Hour']} value {row['Consumption']:,.1f}"
+        )
+
+    return (
+        "Negative consumption found: "
+        + "; ".join(issue_text)
+        + ". This may be EMS/meter data error. Kindly check source reading."
+    )
+
+
+# ============================================================
+# BASELINE READING
+# ============================================================
+
 def read_baseline_workbook(baseline_file):
     xls = pd.ExcelFile(baseline_file)
     all_days = []
@@ -269,7 +417,7 @@ def read_baseline_workbook(baseline_file):
 
         df = df.rename(columns={
             df.columns[0]: "Sr No",
-            df.columns[1]: "Feeder Name"
+            df.columns[1]: "Feeder Name",
         })
 
         df = df[pd.notna(df["Feeder Name"])].copy()
@@ -278,7 +426,9 @@ def read_baseline_workbook(baseline_file):
         df["Sr No"] = df["Sr No"].astype(str).str.replace(".0", "", regex=False)
         df["Feeder Name"] = df["Feeder Name"].astype(str).str.strip()
         df["Feeder ID"] = df["Sr No"] + " - " + df["Feeder Name"]
-        df["Baseline Day"] = str(sheet)
+
+        file_label = Path(str(baseline_file)).stem
+        df["Baseline Day"] = file_label + " | " + str(sheet)
 
         hour_source_cols = df.columns[2:-2]
         clean_map = {col: normalize_hour(col) for col in hour_source_cols}
@@ -293,7 +443,7 @@ def read_baseline_workbook(baseline_file):
             id_vars=["Baseline Day", "Sr No", "Feeder Name", "Feeder ID"],
             value_vars=hour_cols,
             var_name="Hour",
-            value_name="Consumption"
+            value_name="Consumption",
         )
 
         all_days.append(long_df)
@@ -305,54 +455,8 @@ def read_baseline_workbook(baseline_file):
     baseline_long["Zone"] = baseline_long["Hour"].map(ZONE_MAP)
 
     return baseline_long
-    
-def long_format(df, hour_cols):
-    long_df = df.melt(
-        id_vars=["Sr No", "Feeder Name", "Feeder ID"],
-        value_vars=hour_cols,
-        var_name="Hour",
-        value_name="Consumption"
-    )
-    long_df["Zone"] = long_df["Hour"].map(ZONE_MAP)
-    long_df["Consumption"] = pd.to_numeric(long_df["Consumption"], errors="coerce")
-    return long_df
 
 
-def clean_consumption_data(long_df):
-    df = long_df.copy()
-
-    df["Quality Status"] = "Valid"
-    df["Clean Consumption"] = df["Consumption"]
-
-    # Negative values are treated as EMS / meter data issue.
-    # Positive high/low values are NOT treated as data error because production timing changes daily.
-    negative_mask = df["Consumption"] < 0
-
-    df.loc[negative_mask, "Quality Status"] = "Data Error Suspect"
-    df.loc[negative_mask, "Clean Consumption"] = np.nan
-
-    return df
-def create_data_error_remark(feeder_id, current_long):
-    feeder_issues = current_long[
-        (current_long["Feeder ID"] == feeder_id) &
-        (current_long["Consumption"] < 0)
-    ].copy()
-
-    if feeder_issues.empty:
-        return "EMS data issue found. Kindly verify source reading."
-
-    issue_text = []
-
-    for _, row in feeder_issues.iterrows():
-        issue_text.append(
-            f"{row['Hour']} value {row['Consumption']:,.1f}"
-        )
-
-    return (
-        "Negative consumption found: "
-        + "; ".join(issue_text)
-        + ". This may be EMS/meter data error. Kindly check source reading."
-    )
 def build_baseline(baseline_files):
     if not baseline_files:
         return None, 0
@@ -377,17 +481,17 @@ def build_baseline(baseline_files):
 
     daily_zone = valid_base.groupby(
         ["Baseline Day", "Feeder ID", "Feeder Name", "Zone"],
-        as_index=False
+        as_index=False,
     )["Clean Consumption"].sum()
 
     baseline = daily_zone.groupby(
         ["Feeder ID", "Feeder Name", "Zone"],
-        as_index=False
+        as_index=False,
     )["Clean Consumption"].agg(
         baseline_median="median",
         baseline_mean="mean",
         baseline_p75=lambda x: x.quantile(0.75),
-        baseline_p90=lambda x: x.quantile(0.90)
+        baseline_p90=lambda x: x.quantile(0.90),
     )
 
     day_count = baseline_long["Baseline Day"].nunique()
@@ -395,23 +499,46 @@ def build_baseline(baseline_files):
     return baseline, day_count
 
 
-def create_feeder_zone_summary(current_long, baseline):
+# ============================================================
+# CONTROL STATUS LOGIC
+# ============================================================
+
+def minimum_impact_required(baseline_median):
+    if pd.isna(baseline_median):
+        return 0
+
+    if baseline_median < 50:
+        return 25
+
+    if baseline_median < 500:
+        return 50
+
+    return baseline_median * 0.10
+
+
+def create_feeder_zone_summary(current_long, baseline, baseline_multiplier=1):
     current_clean = clean_consumption_data(current_long)
 
     zone_summary = current_clean.groupby(
         ["Feeder ID", "Feeder Name", "Zone"],
-        as_index=False
+        as_index=False,
     ).agg(
         current_units=("Clean Consumption", "sum"),
-        issue_count=("Quality Status", lambda x: (x != "Valid").sum())
+        issue_count=("Quality Status", lambda x: (x != "Valid").sum()),
     )
 
     if baseline is not None:
         zone_summary = zone_summary.merge(
             baseline,
             on=["Feeder ID", "Feeder Name", "Zone"],
-            how="left"
+            how="left",
         )
+
+        # For multi-day analysis:
+        # compare N-day actual with daily baseline multiplied by N calculated days.
+        for col in ["baseline_median", "baseline_mean", "baseline_p75", "baseline_p90"]:
+            zone_summary[col] = zone_summary[col] * baseline_multiplier
+
     else:
         zone_summary["baseline_median"] = np.nan
         zone_summary["baseline_mean"] = np.nan
@@ -425,10 +552,22 @@ def create_feeder_zone_summary(current_long, baseline):
         if pd.isna(row["baseline_median"]):
             return "Baseline Pending"
 
-        if row["current_units"] > row["baseline_p90"]:
+        current_value = row["current_units"]
+        median_value = row["baseline_median"]
+        p75_value = row["baseline_p75"]
+        p90_value = row["baseline_p90"]
+
+        difference = current_value - median_value
+        minimum_impact = minimum_impact_required(median_value)
+
+        # Avoid false alarms for very low-consumption feeders.
+        if difference < minimum_impact:
+            return "In Control"
+
+        if current_value > p90_value:
             return "Out Control"
 
-        if row["current_units"] > row["baseline_p75"]:
+        if current_value > p75_value:
             return "Warning"
 
         return "In Control"
@@ -443,37 +582,26 @@ def final_feeder_status(statuses):
 
     if "Data Error Suspect" in statuses:
         return "Data Error Suspect"
+
     if "Out Control" in statuses:
         return "Out Control"
+
     if "Warning" in statuses:
         return "Warning"
+
     if all(s == "Baseline Pending" for s in statuses):
         return "Baseline Pending"
 
     return "In Control"
 
 
-def status_class(status):
-    if status == "In Control":
-        return "status-in"
-    if status == "Warning":
-        return "status-warning"
-    if status == "Out Control":
-        return "status-out"
-    if status == "Data Error Suspect":
-        return "status-data"
-    return "status-pending"
-
-
-def format_units(value):
-    if pd.isna(value):
-        return "-"
-    return f"{value:,.0f}"
-
+# ============================================================
+# REMARKS AND CARD RENDERING
+# ============================================================
 
 def create_remark(feeder_id, feeder_name, feeder_status, zone_rows, current_long):
     if feeder_status == "Baseline Pending":
-        return "Baseline not uploaded yet. Upload April/May baseline files to activate control prediction."
+        return "Baseline not available. Please check seasonal baseline files."
 
     if feeder_status == "Data Error Suspect":
         return create_data_error_remark(feeder_id, current_long)
@@ -483,11 +611,17 @@ def create_remark(feeder_id, feeder_name, feeder_status, zone_rows, current_long
 
     if out_zones:
         zone_text = ", ".join([z.split("|")[0].strip() for z in out_zones])
-        return f"Consumption is out of seasonal control in {zone_text}. Review this feeder for abnormal running, idle load, or production/load variation."
+        return (
+            f"Consumption is out of seasonal control in {zone_text}. "
+            "Review this feeder for abnormal running, idle load, production variation, or utility support load."
+        )
 
     if warn_zones:
         zone_text = ", ".join([z.split("|")[0].strip() for z in warn_zones])
-        return f"Consumption is above normal range in {zone_text}. Keep under watch and compare with production activity."
+        return (
+            f"Consumption is above normal range in {zone_text}. "
+            "Keep under watch and compare with production activity."
+        )
 
     return "Consumption is within seasonal control range for all zones."
 
@@ -549,7 +683,12 @@ def render_feeder_card(feeder_id, feeder_name, zone_rows, feeder_status, current
     )
 
     st.markdown(card_html, unsafe_allow_html=True)
-    
+
+
+# ============================================================
+# MAIN MODULE
+# ============================================================
+
 def run_utility_performance_analyzer():
     add_utility_css()
 
@@ -565,56 +704,133 @@ def run_utility_performance_analyzer():
     data_source = st.radio(
         "Select Data Source",
         ["Google Drive Folder", "Manual Upload"],
-        horizontal=True
+        horizontal=True,
     )
 
-    current_file = None
+    current_long = None
+    calculated_days = 0
 
+    # ---------------- GOOGLE DRIVE DATE RANGE MODE ----------------
     if data_source == "Google Drive Folder":
         st.markdown("### Analyze from Google Drive")
 
-        selected_date = st.date_input(
-            "Select EMS file date",
-            value=date.today()
+        col_start, col_end = st.columns(2)
+
+        with col_start:
+            start_date = st.date_input(
+                "Start Date",
+                value=date.today(),
+                key="utility_start_date",
+            )
+
+        with col_end:
+            end_date = st.date_input(
+                "End Date",
+                value=date.today(),
+                key="utility_end_date",
+            )
+
+        if end_date < start_date:
+            st.error("End Date cannot be before Start Date.")
+            return
+
+        st.markdown(
+            '<div class="mode-note">'
+            'For one-day analysis, select the same start and end date. '
+            'For weekly or multi-day analysis, select a date range.'
+            '</div>',
+            unsafe_allow_html=True,
         )
 
-        if st.button("Analyze Selected Date"):
-            folder_id = st.secrets["UTILITY_DRIVE_FOLDER_ID"]
-            file_name = expected_ems_filename(selected_date)
-
-            file_info = find_file_in_drive(folder_id, file_name)
-
-            if file_info is None:
+        if st.button("Analyze Date Range"):
+            try:
+                folder_id = st.secrets["UTILITY_DRIVE_FOLDER_ID"]
+            except Exception:
                 st.error(
-                    f"File not found: {file_name}. "
-                    "Please ask Utility team to upload this file in the shared Drive folder."
+                    "UTILITY_DRIVE_FOLDER_ID is missing in Streamlit secrets. "
+                    "Add it above [gcp_service_account] in secrets."
                 )
                 return
 
-            st.success(f"File found: {file_info['name']}")
-            current_file = download_drive_file(file_info["id"])
+            selected_dates = get_date_list(start_date, end_date)
+
+            all_day_data = []
+            missing_files = []
+            found_files = []
+
+            with st.spinner("Searching and reading EMS files from Google Drive..."):
+                for selected_day in selected_dates:
+                    file_name = expected_ems_filename(selected_day)
+                    file_info = find_file_in_drive(folder_id, file_name)
+
+                    if file_info is None:
+                        missing_files.append(file_name)
+                        continue
+
+                    try:
+                        drive_file = download_drive_file(file_info["id"])
+
+                        feeder_df, hour_cols = read_hourly_sheet(
+                            drive_file,
+                            sheet_name="Hourly",
+                        )
+
+                        day_long = long_format(feeder_df, hour_cols)
+                        day_long["Analysis Date"] = selected_day.strftime("%Y-%m-%d")
+
+                        all_day_data.append(day_long)
+                        found_files.append(file_name)
+
+                    except Exception as e:
+                        missing_files.append(f"{file_name} | reading failed: {e}")
+
+            if not all_day_data:
+                st.error("No EMS files found/read for selected date range.")
+
+                if missing_files:
+                    st.warning("Missing or unread files: " + ", ".join(missing_files))
+
+                return
+
+            current_long = pd.concat(all_day_data, ignore_index=True)
+            calculated_days = len(found_files)
+
+            st.success(f"Files analyzed: {calculated_days} / {len(selected_dates)}")
+
+            if missing_files:
+                st.warning("Missing or unread files: " + ", ".join(missing_files))
 
         else:
-            st.info("Select date and click Analyze Selected Date.")
+            st.info("Select start date and end date, then click Analyze Date Range.")
             return
 
+    # ---------------- MANUAL UPLOAD BACKUP MODE ----------------
     else:
         current_file = st.file_uploader(
             "Upload EMS Daily Utility Performance File",
             type=["xls", "xlsx"],
-            key="current_ems_file"
+            key="current_ems_file",
         )
 
         if current_file is None:
             st.info("Upload current EMS daily file to view feeder-wise zone control dashboard.")
             return
 
-    try:
-        feeder_df, hour_cols = read_hourly_sheet(current_file, sheet_name="Hourly")
-        current_long = long_format(feeder_df, hour_cols)
-    except Exception as e:
-        st.error(f"Current EMS file reading failed: {e}")
-        return
+        try:
+            feeder_df, hour_cols = read_hourly_sheet(
+                current_file,
+                sheet_name="Hourly",
+            )
+
+            current_long = long_format(feeder_df, hour_cols)
+            current_long["Analysis Date"] = "Manual Upload"
+            calculated_days = 1
+
+        except Exception as e:
+            st.error(f"Current EMS file reading failed: {e}")
+            return
+
+    # ---------------- BASELINE LOADING ----------------
     baseline = None
     baseline_days = 0
 
@@ -625,15 +841,22 @@ def run_utility_performance_analyzer():
             baseline, baseline_days = build_baseline(available_baseline_files)
     else:
         st.warning("Seasonal baseline files not found in baseline_data folder.")
-        
-    zone_summary = create_feeder_zone_summary(current_long, baseline)
+
+    # ---------------- FEEDER ZONE SUMMARY ----------------
+    zone_summary = create_feeder_zone_summary(
+        current_long,
+        baseline,
+        baseline_multiplier=calculated_days,
+    )
 
     feeder_status_df = zone_summary.groupby(
         ["Feeder ID", "Feeder Name"],
-        as_index=False
+        as_index=False,
     )["Zone Status"].agg(lambda x: final_feeder_status(x))
 
-    feeder_status_df = feeder_status_df.rename(columns={"Zone Status": "Feeder Status"})
+    feeder_status_df = feeder_status_df.rename(
+        columns={"Zone Status": "Feeder Status"}
+    )
 
     total_units = zone_summary["current_units"].sum()
     total_feeders = feeder_status_df["Feeder ID"].nunique()
@@ -642,7 +865,8 @@ def run_utility_performance_analyzer():
     out_control = (feeder_status_df["Feeder Status"] == "Out Control").sum()
     data_error = (feeder_status_df["Feeder Status"] == "Data Error Suspect").sum()
 
-    k1, k2, k3, k4, k5 = st.columns(5)
+    # ---------------- KPI CARDS ----------------
+    k1, k2, k3, k4, k5, k6 = st.columns(6)
 
     k1.markdown(f"""
     <div class="kpi-card">
@@ -679,18 +903,29 @@ def run_utility_performance_analyzer():
     </div>
     """, unsafe_allow_html=True)
 
+    k6.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Calculated Days</div>
+        <div class="kpi-value">{calculated_days}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
     st.markdown("")
 
     if baseline is None:
         st.warning("Baseline not active. Please check baseline_data folder in GitHub.")
     else:
-        st.success(f"Seasonal baseline active automatically: April–May 2026 | {baseline_days} historical days.")
+        st.success(
+            f"Seasonal baseline active automatically: April–May 2026 | "
+            f"{baseline_days} historical days | Current analysis days: {calculated_days}"
+        )
 
     st.caption(
         "Note: Recorded Units means sum of all 72 feeder readings. "
         "It is shown for visibility, not as final plant net consumption."
     )
 
+    # ---------------- FEEDER CARD FILTERS ----------------
     st.markdown("### Feeder-wise Zone Control")
 
     f1, f2 = st.columns([1, 1])
@@ -698,7 +933,7 @@ def run_utility_performance_analyzer():
     with f1:
         selected_status = st.selectbox(
             "Filter by status",
-            ["All", "In Control", "Warning", "Out Control", "Data Error Suspect", "Baseline Pending"]
+            ["All", "In Control", "Warning", "Out Control", "Data Error Suspect", "Baseline Pending"],
         )
 
     with f2:
@@ -742,5 +977,5 @@ def run_utility_performance_analyzer():
             feeder_name=feeder_name,
             zone_rows=zone_rows,
             feeder_status=feeder_status,
-            current_long=current_long
+            current_long=current_long,
         )
