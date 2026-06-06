@@ -753,12 +753,6 @@ def run_utility_performance_analyzer():
             '</div>',
             unsafe_allow_html=True,
         )
-        if st.button("Clear Current Analysis"):
-            st.session_state.utility_current_long = None
-            st.session_state.utility_calculated_days = 0
-            st.session_state.utility_found_files = []
-            st.session_state.utility_missing_files = []
-            st.rerun()
             
         if st.button("Analyze Date Range"):
             try:
