@@ -709,6 +709,18 @@ def run_utility_performance_analyzer():
 
     current_long = None
     calculated_days = 0
+    
+    if "utility_current_long" not in st.session_state:
+        st.session_state.utility_current_long = None
+
+    if "utility_calculated_days" not in st.session_state:
+        st.session_state.utility_calculated_days = 0
+
+    if "utility_found_files" not in st.session_state:
+        st.session_state.utility_found_files = []
+
+    if "utility_missing_files" not in st.session_state:
+        st.session_state.utility_missing_files = []
 
     # ---------------- GOOGLE DRIVE DATE RANGE MODE ----------------
     if data_source == "Google Drive Folder":
@@ -741,7 +753,13 @@ def run_utility_performance_analyzer():
             '</div>',
             unsafe_allow_html=True,
         )
-
+        if st.button("Clear Current Analysis"):
+            st.session_state.utility_current_long = None
+            st.session_state.utility_calculated_days = 0
+            st.session_state.utility_found_files = []
+            st.session_state.utility_missing_files = []
+            st.rerun()
+            
         if st.button("Analyze Date Range"):
             try:
                 folder_id = st.secrets["UTILITY_DRIVE_FOLDER_ID"]
@@ -795,14 +813,33 @@ def run_utility_performance_analyzer():
             current_long = pd.concat(all_day_data, ignore_index=True)
             calculated_days = len(found_files)
 
+            st.session_state.utility_current_long = current_long
+            st.session_state.utility_calculated_days = calculated_days
+            st.session_state.utility_found_files = found_files
+            st.session_state.utility_missing_files = missing_files
+
             st.success(f"Files analyzed: {calculated_days} / {len(selected_dates)}")
 
             if missing_files:
                 st.warning("Missing or unread files: " + ", ".join(missing_files))
 
         else:
-            st.info("Select start date and end date, then click Analyze Date Range.")
-            return
+            if st.session_state.utility_current_long is None:
+                st.info("Select start date and end date, then click Analyze Date Range.")
+                return
+
+            current_long = st.session_state.utility_current_long
+            calculated_days = st.session_state.utility_calculated_days
+
+            if st.session_state.utility_found_files:
+                total_selected = calculated_days + len(st.session_state.utility_missing_files)
+                st.success(f"Files analyzed: {calculated_days} / {total_selected}")
+
+            if st.session_state.utility_missing_files:
+                st.warning(
+                    "Missing or unread files: "
+                    + ", ".join(st.session_state.utility_missing_files)
+                )
 
     # ---------------- MANUAL UPLOAD BACKUP MODE ----------------
     else:
@@ -825,6 +862,11 @@ def run_utility_performance_analyzer():
             current_long = long_format(feeder_df, hour_cols)
             current_long["Analysis Date"] = "Manual Upload"
             calculated_days = 1
+
+            st.session_state.utility_current_long = current_long
+            st.session_state.utility_calculated_days = calculated_days
+            st.session_state.utility_found_files = ["Manual Upload"]
+            st.session_state.utility_missing_files = []
 
         except Exception as e:
             st.error(f"Current EMS file reading failed: {e}")
