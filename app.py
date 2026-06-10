@@ -169,7 +169,7 @@ if not st.session_state.logged_in:
     st.markdown(
         """
         <div class="login-footer">
-            © 2026 PressIQ Analytics — Internal Plant Intelligence Platform. All rights reserved.
+            © 2026 <span>PressIQ Analytics</span> — Designed & Developed by Niranjan Kute. All rights reserved.
         </div>
         """,
         unsafe_allow_html=True
