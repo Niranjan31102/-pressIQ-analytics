@@ -165,7 +165,15 @@ def apply_premium_theme():
             padding: 0.7rem 1rem;
             box-shadow: 0 12px 26px rgba(37,99,235,0.28);
         }
+        /* Hide Streamlit sidebar collapse button */
+        button[data-testid="stSidebarCollapseButton"] {
+            display: none !important;
+        }
 
+        /* Hide collapsed sidebar open control */
+        div[data-testid="collapsedControl"] {
+            display: none !important;
+        }
         /* =========================
            PREMIUM CARDS
         ========================= */
