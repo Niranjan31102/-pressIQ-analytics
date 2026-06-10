@@ -166,13 +166,19 @@ if not st.session_state.logged_in:
                 st.warning(f"Login logging failed: {e}")
     
             st.rerun()
-    st.markdown(
+    
+
+st.markdown(
     """
     <div class="login-support-footer">
         <div>
-            Need help? <span>Contact PressIQ Support</span>:
-            Call/WhatsApp +91 8329500883 &nbsp; | &nbsp;
-            Email niranjan.kute@timesofindia.com
+            Need help? 
+            <span class="support-highlight">Contact PressIQ Support</span>:
+            Call/WhatsApp 
+            <span class="support-link">+91 8329500883</span>
+            &nbsp; | &nbsp;
+            Email 
+            <span class="support-link">niranjan.kute@timesofindia.com</span>
         </div>
         <div class="login-copyright">
             © 2026 PressIQ Analytics — Designed & Developed by Niranjan Kute. All rights reserved.
@@ -181,8 +187,6 @@ if not st.session_state.logged_in:
     """,
     unsafe_allow_html=True
 )
-
-    st.stop()
     
 # ---------------- SIDEBAR ----------------
 st.sidebar.markdown(
