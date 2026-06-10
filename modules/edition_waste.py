@@ -7,6 +7,7 @@ from datetime import datetime
 from xml.sax.saxutils import escape
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from ui_theme import module_hero
 
 try:
     from google import genai
