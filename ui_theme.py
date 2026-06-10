@@ -201,6 +201,26 @@ def apply_premium_theme():
             color: #334155;
             margin-bottom: 1rem;
         }
+        .login-support-footer {
+        margin-top: 2.2rem;
+        text-align: center;
+        color: #64748b;
+        font-size: 0.82rem;
+        font-weight: 500;
+        line-height: 1.6;
+    }
+
+    .login-support-footer span {
+        color: #2563eb;
+        font-weight: 700;
+    }
+
+    .login-copyright {
+        margin-top: 0.35rem;
+        color: #94a3b8;
+        font-size: 0.78rem;
+        font-weight: 500;
+    }
 
         /* =========================
            INPUT BOX VISIBILITY
