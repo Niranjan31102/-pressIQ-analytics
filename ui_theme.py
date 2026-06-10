@@ -15,9 +15,28 @@ def apply_premium_theme():
 
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
+        header {visibility: hidden;}
+        
+        div[data-testid="stToolbar"] {
+            visibility: hidden;
+            height: 0%;
+            position: fixed;
+        }
+
+        div[data-testid="stDecoration"] {
+            visibility: hidden;
+            height: 0%;
+            position: fixed;
+        }
+
+        div[data-testid="stStatusWidget"] {
+            visibility: hidden;
+            height: 0%;
+            position: fixed;
+        }
 
         .block-container {
-            padding-top: 1.2rem;
+            padding-top: 0.4rem;
             padding-bottom: 2rem;
             max-width: 1440px;
         }
