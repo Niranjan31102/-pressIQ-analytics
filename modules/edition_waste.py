@@ -2004,6 +2004,11 @@ def render_performance_review_board(df, min_date, max_date, plant_name):
         st.rerun()
 
 def run_edition_waste_analyzer():
+    module_hero(
+        "Edition Wise Wastage Analyzer",
+        "Edition-wise waste intelligence dashboard | Production waste review"
+    )
+    
     if "edition_view" not in st.session_state:
         st.session_state["edition_view"] = "input"
 
