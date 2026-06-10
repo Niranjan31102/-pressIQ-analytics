@@ -167,13 +167,20 @@ if not st.session_state.logged_in:
     
             st.rerun()
     st.markdown(
-        """
-        <div class="login-footer">
-            © 2026 <span>PressIQ Analytics</span> — Designed & Developed by Niranjan Kute for internal use. All rights reserved.
+    """
+    <div class="login-support-footer">
+        <div>
+            Need help? <span>Contact PressIQ Support</span>:
+            Call/WhatsApp +91 8329500883 &nbsp; | &nbsp;
+            Email niranjan.kute@timesofindia.com
         </div>
-        """,
-        unsafe_allow_html=True
-    )
+        <div class="login-copyright">
+            © 2026 PressIQ Analytics — Designed & Developed by Niranjan Kute. All rights reserved.
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
     st.stop()
     
