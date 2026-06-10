@@ -12,7 +12,7 @@ from modules.utility_performance import run_utility_performance_analyzer
 st.set_page_config(
     page_title="PressIQ Analytics",
     page_icon="🏭",
-    layout="wide"
+    layout="wide",
     initial_sidebar_state="expanded"
 )
 apply_premium_theme()
