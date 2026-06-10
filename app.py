@@ -16,7 +16,6 @@ st.set_page_config(
 )
 apply_premium_theme()
 
-st.set_option("client.toolbarMode", "minimal")
 
 # ---------------- STYLE ----------------
 st.markdown("""
