@@ -13,12 +13,9 @@ def apply_premium_theme():
             color: #0f172a;
         }
 
-        /* Hide Streamlit default noise */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
-        header {visibility: hidden;}
 
-        /* Main content spacing */
         .block-container {
             padding-top: 1.2rem;
             padding-bottom: 2rem;
@@ -37,21 +34,18 @@ def apply_premium_theme():
             color: #e5e7eb !important;
         }
 
-        /* =========================
-           SIDEBAR BRAND / LOGO
-        ========================= */
         .sidebar-brand {
             display: flex;
             align-items: center;
-            gap: 0.95rem;
-            padding: 0.14rem 0.2rem 1.0rem 0.2rem;
+            gap: 0.75rem;
+            padding: 0rem 0.1rem 0.8rem 0.1rem;
         }
-         
-       .sidebar-simple-logo {
+
+        .sidebar-simple-logo {
             width: 50px;
             height: 50px;
             min-width: 50px;
-            border-radius: 18px;
+            border-radius: 16px;
             background: linear-gradient(135deg, #38bdf8 0%, #2563eb 55%, #1e3a8a 100%);
             color: #ffffff !important;
             font-weight: 950;
@@ -60,15 +54,8 @@ def apply_premium_theme():
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 16px 32px rgba(37,99,235,0.38);
+            box-shadow: 0 14px 28px rgba(37,99,235,0.35);
             border: 1px solid rgba(147,197,253,0.55);
-        }
-
-        .sidebar-brand {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0rem 0.1rem 0.8rem 0.1rem;
         }
 
         .sidebar-title {
@@ -78,11 +65,8 @@ def apply_premium_theme():
             line-height: 1.05;
             letter-spacing: -0.04em;
             white-space: nowrap;
-        }   
+        }
 
-        /* =========================
-           SIDEBAR LOGIN CARD
-        ========================= */
         section[data-testid="stSidebar"] .stAlert {
             background: rgba(20, 83, 85, 0.42) !important;
             border: 1px solid rgba(45, 212, 191, 0.14) !important;
@@ -98,9 +82,6 @@ def apply_premium_theme():
             word-break: break-word !important;
         }
 
-        /* =========================
-           SIDEBAR HEADINGS
-        ========================= */
         section[data-testid="stSidebar"] h1,
         section[data-testid="stSidebar"] h2,
         section[data-testid="stSidebar"] h3 {
@@ -114,7 +95,6 @@ def apply_premium_theme():
             margin-bottom: 0.45rem !important;
         }
 
-        /* Select Intelligence / Select Tool label */
         section[data-testid="stSidebar"] .stRadio > label {
             color: #dbeafe !important;
             font-size: 0.72rem !important;
@@ -124,7 +104,6 @@ def apply_premium_theme():
             margin-bottom: 0.25rem;
         }
 
-        /* Radio option cards */
         section[data-testid="stSidebar"] div[role="radiogroup"] label {
             background: rgba(255,255,255,0.07);
             border: 1px solid rgba(255,255,255,0.14);
@@ -141,30 +120,119 @@ def apply_premium_theme():
             transform: translateY(-1px);
         }
 
-        /* Radio option text */
         section[data-testid="stSidebar"] div[role="radiogroup"] label p {
             font-size: 0.86rem !important;
             font-weight: 800 !important;
             line-height: 1.15 !important;
         }
 
-        /* Selected radio dot */
         section[data-testid="stSidebar"] input[type="radio"] {
-            transform: scale(1.12);
+            transform: scale(1.05);
         }
 
-        /* Sidebar logout button */
         section[data-testid="stSidebar"] .stButton > button {
-            margin-top: 1rem;
+            margin-top: 0.45rem;
             width: 100%;
-            border-radius: 16px;
+            border-radius: 13px;
             background: linear-gradient(135deg, #2563eb, #1d4ed8);
             color: #ffffff !important;
             border: 1px solid rgba(147,197,253,0.35);
-            font-weight: 850;
-            padding: 0.7rem 1rem;
-            box-shadow: 0 12px 26px rgba(37,99,235,0.28);
-    
+            font-weight: 800;
+            padding: 0.45rem 0.75rem;
+            box-shadow: 0 10px 20px rgba(37,99,235,0.24);
+        }
+
+        /* =========================
+           LOGIN PAGE BRAND
+        ========================= */
+        .login-brand-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.7rem;
+        }
+
+        .login-simple-logo {
+            width: 62px;
+            height: 62px;
+            min-width: 62px;
+            border-radius: 19px;
+            background: linear-gradient(135deg, #38bdf8 0%, #2563eb 55%, #1e3a8a 100%);
+            color: #ffffff !important;
+            font-weight: 950;
+            font-size: 1.15rem;
+            letter-spacing: -0.04em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 16px 32px rgba(37,99,235,0.30);
+            border: 1px solid rgba(147,197,253,0.55);
+        }
+
+        .login-main-title {
+            color: #0f172a !important;
+            font-size: 2.7rem;
+            font-weight: 950;
+            line-height: 1.05;
+            letter-spacing: -0.05em;
+        }
+
+        .sub-title {
+            font-size: 1.05rem;
+            color: #334155;
+            margin-bottom: 1rem;
+        }
+
+        /* =========================
+           INPUT BOX VISIBILITY
+        ========================= */
+        div[data-baseweb="input"] {
+            background: #ffffff !important;
+            border: 1.8px solid #94a3b8 !important;
+            border-radius: 14px !important;
+            box-shadow: 0 6px 16px rgba(15,23,42,0.06) !important;
+        }
+
+        div[data-baseweb="input"] input {
+            background: #ffffff !important;
+            color: #0f172a !important;
+            font-weight: 600 !important;
+        }
+
+        div[data-baseweb="input"]:hover {
+            border-color: #2563eb !important;
+            box-shadow: 0 8px 20px rgba(37,99,235,0.12) !important;
+        }
+
+        div[data-baseweb="input"]:focus-within {
+            border-color: #2563eb !important;
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.16) !important;
+        }
+
+        textarea {
+            background: #ffffff !important;
+            border: 1.8px solid #94a3b8 !important;
+            border-radius: 14px !important;
+            color: #0f172a !important;
+            font-weight: 600 !important;
+        }
+
+        div[data-baseweb="select"] > div {
+            background: #ffffff !important;
+            border: 1.8px solid #94a3b8 !important;
+            border-radius: 14px !important;
+            box-shadow: 0 6px 16px rgba(15,23,42,0.06) !important;
+        }
+
+        div[data-baseweb="select"] > div:hover {
+            border-color: #2563eb !important;
+        }
+
+        label, .stTextInput label, .stSelectbox label, .stNumberInput label, .stTextArea label {
+            color: #0f172a !important;
+            font-weight: 700 !important;
+        }
+
         /* =========================
            PREMIUM CARDS
         ========================= */
@@ -327,10 +395,11 @@ def apply_premium_theme():
         }
 
         div[data-testid="stFileUploader"] {
-            background: #ffffff;
-            border-radius: 18px;
-            padding: 0.8rem;
-            border: 1px solid rgba(148,163,184,0.25);
+            background: #ffffff !important;
+            border-radius: 18px !important;
+            padding: 0.8rem !important;
+            border: 1.8px solid #94a3b8 !important;
+            box-shadow: 0 8px 22px rgba(15,23,42,0.07) !important;
         }
 
         /* =========================
@@ -353,17 +422,21 @@ def apply_premium_theme():
         /* =========================
            BUTTONS
         ========================= */
-        .stButton > button {
+        .stButton > button,
+        .stFormSubmitButton > button,
+        .stDownloadButton > button {
             border-radius: 14px;
             border: 1px solid rgba(37,99,235,0.25);
             background: linear-gradient(135deg, #2563eb, #1d4ed8);
-            color: white;
+            color: white !important;
             font-weight: 800;
             padding: 0.6rem 1rem;
             box-shadow: 0 10px 24px rgba(37,99,235,0.22);
         }
 
-        .stButton > button:hover {
+        .stButton > button:hover,
+        .stFormSubmitButton > button:hover,
+        .stDownloadButton > button:hover {
             border-color: #1d4ed8;
             transform: translateY(-1px);
         }
@@ -390,132 +463,7 @@ def apply_premium_theme():
         div[data-testid="stDataFrame"] td {
             text-align: center !important;
         }
-        /* =========================
-            INPUT BOX VISIBILITY
-        ========================= */
-        /* Text input, password input, number input */
-        div[data-baseweb="input"] {
-            background: #ffffff !important;
-            border: 1.8px solid #94a3b8 !important;
-            border-radius: 14px !important;
-            box-shadow: 0 6px 16px rgba(15,23,42,0.06) !important;
-        }
-        /* Actual input text area */
-        div[data-baseweb="input"] input {
-            background: #ffffff !important;
-            color: #0f172a !important;
-            font-weight: 600 !important
-        }
-        /* Input hover */
-        div[data-baseweb="input"]:hover {
-            border-color: #2563eb !important;
-            box-shadow: 0 8px 20px rgba(37,99,235,0.12) !important;
-        }
 
-        /* Input focus */
-        div[data-baseweb="input"]:focus-within {
-            border-color: #2563eb !important;
-            box-shadow: 0 0 0 3px rgba(37,99,235,0.16) !important;
-        }
-
-        /* Text area */
-        textarea {
-            background: #ffffff !important;
-            border: 1.8px solid #94a3b8 !important;
-            border-radius: 14px !important;
-            color: #0f172a !important;
-            font-weight: 600 !important;
-        }
-        /* Select box */
-        div[data-baseweb="select"] > div {
-            background: #ffffff !important;
-            border: 1.8px solid #94a3b8 !important;
-            border-radius: 14px !important;
-            box-shadow: 0 6px 16px rgba(15,23,42,0.06) !important;
-        }
-        /* Select box focus/hover */
-        div[data-baseweb="select"] > div:hover {
-            border-color: #2563eb !important;
-        }
-        /* Labels */   
-        label, .stTextInput label, .stSelectbox label, .stNumberInput label, .stTextArea label {
-            color: #0f172a !important;
-            font-weight: 700 !important;
-        }
-
-        
-        /* =========================
-           LOGIN
-        ========================= */
-        
-        .login-wrapper {
-            max-width: 460px;
-            margin: 5vh auto 0 auto;
-            background: rgba(255,255,255,0.92);
-            border: 1px solid rgba(148,163,184,0.25);
-            border-radius: 30px;
-            padding: 2rem;
-            box-shadow: 0 26px 70px rgba(15,23,42,0.16);
-            backdrop-filter: blur(16px);
-        }
-
-        .login-logo {
-            width: 58px;
-            height: 58px;
-            border-radius: 18px;
-            background: linear-gradient(135deg, #2563eb, #0f172a);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 900;
-            font-size: 1.25rem;
-            margin-bottom: 1rem;
-        }
-
-        .login-title {
-            font-size: 1.7rem;
-            font-weight: 900;
-            color: #0f172a;
-            margin-bottom: 0.35rem;
-        }
-
-        .login-subtitle {
-            color: #64748b;
-            font-size: 0.92rem;
-            margin-bottom: 1.4rem;
-        }
-        .login-brand-row {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 0.7rem;
-        }
-
-        .login-simple-logo {
-            width: 62px;
-            height: 62px;
-            min-width: 62px;
-            border-radius: 19px;
-            background: linear-gradient(135deg, #38bdf8 0%, #2563eb 55%, #1e3a8a 100%);
-            color: #ffffff !important;
-            font-weight: 950;
-            font-size: 1.15rem;
-            letter-spacing: -0.04em;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 16px 32px rgba(37,99,235,0.30);
-            border: 1px solid rgba(147,197,253,0.55);
-        }
-
-        .login-main-title {
-            color: #0f172a !important;
-            font-size: 2.7rem;
-            font-weight: 950;
-            line-height: 1.05;
-            letter-spacing: -0.05em;
-        }
         /* =========================
            SMALL UTILITY
         ========================= */
