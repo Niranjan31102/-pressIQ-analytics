@@ -106,6 +106,7 @@ if "logged_in" not in st.session_state:
 if "user_email" not in st.session_state:
     st.session_state.user_email = ""
 
+
 if not st.session_state.logged_in:
     st.markdown(
         """
@@ -116,7 +117,11 @@ if not st.session_state.logged_in:
         """,
         unsafe_allow_html=True
     )
-    st.markdown('<div class="sub-title">AI Powered Plant Performance Intelligence Platform</div>', unsafe_allow_html=True)
+
+    st.markdown(
+        '<div class="sub-title">AI Powered Plant Performance Intelligence Platform</div>',
+        unsafe_allow_html=True
+    )
 
     st.write("### Login")
 
@@ -164,30 +169,30 @@ if not st.session_state.logged_in:
 
             except Exception as e:
                 st.warning(f"Login logging failed: {e}")
-    
-            st.rerun()
-    
 
-st.markdown(
-    """
-    <div class="login-support-footer">
-        <div>
-            Need help? 
-            <span class="support-highlight">Contact PressIQ Support</span>:
-            Call/WhatsApp 
-            <span class="support-link">+91 8329500883</span>
-            &nbsp; | &nbsp;
-            Email 
-            <span class="support-link">niranjan.kute@timesofindia.com</span>
+            st.rerun()
+
+    st.markdown(
+        """
+        <div class="login-support-footer">
+            <div>
+                Need help? 
+                <span class="support-highlight">Contact PressIQ Support</span>:
+                Call/WhatsApp 
+                <span class="support-link">+91 8329500883</span>
+                &nbsp; | &nbsp;
+                Email 
+                <span class="support-link">niranjan.kute@timesofindia.com</span>
+            </div>
+            <div class="login-copyright">
+                © 2026 PressIQ Analytics — Designed & Developed by Niranjan Kute. All rights reserved.
+            </div>
         </div>
-        <div class="login-copyright">
-            © 2026 PressIQ Analytics — Designed & Developed by Niranjan Kute. All rights reserved.
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-    
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.stop()
 # ---------------- SIDEBAR ----------------
 st.sidebar.markdown(
     """
