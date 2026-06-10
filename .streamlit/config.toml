@@ -2,6 +2,10 @@
 toolbarMode = "minimal"
 showSidebarNavigation = false
 
+[ui]
+hideTopBar = true
+hideSidebarNav = true
+
 [theme]
 primaryColor = "#2563eb"
 backgroundColor = "#f8fafc"
