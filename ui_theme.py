@@ -16,7 +16,7 @@ def apply_premium_theme():
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
-        
+
         div[data-testid="stToolbar"] {
             visibility: hidden;
             height: 0%;
@@ -201,32 +201,32 @@ def apply_premium_theme():
             color: #334155;
             margin-bottom: 1rem;
         }
+
         .login-support-footer {
-        margin-top: 2.2rem;
-        text-align: center;
-        color: #64748b;
-        font-size: 0.82rem;
-        font-weight: 500;
-        line-height: 1.6;
-    }
+            margin-top: 2.2rem;
+            text-align: center;
+            color: #64748b;
+            font-size: 0.82rem;
+            font-weight: 500;
+            line-height: 1.6;
+        }
 
-    .login-support-footer .support-highlight {
-        color: #2563eb;
-        font-weight: 800;
-    }
+        .login-support-footer .support-highlight {
+            color: #2563eb;
+            font-weight: 800;
+        }
 
-    .login-support-footer .support-link {
-        color: #2563eb;
-        font-weight: 700;
-    }
-    }
+        .login-support-footer .support-link {
+            color: #2563eb;
+            font-weight: 700;
+        }
 
-    .login-copyright {
-        margin-top: 0.35rem;
-        color: #94a3b8;
-        font-size: 0.78rem;
-        font-weight: 500;
-    }
+        .login-copyright {
+            margin-top: 0.35rem;
+            color: #94a3b8;
+            font-size: 0.78rem;
+            font-weight: 500;
+        }
 
         /* =========================
            INPUT BOX VISIBILITY
@@ -273,9 +273,41 @@ def apply_premium_theme():
             border-color: #2563eb !important;
         }
 
-        label, .stTextInput label, .stSelectbox label, .stNumberInput label, .stTextArea label {
+        label,
+        .stTextInput label,
+        .stSelectbox label,
+        .stNumberInput label,
+        .stTextArea label,
+        .stDateInput label {
             color: #0f172a !important;
             font-weight: 700 !important;
+        }
+
+        /* =========================
+           COMMON MODULE HERO
+        ========================= */
+        .module-hero-card {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 48%, #2563eb 100%);
+            border-radius: 24px;
+            padding: 2rem 2.2rem;
+            color: #ffffff;
+            box-shadow: 0 24px 55px rgba(37,99,235,0.20);
+            margin: 1.4rem 0 1.6rem 0;
+        }
+
+        .module-hero-title {
+            font-size: 2rem;
+            font-weight: 950;
+            line-height: 1.1;
+            margin-bottom: 0.55rem;
+            letter-spacing: -0.04em;
+            color: #ffffff !important;
+        }
+
+        .module-hero-subtitle {
+            font-size: 1rem;
+            font-weight: 500;
+            color: #dbeafe !important;
         }
 
         /* =========================
@@ -448,6 +480,13 @@ def apply_premium_theme():
         }
 
         /* =========================
+           INFO / ALERT BOXES
+        ========================= */
+        .stAlert {
+            border-radius: 14px !important;
+        }
+
+        /* =========================
            TABS
         ========================= */
         button[data-baseweb="tab"] {
@@ -555,6 +594,24 @@ def apply_premium_theme():
             font-size: 0.75rem;
             font-weight: 800;
         }
+
+        @media (max-width: 768px) {
+            .login-main-title {
+                font-size: 2rem;
+            }
+
+            .login-brand-row {
+                gap: 0.75rem;
+            }
+
+            .module-hero-title {
+                font-size: 1.45rem;
+            }
+
+            .module-hero-card {
+                padding: 1.4rem;
+            }
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -568,6 +625,18 @@ def hero(title, subtitle, eyebrow="PRESSIQ ANALYTICS"):
             <div class="hero-eyebrow">{eyebrow}</div>
             <div class="hero-title">{title}</div>
             <div class="hero-subtitle">{subtitle}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def module_hero(title, subtitle):
+    st.markdown(
+        f"""
+        <div class="module-hero-card">
+            <div class="module-hero-title">{title}</div>
+            <div class="module-hero-subtitle">{subtitle}</div>
         </div>
         """,
         unsafe_allow_html=True,
