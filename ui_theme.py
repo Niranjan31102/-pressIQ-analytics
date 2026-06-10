@@ -210,9 +210,15 @@ def apply_premium_theme():
         line-height: 1.6;
     }
 
-    .login-support-footer span {
+    .login-support-footer .support-highlight {
+        color: #2563eb;
+        font-weight: 800;
+    }
+
+    .login-support-footer .support-link {
         color: #2563eb;
         font-weight: 700;
+    }
     }
 
     .login-copyright {
