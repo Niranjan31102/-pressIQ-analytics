@@ -164,37 +164,39 @@ def apply_premium_theme():
             font-weight: 850;
             padding: 0.7rem 1rem;
             box-shadow: 0 12px 26px rgba(37,99,235,0.28);
-        }
-        /* Hide Streamlit sidebar collapse button */
-        button[data-testid="stSidebarCollapseButton"] {
-            display: none !important;
-        }
+    /* =========================
+       HIDE SIDEBAR COLLAPSE ARROW
+    ========================= */
 
-        /* Hide collapsed sidebar open control */
-        div[data-testid="collapsedControl"] {
-            display: none !important;
-        }
-        /* Hide Streamlit sidebar collapse / expand buttons - stronger version */
-        button[data-testid="stSidebarCollapseButton"],
-        button[data-testid="stSidebarCollapsedControl"],
-        button[data-testid="collapsedControl"],
-        div[data-testid="collapsedControl"],
-        div[data-testid="stSidebarCollapsedControl"],
-        section[data-testid="stSidebar"] button[kind="header"],
-        section[data-testid="stSidebar"] button[title="Close sidebar"],
-        section[data-testid="stSidebar"] button[aria-label="Close sidebar"],
-        button[title="Open sidebar"],
-        button[aria-label="Open sidebar"] {
-            display: none !important;
-            visibility: hidden !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
-        }
-        /* Keep sidebar visible and stable */
-        section[data-testid="stSidebar"] {
-            min-width: 300px !important;
-            width: 300px !important;
-        }
+    /* Hide Streamlit sidebar header area where collapse arrow appears */
+    section[data-testid="stSidebar"] [data-testid="stSidebarHeader"] {
+        display: none !important;
+        height: 0px !important;
+        min-height: 0px !important;
+        visibility: hidden !important;
+    }
+
+    /* Hide any button inside Streamlit sidebar header */
+    section[data-testid="stSidebar"] [data-testid="stSidebarHeader"] button {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+
+    /* Hide normal collapse/open controls */
+    button[data-testid="stSidebarCollapseButton"],
+    button[data-testid="stSidebarCollapsedControl"],
+    div[data-testid="collapsedControl"],
+    button[title="Close sidebar"],
+    button[aria-label="Close sidebar"],
+    button[title="Open sidebar"],
+    button[aria-label="Open sidebar"] {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
         /* =========================
            PREMIUM CARDS
         ========================= */
