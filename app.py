@@ -166,8 +166,17 @@ if not st.session_state.logged_in:
                 st.warning(f"Login logging failed: {e}")
     
             st.rerun()
+    st.markdown(
+        """
+        <div class="login-footer">
+            © 2026 PressIQ Analytics — Internal Plant Intelligence Platform. All rights reserved.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     st.stop()
+    
 # ---------------- SIDEBAR ----------------
 st.sidebar.markdown(
     """
