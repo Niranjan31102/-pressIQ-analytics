@@ -174,6 +174,27 @@ def apply_premium_theme():
         div[data-testid="collapsedControl"] {
             display: none !important;
         }
+        /* Hide Streamlit sidebar collapse / expand buttons - stronger version */
+        button[data-testid="stSidebarCollapseButton"],
+        button[data-testid="stSidebarCollapsedControl"],
+        button[data-testid="collapsedControl"],
+        div[data-testid="collapsedControl"],
+        div[data-testid="stSidebarCollapsedControl"],
+        section[data-testid="stSidebar"] button[kind="header"],
+        section[data-testid="stSidebar"] button[title="Close sidebar"],
+        section[data-testid="stSidebar"] button[aria-label="Close sidebar"],
+        button[title="Open sidebar"],
+        button[aria-label="Open sidebar"] {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+        /* Keep sidebar visible and stable */
+        section[data-testid="stSidebar"] {
+            min-width: 300px !important;
+            width: 300px !important;
+        }
         /* =========================
            PREMIUM CARDS
         ========================= */
