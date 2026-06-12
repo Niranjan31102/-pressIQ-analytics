@@ -322,7 +322,271 @@ def calculate_machine_wise_downtime(general_df):
         })
 
     return result, []
+def clean_reason_text(value):
+    if pd.isna(value):
+        return ""
 
+    return str(value).strip()
+
+
+def should_exclude_downtime(row, related_col):
+    if related_col is None:
+        return False
+
+    related_text = str(row[related_col]).strip().lower()
+
+    exclude_words = [
+        "reflong-changeover",
+        "editorial",
+    ]
+
+    for word in exclude_words:
+        if word in related_text:
+            return True
+
+    return False
+
+
+def summarize_reason_breakup(reason_df, reason_col, downtime_col):
+    """
+    Creates reason-wise downtime breakup text.
+    Example:
+    web break: 20 mins, folder jam: 11 mins
+    """
+
+    if reason_df.empty:
+        return ""
+
+    temp_df = reason_df.copy()
+
+    temp_df[downtime_col] = pd.to_numeric(
+        temp_df[downtime_col],
+        errors="coerce"
+    ).fillna(0)
+
+    temp_df["_reason_clean"] = temp_df[reason_col].apply(clean_reason_text)
+
+    temp_df = temp_df[temp_df["_reason_clean"] != ""]
+
+    if temp_df.empty:
+        return ""
+
+    reason_summary = (
+        temp_df
+        .groupby("_reason_clean")[downtime_col]
+        .sum()
+        .reset_index()
+        .sort_values(by=downtime_col, ascending=False)
+    )
+
+    parts = []
+
+    for _, row in reason_summary.iterrows():
+        reason = row["_reason_clean"]
+        mins = int(round(row[downtime_col]))
+
+        if mins > 0:
+            parts.append(f"{reason} ({mins} mins)")
+
+    return ", ".join(parts)
+
+
+def generate_delayed_finish_reason(general_df, downtime_df, last_finished_df):
+    """
+    Generates Claude-style boss-facing delayed finish reason.
+    """
+
+    general_runid_col = find_column(
+        general_df,
+        ["Runid", "Run ID", "RunId"]
+    )
+
+    general_machine_col = find_column(
+        general_df,
+        ["Machine", "Machine Name"]
+    )
+
+    general_product_col = find_column(
+        general_df,
+        ["Products", "Product Name", "Product"]
+    )
+
+    print_delay_reason_col = find_column(
+        general_df,
+        ["Print finish delay Reason", "Print Finish Delay Reason", "Delay Reason"]
+    )
+
+    downtime_runid_col = find_column(
+        downtime_df,
+        ["Runid", "Run ID", "RunId"]
+    )
+
+    folder_col = find_column(
+        downtime_df,
+        ["Folder"]
+    )
+
+    downtime_main_supp_col = find_column(
+        downtime_df,
+        ["Main/Supplement", "Main Supplement", "Main_Supplement"]
+    )
+
+    related_col = find_column(
+        downtime_df,
+        ["Related"]
+    )
+
+    downtime_reason_col = find_column(
+        downtime_df,
+        ["Reason", "Downtime Reason", "Down Time Reason"]
+    )
+
+    downtime_minutes_col = find_column(
+        downtime_df,
+        ["Total Downtime", "Total DownTime", "Downtime", "Down Time"]
+    )
+
+    required_columns = {
+        "General Runid": general_runid_col,
+        "General Machine": general_machine_col,
+        "General Products": general_product_col,
+        "Down Time Runid": downtime_runid_col,
+        "Folder": folder_col,
+        "Down Time Main/Supplement": downtime_main_supp_col,
+        "Down Time Reason": downtime_reason_col,
+        "Down Time Minutes": downtime_minutes_col,
+    }
+
+    missing_columns = [
+        name for name, col in required_columns.items()
+        if col is None
+    ]
+
+    if missing_columns:
+        return "", missing_columns
+
+    last_runids = [
+        str(value).strip()
+        for value in last_finished_df[general_runid_col].tolist()
+    ]
+
+    last_machines = [
+        str(value).strip()
+        for value in last_finished_df[general_machine_col].dropna().unique().tolist()
+    ]
+
+    last_products = [
+        str(value).strip()
+        for value in last_finished_df[general_product_col].dropna().unique().tolist()
+    ]
+
+    if last_products:
+        edition_name_for_reason = last_products[0]
+    else:
+        edition_name_for_reason = "the last edition"
+
+    last_machine_text = " and ".join(last_machines)
+
+    downtime_main_df = downtime_df[
+        downtime_df[downtime_main_supp_col].astype(str).str.strip().str.lower() == "main"
+    ].copy()
+
+    if downtime_main_df.empty:
+        return (
+            f"Sir, the late finish of {edition_name_for_reason} on {last_machine_text} was recorded without any relevant downtime entry in the downtime sheet.",
+            []
+        )
+
+    downtime_main_df = downtime_main_df[
+        ~downtime_main_df.apply(
+            lambda row: should_exclude_downtime(row, related_col),
+            axis=1
+        )
+    ].copy()
+
+    direct_downtime_df = downtime_main_df[
+        downtime_main_df[downtime_runid_col].astype(str).str.strip().isin(last_runids)
+    ].copy()
+
+    folders = direct_downtime_df[folder_col].dropna().astype(str).str.strip().unique().tolist()
+
+    if not folders:
+        possible_folders_df = downtime_df[
+            downtime_df[downtime_runid_col].astype(str).str.strip().isin(last_runids)
+        ]
+
+        folders = possible_folders_df[folder_col].dropna().astype(str).str.strip().unique().tolist()
+
+    same_folder_df = downtime_main_df[
+        downtime_main_df[folder_col].astype(str).str.strip().isin(folders)
+    ].copy()
+
+    cascading_df = same_folder_df[
+        ~same_folder_df[downtime_runid_col].astype(str).str.strip().isin(last_runids)
+    ].copy()
+
+    direct_breakup = summarize_reason_breakup(
+        direct_downtime_df,
+        downtime_reason_col,
+        downtime_minutes_col
+    )
+
+    cascading_breakup = summarize_reason_breakup(
+        cascading_df,
+        downtime_reason_col,
+        downtime_minutes_col
+    )
+
+    additional_reasons = []
+
+    if print_delay_reason_col is not None:
+        for _, row in last_finished_df.iterrows():
+            reason_text = clean_reason_text(row.get(print_delay_reason_col, ""))
+            if reason_text and reason_text.lower() != "nan":
+                additional_reasons.append(reason_text)
+
+    additional_reasons = list(dict.fromkeys(additional_reasons))
+
+    reason_lines = []
+
+    if len(last_machines) > 1:
+        intro = (
+            f"Sir, the late finish of {edition_name_for_reason} on both "
+            f"{last_machine_text} was primarily due to production interruptions "
+            f"and cascading folder-level delays during the final stage of printing."
+        )
+    else:
+        intro = (
+            f"Sir, the late finish of {edition_name_for_reason} on "
+            f"{last_machine_text} was primarily due to production interruptions "
+            f"during the final stage of printing."
+        )
+
+    reason_lines.append(intro)
+
+    if direct_breakup:
+        reason_lines.append(
+            f"The last edition had direct downtime due to {direct_breakup}."
+        )
+
+    if cascading_breakup:
+        reason_lines.append(
+            f"Earlier stoppages on the same folder also contributed to the delay, mainly due to {cascading_breakup}."
+        )
+
+    if not direct_breakup and cascading_breakup:
+        reason_lines.append(
+            "There was no major direct downtime against the last-finished run, but the finish was affected by cascading delay from earlier same-folder stoppages."
+        )
+
+    if additional_reasons:
+        reason_lines.append(
+            "Additional delay reason: " + "; ".join(additional_reasons) + "."
+        )
+
+    final_reason = " ".join(reason_lines)
+
+    return final_reason, []
 
 def show_pf_delay_report():
     st.markdown("## PF Delay Report")
@@ -464,6 +728,22 @@ def show_pf_delay_report():
             report_lines.append(f"{item['machine']}: {item['downtime']} mins")
 
         report_lines.append("")
+        delayed_reason, reason_missing_columns = generate_delayed_finish_reason(
+            general_df,
+            downtime_df,
+            last_finished_df
+        )
+
+        if reason_missing_columns:
+            st.error("Required column missing for delayed finish reason.")
+            st.write("Missing column(s):")
+            st.write(reason_missing_columns)
+            return
+
+        report_lines.append("Reasons for delayed finish:")
+        report_lines.append(delayed_reason)
+        report_lines.append("")
+        report_lines.append("Copies delivered after 04:00 am:")
 
         report_text = "\n".join(report_lines)
 
