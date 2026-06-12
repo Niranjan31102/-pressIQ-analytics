@@ -59,8 +59,9 @@ def identify_last_finished_main_edition(general_df):
     """
     Step 2 logic:
     - Filter Main editions
-    - Find latest Last Production End / Production End
-    - Return all rows matching latest finish time
+    - Use Production End Date + Production End time
+    - Find latest print finish datetime
+    - Return all rows matching latest finish datetime
     """
 
     main_supp_col = find_column(
@@ -71,6 +72,11 @@ def identify_last_finished_main_edition(general_df):
     production_end_col = find_column(
         general_df,
         ["Last Production End", "Production End"]
+    )
+
+    production_end_date_col = find_column(
+        general_df,
+        ["Production End Date", "Last Production End Date"]
     )
 
     product_name_col = find_column(
@@ -95,7 +101,8 @@ def identify_last_finished_main_edition(general_df):
 
     required_columns = {
         "Main/Supplement": main_supp_col,
-        "Last Production End / Production End": production_end_col,
+        "Production End": production_end_col,
+        "Production End Date": production_end_date_col,
         "Product Name": product_name_col,
         "Machine": machine_col,
         "Total Downtime": downtime_col,
@@ -117,25 +124,26 @@ def identify_last_finished_main_edition(general_df):
     if main_df.empty:
         return pd.DataFrame(), []
 
-    main_df[production_end_col] = pd.to_datetime(
-        main_df[production_end_col],
-        errors="coerce"
+    main_df["_production_end_datetime"] = pd.to_datetime(
+        main_df[production_end_date_col].astype(str).str.strip()
+        + " "
+        + main_df[production_end_col].astype(str).str.strip(),
+        errors="coerce",
+        dayfirst=True
     )
 
-    main_df = main_df.dropna(subset=[production_end_col])
+    main_df = main_df.dropna(subset=["_production_end_datetime"])
 
     if main_df.empty:
         return pd.DataFrame(), []
 
-    latest_finish_time = main_df[production_end_col].max()
+    latest_finish_datetime = main_df["_production_end_datetime"].max()
 
     last_finished_df = main_df[
-        main_df[production_end_col] == latest_finish_time
+        main_df["_production_end_datetime"] == latest_finish_datetime
     ].copy()
 
     return last_finished_df, []
-
-
 def show_pf_delay_report():
     st.markdown("## PF Delay Report")
     st.caption("Generate Director-level Print Finished delay report from Production Excel file.")
