@@ -8,6 +8,7 @@ from modules.adam_analyzer import run_adam_analyzer
 from modules.downtime import run_downtime_analyzer
 from modules.micro_stoppage import run_micro_stoppage_analyzer
 from modules.utility_performance import run_utility_performance_analyzer
+from modules.pf_delay_report import show_pf_delay_report
 
 st.set_page_config(
     page_title="PressIQ Analytics",
@@ -193,6 +194,7 @@ if not st.session_state.logged_in:
     )
 
     st.stop()
+
 # ---------------- SIDEBAR ----------------
 st.sidebar.markdown(
     """
@@ -205,6 +207,7 @@ st.sidebar.markdown(
     """,
     unsafe_allow_html=True
 )
+
 st.sidebar.success(f"Logged in: {st.session_state.user_email}")
 
 st.sidebar.markdown("### Main Intelligence")
@@ -214,6 +217,7 @@ main_intelligence = st.sidebar.radio(
     [
         "Waste Intelligence",
         "Utility Intelligence",
+        "PF Intelligence",
     ]
 )
 
@@ -237,6 +241,16 @@ elif main_intelligence == "Utility Intelligence":
         ]
     )
 
+elif main_intelligence == "PF Intelligence":
+    st.sidebar.markdown("### PF Intelligence")
+
+    module = st.sidebar.radio(
+        "Select Tool",
+        [
+            "PF Delay Report",
+        ]
+    )
+
 if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
     st.rerun()
@@ -248,6 +262,7 @@ st.markdown(f'<div class="sub-title">{module}</div>', unsafe_allow_html=True)
 # ---------------- ROUTER ----------------
 if module == "Pan India Waste Tracker Analyzer":
     run_waste_tracker()
+
 elif module == "Edition Wise Wastage Analyzer":
     run_edition_waste_analyzer()
 
@@ -262,7 +277,9 @@ elif module == "0–4 Min Micro Stoppage Analyzer":
 
 elif module == "Web Break Downtime Analyzer":
     st.info("🧵 Web Break Downtime Analyzer will be added later.")
-    
+
 elif module == "Utility Performance Analyzer":
     run_utility_performance_analyzer()
-    
+
+elif module == "PF Delay Report":
+    show_pf_delay_report()
