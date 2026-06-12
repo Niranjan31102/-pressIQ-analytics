@@ -273,7 +273,71 @@ def get_issue_date(last_finished_df):
         return latest_date.strftime("%d-%m-%Y")
     except Exception:
         return ""
+def calculate_machine_wise_downtime(general_df):
+    """
+    Calculates machine-wise total downtime for all Main editions from General sheet.
+    """
 
+    main_supp_col = find_column(
+        general_df,
+        ["Main/Supplement", "Main Supplement", "Main_Supplement"]
+    )
+
+    machine_col = find_column(
+        general_df,
+        ["Machine", "Machine Name"]
+    )
+
+    downtime_col = find_column(
+        general_df,
+        ["Total Downtime", "Total DownTime", "Downtime"]
+    )
+
+    required_columns = {
+        "Main/Supplement": main_supp_col,
+        "Machine": machine_col,
+        "Total Downtime": downtime_col,
+    }
+
+    missing_columns = [
+        name for name, col in required_columns.items()
+        if col is None
+    ]
+
+    if missing_columns:
+        return None, missing_columns
+
+    main_df = general_df[
+        general_df[main_supp_col].astype(str).str.strip().str.lower() == "main"
+    ].copy()
+
+    if main_df.empty:
+        return [], []
+
+    main_df[downtime_col] = pd.to_numeric(
+        main_df[downtime_col],
+        errors="coerce"
+    ).fillna(0)
+
+    machine_summary = (
+        main_df
+        .groupby(machine_col, dropna=False)[downtime_col]
+        .sum()
+        .reset_index()
+    )
+
+    result = []
+
+    for _, row in machine_summary.iterrows():
+        machine_name = str(row[machine_col]).strip()
+        downtime_value = int(round(row[downtime_col]))
+
+        result.append({
+            "machine": machine_name,
+            "downtime": downtime_value
+        })
+
+    return result, []
 
 def show_pf_delay_report():
     st.markdown("## PF Delay Report")
@@ -399,6 +463,21 @@ def show_pf_delay_report():
         report_lines.append(f"LPR: {first_lpr}")
         report_lines.append(f"LPRS: {first_lprs}")
         report_lines.append(f"Delay: {first_delay}")
+        report_lines.append("")
+
+        machine_wise_downtime, machine_missing_columns = calculate_machine_wise_downtime(general_df)
+
+        if machine_missing_columns:
+            st.error("Required column missing for machine-wise downtime calculation.")
+            st.write("Missing column(s):")
+            st.write(machine_missing_columns)
+        return
+
+        report_lines.append("Machine-wise Total Downtime for Main Editions:")
+
+        for item in machine_wise_downtime:
+            report_lines.append(f"{item['machine']}: {item['downtime']} mins")
+
         report_lines.append("")
 
         report_text = "\n".join(report_lines)
