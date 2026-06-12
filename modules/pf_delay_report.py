@@ -103,7 +103,7 @@ def identify_last_finished_main_edition(general_df):
         "Main/Supplement": main_supp_col,
         "Production End": production_end_col,
         "Production End Date": production_end_date_col,
-        "Product Name": product_name_col,
+        "Product Name / Products": product_name_col,
         "Machine": machine_col,
         "Total Downtime": downtime_col,
         "Runid": runid_col,
@@ -124,6 +124,8 @@ def identify_last_finished_main_edition(general_df):
     if main_df.empty:
         return pd.DataFrame(), []
 
+    # Create correct full datetime using date + time.
+    # This prevents 23:50 previous day being treated as later than 04:59 issue day.
     main_df["_production_end_datetime"] = pd.to_datetime(
         main_df[production_end_date_col].astype(str).str.strip()
         + " "
@@ -144,6 +146,8 @@ def identify_last_finished_main_edition(general_df):
     ].copy()
 
     return last_finished_df, []
+
+
 def show_pf_delay_report():
     st.markdown("## PF Delay Report")
     st.caption("Generate Director-level Print Finished delay report from Production Excel file.")
@@ -191,10 +195,25 @@ def show_pf_delay_report():
             st.warning("No Main edition records found with valid print finish time.")
             return
 
-        product_name_col = find_column(last_finished_df, ["Product Name", "Products", "Product"])
-        machine_col = find_column(last_finished_df, ["Machine", "Machine Name"])
-        downtime_col = find_column(last_finished_df, ["Total Downtime", "Total DownTime", "Downtime"])
-        production_end_col = find_column(last_finished_df, ["Last Production End", "Production End"])
+        product_name_col = find_column(
+            last_finished_df,
+            ["Product Name", "Products", "Product"]
+        )
+
+        machine_col = find_column(
+            last_finished_df,
+            ["Machine", "Machine Name"]
+        )
+
+        downtime_col = find_column(
+            last_finished_df,
+            ["Total Downtime", "Total DownTime", "Downtime"]
+        )
+
+        production_end_col = find_column(
+            last_finished_df,
+            ["Last Production End", "Production End"]
+        )
 
         st.markdown("### PF Delay Report Preview")
 
