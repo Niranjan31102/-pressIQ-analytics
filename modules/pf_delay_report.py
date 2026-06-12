@@ -1,5 +1,8 @@
 import streamlit as st
 import pandas as pd
+from io import BytesIO
+from docx import Document
+from docx.shared import Pt
 
 
 REQUIRED_SHEETS = [
@@ -587,7 +590,52 @@ def generate_delayed_finish_reason(general_df, downtime_df, last_finished_df):
     final_reason = " ".join(reason_lines)
 
     return final_reason, []
+def create_word_report(report_text):
+    """
+    Creates a Word file from generated PF Delay Report text.
+    Returns Word file as BytesIO object.
+    """
 
+    document = Document()
+
+    style = document.styles["Normal"]
+    style.font.name = "Calibri"
+    style.font.size = Pt(11)
+
+    lines = report_text.split("\n")
+
+    for line in lines:
+        clean_line = line.strip()
+
+        if clean_line == "":
+            document.add_paragraph("")
+            continue
+
+        paragraph = document.add_paragraph()
+
+        if clean_line.startswith("Airoli Plant Issue Dated:"):
+            run = paragraph.add_run(clean_line)
+            run.bold = True
+            run.font.size = Pt(13)
+
+        elif clean_line in [
+            "Page Release Delay:",
+            "Machine-wise Total Downtime for Main Editions:",
+            "Reasons for delayed finish:",
+        ]:
+            run = paragraph.add_run(clean_line)
+            run.bold = True
+            run.font.size = Pt(11)
+
+        else:
+            run = paragraph.add_run(clean_line)
+            run.font.size = Pt(11)
+
+    word_buffer = BytesIO()
+    document.save(word_buffer)
+    word_buffer.seek(0)
+
+    return word_buffer
 def show_pf_delay_report():
     st.markdown("## PF Delay Report")
     st.caption("Generate Director-level Print Finished delay report from Production Excel file.")
@@ -754,6 +802,17 @@ def show_pf_delay_report():
             value=report_text,
             height=500,
             key="pf_delay_report_text_preview"
+        )
+        word_file = create_word_report(report_text)
+
+        download_file_name = f"PF_Delay_Report_{issue_date}.docx"
+
+        st.download_button(
+            label="Download Word Report",
+            data=word_file,
+            file_name=download_file_name,
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            key="pf_delay_report_word_download"
         )
 
     except Exception as e:
