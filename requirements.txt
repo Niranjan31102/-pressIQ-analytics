@@ -12,3 +12,4 @@ oauth2client
 xlrd>=2.0.1
 google-api-python-client
 google-auth
+python-docx
