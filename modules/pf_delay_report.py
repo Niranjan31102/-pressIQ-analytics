@@ -139,7 +139,7 @@ def identify_last_finished_main_edition(general_df):
 
     product_name_col = find_column(
         general_df,
-        ["Product Name", "Products", "Product"]
+        ["Product Name", "Edition", "Products", "Product"]
     )
 
     machine_col = find_column(
@@ -217,7 +217,7 @@ def get_bookwise_info(bookwise_df, runid):
 
     last_tiff_col = find_column(
         bookwise_df,
-        ["Last Tiff Edition", "Last Tiff", "LPR"]
+        ["Last Tiff", "Last Tiff Edition", "LPR"]
     )
 
     complexity_col = find_column(
@@ -324,7 +324,7 @@ def show_pf_delay_report():
 
         product_name_col = find_column(
             last_finished_df,
-            ["Product Name", "Products", "Product"]
+            ["Product Name", "Edition", "Products", "Product"]
         )
 
         machine_col = find_column(
