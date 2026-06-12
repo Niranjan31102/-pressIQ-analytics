@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, time, timedelta
 
 
 REQUIRED_SHEETS = [
@@ -55,12 +54,6 @@ def format_minutes(value):
 
 
 def clean_complexity(value):
-    """
-    Example:
-    C4-High Pagination (SNP) + Multiple Innovations
-    becomes:
-    High Pagination (SNP) + Multiple Innovations
-    """
     if pd.isna(value):
         return ""
 
@@ -73,9 +66,6 @@ def clean_complexity(value):
 
 
 def parse_time_to_minutes(value):
-    """
-    Converts time value to minutes from midnight.
-    """
     if pd.isna(value):
         return None
 
@@ -96,10 +86,6 @@ def parse_time_to_minutes(value):
 
 
 def calculate_page_release_delay(product_name, lpr_value):
-    """
-    Calculates delay based on product-wise LPRS rule.
-    Handles midnight crossing also.
-    """
     product_text = str(product_name).strip()
 
     if product_text not in LPRS_RULES:
@@ -161,7 +147,7 @@ def identify_last_finished_main_edition(general_df):
         "Main/Supplement": main_supp_col,
         "Production End": production_end_col,
         "Production End Date": production_end_date_col,
-        "Product Name / Products": product_name_col,
+        "Product Name / Edition / Products": product_name_col,
         "Machine": machine_col,
         "Total Downtime": downtime_col,
         "Runid": runid_col,
@@ -228,7 +214,7 @@ def get_bookwise_info(bookwise_df, runid):
     required_columns = {
         "Runid": runid_col,
         "Edition": edition_col,
-        "Last Tiff Edition": last_tiff_col,
+        "Last Tiff": last_tiff_col,
         "Complexities": complexity_col,
     }
 
@@ -273,11 +259,9 @@ def get_issue_date(last_finished_df):
         return latest_date.strftime("%d-%m-%Y")
     except Exception:
         return ""
-def calculate_machine_wise_downtime(general_df):
-    """
-    Calculates machine-wise total downtime for all Main editions from General sheet.
-    """
 
+
+def calculate_machine_wise_downtime(general_df):
     main_supp_col = find_column(
         general_df,
         ["Main/Supplement", "Main Supplement", "Main_Supplement"]
@@ -338,6 +322,7 @@ def calculate_machine_wise_downtime(general_df):
         })
 
     return result, []
+
 
 def show_pf_delay_report():
     st.markdown("## PF Delay Report")
@@ -471,7 +456,7 @@ def show_pf_delay_report():
             st.error("Required column missing for machine-wise downtime calculation.")
             st.write("Missing column(s):")
             st.write(machine_missing_columns)
-        return
+            return
 
         report_lines.append("Machine-wise Total Downtime for Main Editions:")
 
@@ -487,7 +472,7 @@ def show_pf_delay_report():
         st.text_area(
             "Generated Report Text",
             value=report_text,
-            height=450,
+            height=500,
             key="pf_delay_report_text_preview"
         )
 
