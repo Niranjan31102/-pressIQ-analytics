@@ -75,7 +75,7 @@ def identify_last_finished_main_edition(general_df):
 
     product_name_col = find_column(
         general_df,
-        ["Product Name", "Product"]
+        ["Product Name", "Products", "Product"]
     )
 
     machine_col = find_column(
@@ -183,7 +183,7 @@ def show_pf_delay_report():
             st.warning("No Main edition records found with valid print finish time.")
             return
 
-        product_name_col = find_column(last_finished_df, ["Product Name", "Product"])
+        product_name_col = find_column(last_finished_df, ["Product Name", "Products", "Product"])
         machine_col = find_column(last_finished_df, ["Machine", "Machine Name"])
         downtime_col = find_column(last_finished_df, ["Total Downtime", "Total DownTime", "Downtime"])
         production_end_col = find_column(last_finished_df, ["Last Production End", "Production End"])
