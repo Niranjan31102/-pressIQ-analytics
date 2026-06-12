@@ -81,6 +81,30 @@ ZONE_MAP = {
 
 
 # ============================================================
+# EVENT-BASED FEEDER LOGIC
+# ============================================================
+
+# Feeders that run only during special production, trial, or GNP/glossy jobs.
+# Add more keywords here later when you share the feeder mapping.
+EVENT_BASED_KEYWORDS = [
+    "UV",
+    "UV TOWER",
+    "PU15",
+    "PU5",
+    "GNP",
+]
+
+# For event feeders, daily zone consumption is classified as:
+# <= 5 units       = Idle / no use
+# > 5 and <= 25    = Test / Trial
+# > 25             = Production Active
+EVENT_IDLE_THRESHOLD = 5
+EVENT_TRIAL_THRESHOLD = 25
+EVENT_ZERO_RATIO_THRESHOLD = 0.70
+MIN_EVENT_ACTIVE_DAYS = 2
+
+
+# ============================================================
 # CSS
 # ============================================================
 
@@ -178,6 +202,18 @@ def add_utility_css():
     .status-pending {
         background: #e2e8f0;
         color: #334155;
+    }
+    .status-minor {
+        background: #e0f2fe;
+        color: #075985;
+    }
+    .status-event {
+        background: #ede9fe;
+        color: #5b21b6;
+    }
+    .status-idle {
+        background: #f1f5f9;
+        color: #475569;
     }
     .zone-grid {
         display: grid;
@@ -287,7 +323,26 @@ def status_class(status):
         return "status-out"
     if status == "Data Error Suspect":
         return "status-data"
+    if status == "Minor Variation":
+        return "status-minor"
+    if status in ["Test / Trial", "Event Baseline Pending"]:
+        return "status-event"
+    if status == "Idle":
+        return "status-idle"
     return "status-pending"
+
+
+def is_event_keyword_feeder(feeder_name):
+    text = str(feeder_name).upper()
+    return any(keyword in text for keyword in EVENT_BASED_KEYWORDS)
+
+
+def classify_event_activity(units):
+    if pd.isna(units) or units <= EVENT_IDLE_THRESHOLD:
+        return "Idle"
+    if units <= EVENT_TRIAL_THRESHOLD:
+        return "Test / Trial"
+    return "Production Active"
 
 
 # ============================================================
@@ -484,15 +539,85 @@ def build_baseline(baseline_files):
         as_index=False,
     )["Clean Consumption"].sum()
 
-    baseline = daily_zone.groupby(
+    # Regular baseline: uses all valid historical days.
+    regular_baseline = daily_zone.groupby(
         ["Feeder ID", "Feeder Name", "Zone"],
         as_index=False,
     )["Clean Consumption"].agg(
-        baseline_median="median",
-        baseline_mean="mean",
-        baseline_p75=lambda x: x.quantile(0.75),
-        baseline_p90=lambda x: x.quantile(0.90),
+        regular_median="median",
+        regular_mean="mean",
+        regular_p75=lambda x: x.quantile(0.75),
+        regular_p90=lambda x: x.quantile(0.90),
     )
+
+    # Event feeder detection and active-day baseline.
+    activity = daily_zone.copy()
+    activity["Event Activity"] = activity["Clean Consumption"].apply(classify_event_activity)
+
+    activity_summary = activity.groupby(
+        ["Feeder ID", "Feeder Name", "Zone"],
+        as_index=False,
+    ).agg(
+        baseline_total_days=("Baseline Day", "nunique"),
+        baseline_idle_days=("Event Activity", lambda x: (x == "Idle").sum()),
+        baseline_trial_days=("Event Activity", lambda x: (x == "Test / Trial").sum()),
+        baseline_active_days=("Event Activity", lambda x: (x == "Production Active").sum()),
+    )
+
+    activity_summary["baseline_idle_ratio"] = (
+        activity_summary["baseline_idle_days"] / activity_summary["baseline_total_days"].replace(0, np.nan)
+    )
+
+    activity_summary["keyword_event_feeder"] = activity_summary["Feeder Name"].apply(is_event_keyword_feeder)
+    activity_summary["auto_event_feeder"] = activity_summary["baseline_idle_ratio"] >= EVENT_ZERO_RATIO_THRESHOLD
+    activity_summary["is_event_based"] = (
+        activity_summary["keyword_event_feeder"] | activity_summary["auto_event_feeder"]
+    )
+
+    active_days = activity[activity["Event Activity"] == "Production Active"].copy()
+
+    if active_days.empty:
+        active_baseline = pd.DataFrame(
+            columns=[
+                "Feeder ID", "Feeder Name", "Zone",
+                "active_median", "active_mean", "active_p75", "active_p90",
+            ]
+        )
+    else:
+        active_baseline = active_days.groupby(
+            ["Feeder ID", "Feeder Name", "Zone"],
+            as_index=False,
+        )["Clean Consumption"].agg(
+            active_median="median",
+            active_mean="mean",
+            active_p75=lambda x: x.quantile(0.75),
+            active_p90=lambda x: x.quantile(0.90),
+        )
+
+    baseline = regular_baseline.merge(
+        activity_summary,
+        on=["Feeder ID", "Feeder Name", "Zone"],
+        how="left",
+    ).merge(
+        active_baseline,
+        on=["Feeder ID", "Feeder Name", "Zone"],
+        how="left",
+    )
+
+    # Final baseline columns used by the dashboard.
+    # Regular feeders use all-day baseline.
+    # Event feeders use production-active-day baseline when available.
+    baseline["baseline_median"] = baseline["regular_median"]
+    baseline["baseline_mean"] = baseline["regular_mean"]
+    baseline["baseline_p75"] = baseline["regular_p75"]
+    baseline["baseline_p90"] = baseline["regular_p90"]
+
+    event_mask = baseline["is_event_based"].fillna(False) & baseline["active_median"].notna()
+
+    baseline.loc[event_mask, "baseline_median"] = baseline.loc[event_mask, "active_median"]
+    baseline.loc[event_mask, "baseline_mean"] = baseline.loc[event_mask, "active_mean"]
+    baseline.loc[event_mask, "baseline_p75"] = baseline.loc[event_mask, "active_p75"]
+    baseline.loc[event_mask, "baseline_p90"] = baseline.loc[event_mask, "active_p90"]
 
     day_count = baseline_long["Baseline Day"].nunique()
 
@@ -527,6 +652,41 @@ def create_feeder_zone_summary(current_long, baseline, baseline_multiplier=1):
         issue_count=("Quality Status", lambda x: (x != "Valid").sum()),
     )
 
+    # Current selected-range daily activity classification.
+    if "Analysis Date" in current_clean.columns:
+        daily_keys = ["Analysis Date", "Feeder ID", "Feeder Name", "Zone"]
+    else:
+        current_clean = current_clean.copy()
+        current_clean["Analysis Date"] = "Current"
+        daily_keys = ["Analysis Date", "Feeder ID", "Feeder Name", "Zone"]
+
+    current_daily_zone = current_clean.groupby(
+        daily_keys,
+        as_index=False,
+    )["Clean Consumption"].sum()
+
+    current_daily_zone["Current Event Activity"] = current_daily_zone["Clean Consumption"].apply(
+        classify_event_activity
+    )
+
+    current_activity = current_daily_zone.groupby(
+        ["Feeder ID", "Feeder Name", "Zone"],
+        as_index=False,
+    ).agg(
+        current_idle_days=("Current Event Activity", lambda x: (x == "Idle").sum()),
+        current_trial_days=("Current Event Activity", lambda x: (x == "Test / Trial").sum()),
+        current_active_days=("Current Event Activity", lambda x: (x == "Production Active").sum()),
+    )
+
+    zone_summary = zone_summary.merge(
+        current_activity,
+        on=["Feeder ID", "Feeder Name", "Zone"],
+        how="left",
+    )
+
+    for col in ["current_idle_days", "current_trial_days", "current_active_days"]:
+        zone_summary[col] = zone_summary[col].fillna(0).astype(int)
+
     if baseline is not None:
         zone_summary = zone_summary.merge(
             baseline,
@@ -534,23 +694,51 @@ def create_feeder_zone_summary(current_long, baseline, baseline_multiplier=1):
             how="left",
         )
 
-        # For multi-day analysis:
-        # compare N-day actual with daily baseline multiplied by N calculated days.
+        zone_summary["is_event_based"] = zone_summary["is_event_based"].fillna(False)
+
+        # Regular feeders compare N-day actual with daily baseline x N days.
+        # Event feeders compare production-active actual with active baseline x active days.
+        zone_summary["effective_baseline_multiplier"] = baseline_multiplier
+        event_mask = zone_summary["is_event_based"] == True
+        zone_summary.loc[event_mask, "effective_baseline_multiplier"] = zone_summary.loc[
+            event_mask, "current_active_days"
+        ]
+
         for col in ["baseline_median", "baseline_mean", "baseline_p75", "baseline_p90"]:
-            zone_summary[col] = zone_summary[col] * baseline_multiplier
+            zone_summary[col] = zone_summary[col] * zone_summary["effective_baseline_multiplier"]
 
     else:
         zone_summary["baseline_median"] = np.nan
         zone_summary["baseline_mean"] = np.nan
         zone_summary["baseline_p75"] = np.nan
         zone_summary["baseline_p90"] = np.nan
+        zone_summary["is_event_based"] = False
+        zone_summary["baseline_active_days"] = np.nan
+        zone_summary["effective_baseline_multiplier"] = baseline_multiplier
 
     def zone_status(row):
         if row["issue_count"] > 0:
             return "Data Error Suspect"
 
-        if pd.isna(row["baseline_median"]):
-            return "Baseline Pending"
+        is_event = bool(row.get("is_event_based", False))
+
+        if is_event:
+            current_active_days = int(row.get("current_active_days", 0))
+            current_trial_days = int(row.get("current_trial_days", 0))
+            baseline_active_days = row.get("baseline_active_days", np.nan)
+
+            if current_active_days == 0 and current_trial_days > 0:
+                return "Test / Trial"
+
+            if current_active_days == 0:
+                return "Idle"
+
+            if pd.isna(row["baseline_median"]) or pd.isna(baseline_active_days) or baseline_active_days < MIN_EVENT_ACTIVE_DAYS:
+                return "Event Baseline Pending"
+
+        else:
+            if pd.isna(row["baseline_median"]):
+                return "Baseline Pending"
 
         current_value = row["current_units"]
         median_value = row["baseline_median"]
@@ -560,14 +748,14 @@ def create_feeder_zone_summary(current_long, baseline, baseline_multiplier=1):
         difference = current_value - median_value
         minimum_impact = minimum_impact_required(median_value)
 
-        # Avoid false alarms for very low-consumption feeders.
-        if difference < minimum_impact:
-            return "In Control"
-
         if current_value > p90_value:
+            if difference < minimum_impact:
+                return "Minor Variation"
             return "Out Control"
 
         if current_value > p75_value:
+            if difference < minimum_impact:
+                return "Minor Variation"
             return "Warning"
 
         return "In Control"
@@ -589,6 +777,18 @@ def final_feeder_status(statuses):
     if "Warning" in statuses:
         return "Warning"
 
+    if "Event Baseline Pending" in statuses:
+        return "Event Baseline Pending"
+
+    if "Test / Trial" in statuses:
+        return "Test / Trial"
+
+    if "Minor Variation" in statuses:
+        return "Minor Variation"
+
+    if all(s == "Idle" for s in statuses):
+        return "Idle"
+
     if all(s == "Baseline Pending" for s in statuses):
         return "Baseline Pending"
 
@@ -603,24 +803,59 @@ def create_remark(feeder_id, feeder_name, feeder_status, zone_rows, current_long
     if feeder_status == "Baseline Pending":
         return "Baseline not available. Please check seasonal baseline files."
 
+    if feeder_status == "Event Baseline Pending":
+        return (
+            "This appears to be an event-based feeder. It has production-active use today, "
+            "but not enough previous active-use days are available to build a reliable active baseline."
+        )
+
     if feeder_status == "Data Error Suspect":
         return create_data_error_remark(feeder_id, current_long)
+
+    if feeder_status == "Idle":
+        return "This event-based feeder is idle in the selected period. No production use detected."
+
+    if feeder_status == "Test / Trial":
+        return (
+            "Small consumption found. This looks like testing/trial/warm-up, "
+            "not actual production use. No action required unless repeated unexpectedly."
+        )
+
+    if feeder_status == "Minor Variation":
+        return (
+            "Consumption is above the statistical limit, but the unit difference is very small. "
+            "Marked as minor variation to avoid unnecessary false alarm."
+        )
 
     out_zones = zone_rows[zone_rows["Zone Status"] == "Out Control"]["Zone"].tolist()
     warn_zones = zone_rows[zone_rows["Zone Status"] == "Warning"]["Zone"].tolist()
 
     if out_zones:
         zone_text = ", ".join([z.split("|")[0].strip() for z in out_zones])
+        event_note = ""
+        if zone_rows.get("is_event_based", pd.Series([False])).fillna(False).any():
+            event_note = " This is event-based logic, compared with previous production-active days only."
         return (
             f"Consumption is out of seasonal control in {zone_text}. "
             "Review this feeder for abnormal running, idle load, production variation, or utility support load."
+            + event_note
         )
 
     if warn_zones:
         zone_text = ", ".join([z.split("|")[0].strip() for z in warn_zones])
+        event_note = ""
+        if zone_rows.get("is_event_based", pd.Series([False])).fillna(False).any():
+            event_note = " This is event-based logic, compared with previous production-active days only."
         return (
             f"Consumption is above normal range in {zone_text}. "
             "Keep under watch and compare with production activity."
+            + event_note
+        )
+
+    if zone_rows.get("is_event_based", pd.Series([False])).fillna(False).any():
+        return (
+            "Event-based feeder logic applied. Idle and test/trial days are not used as production baseline. "
+            "Current production-active consumption is within active-use control range."
         )
 
     return "Consumption is within seasonal control range for all zones."
@@ -654,6 +889,10 @@ def render_feeder_card(feeder_id, feeder_name, zone_rows, feeder_status, current
             "Warning": "#92400e",
             "Out Control": "#991b1b",
             "Data Error Suspect": "#6b21a8",
+            "Minor Variation": "#075985",
+            "Test / Trial": "#5b21b6",
+            "Event Baseline Pending": "#5b21b6",
+            "Idle": "#475569",
             "Baseline Pending": "#334155",
         }.get(zstatus, "#334155")
 
@@ -969,7 +1208,18 @@ def run_utility_performance_analyzer():
     with f1:
         selected_status = st.selectbox(
             "Filter by status",
-            ["All", "In Control", "Warning", "Out Control", "Data Error Suspect", "Baseline Pending"],
+            [
+                "All",
+                "In Control",
+                "Minor Variation",
+                "Warning",
+                "Out Control",
+                "Test / Trial",
+                "Idle",
+                "Event Baseline Pending",
+                "Data Error Suspect",
+                "Baseline Pending",
+            ],
         )
 
     with f2:
@@ -990,8 +1240,12 @@ def run_utility_performance_analyzer():
         "Data Error Suspect": 1,
         "Out Control": 2,
         "Warning": 3,
-        "In Control": 4,
-        "Baseline Pending": 5,
+        "Event Baseline Pending": 4,
+        "Test / Trial": 5,
+        "Minor Variation": 6,
+        "In Control": 7,
+        "Idle": 8,
+        "Baseline Pending": 9,
     }
 
     display_df["rank"] = display_df["Feeder Status"].map(status_rank).fillna(9)
