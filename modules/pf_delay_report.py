@@ -20,7 +20,14 @@ LPRS_RULES = {
 }
 
 
+# -------------------------------------------------
+# BASIC HELPERS
+# -------------------------------------------------
 def find_column(df, possible_names):
+    """
+    Finds a column from dataframe using possible column names.
+    This helps because Excel column names may slightly vary.
+    """
     df_columns_clean = {
         str(col).strip().lower(): col
         for col in df.columns
@@ -35,6 +42,9 @@ def find_column(df, possible_names):
 
 
 def format_time(value):
+    """
+    Converts Excel time/date value into HH:MM hrs format.
+    """
     if pd.isna(value):
         return ""
 
@@ -46,6 +56,9 @@ def format_time(value):
 
 
 def format_minutes(value):
+    """
+    Converts downtime value into mins format.
+    """
     if pd.isna(value):
         return "0 mins"
 
@@ -57,6 +70,13 @@ def format_minutes(value):
 
 
 def clean_complexity(value):
+    """
+    Example:
+    C4-High Pagination (SNP) + Multiple Innovations
+
+    Output:
+    High Pagination (SNP) + Multiple Innovations
+    """
     if pd.isna(value):
         return ""
 
@@ -68,7 +88,20 @@ def clean_complexity(value):
     return text
 
 
+def clean_reason_text(value):
+    if pd.isna(value):
+        return ""
+
+    return str(value).strip()
+
+
+# -------------------------------------------------
+# TIME / DELAY CALCULATION
+# -------------------------------------------------
 def parse_time_to_minutes(value):
+    """
+    Converts time value to minutes from midnight.
+    """
     if pd.isna(value):
         return None
 
@@ -89,6 +122,10 @@ def parse_time_to_minutes(value):
 
 
 def calculate_page_release_delay(product_name, lpr_value):
+    """
+    Calculates delay based on product-wise LPRS rule.
+    Handles midnight crossing also.
+    """
     product_text = str(product_name).strip()
 
     if product_text not in LPRS_RULES:
@@ -110,7 +147,18 @@ def calculate_page_release_delay(product_name, lpr_value):
     return format_time(lpr_value), f"{lprs_text} hrs", f"{delay} mins"
 
 
+# -------------------------------------------------
+# STEP 1: IDENTIFY LAST FINISHED MAIN EDITION
+# -------------------------------------------------
 def identify_last_finished_main_edition(general_df):
+    """
+    Logic:
+    - Filter Main editions
+    - Use Production End Date + Production End time
+    - Find latest print finish datetime
+    - Return all rows matching latest finish datetime
+    """
+
     main_supp_col = find_column(
         general_df,
         ["Main/Supplement", "Main Supplement", "Main_Supplement"]
@@ -193,6 +241,9 @@ def identify_last_finished_main_edition(general_df):
     return last_finished_df, []
 
 
+# -------------------------------------------------
+# STEP 2: BOOK WISE DETAILS MATCHING
+# -------------------------------------------------
 def get_bookwise_info(bookwise_df, runid):
     runid_col = find_column(
         bookwise_df,
@@ -264,6 +315,9 @@ def get_issue_date(last_finished_df):
         return ""
 
 
+# -------------------------------------------------
+# STEP 3: MACHINE-WISE TOTAL DOWNTIME
+# -------------------------------------------------
 def calculate_machine_wise_downtime(general_df):
     main_supp_col = find_column(
         general_df,
@@ -325,13 +379,11 @@ def calculate_machine_wise_downtime(general_df):
         })
 
     return result, []
-def clean_reason_text(value):
-    if pd.isna(value):
-        return ""
-
-    return str(value).strip()
 
 
+# -------------------------------------------------
+# STEP 4: DIRECTOR-LEVEL DELAY REASON WRITING
+# -------------------------------------------------
 def should_exclude_downtime(row, related_col):
     if related_col is None:
         return False
@@ -350,15 +402,50 @@ def should_exclude_downtime(row, related_col):
     return False
 
 
-def summarize_reason_breakup(reason_df, reason_col, downtime_col):
+def normalize_delay_reason(raw_reason):
     """
-    Creates reason-wise downtime breakup text.
-    Example:
-    web break: 20 mins, folder jam: 11 mins
+    Converts raw machine/press reason text into Director-level language.
+    """
+
+    text = clean_reason_text(raw_reason).lower()
+
+    if text == "":
+        return ""
+
+    if "web break" in text or "webbreak" in text:
+        return "web break"
+
+    if "folder jam" in text:
+        return "folder jam"
+
+    if "paper jam" in text:
+        return "folder jam"
+
+    if "paper drifting" in text or "paper drift" in text:
+        return "paper drifting"
+
+    if "production stop" in text:
+        return "production stop"
+
+    if "electrical" in text:
+        return "electrical stoppage"
+
+    if "plate" in text:
+        return "plate delay"
+
+    if "tiff" in text or "page" in text:
+        return "page release delay"
+
+    return clean_reason_text(raw_reason)
+
+
+def get_reason_breakup(reason_df, reason_col, downtime_col):
+    """
+    Returns clean reason-wise downtime summary.
     """
 
     if reason_df.empty:
-        return ""
+        return []
 
     temp_df = reason_df.copy()
 
@@ -367,12 +454,12 @@ def summarize_reason_breakup(reason_df, reason_col, downtime_col):
         errors="coerce"
     ).fillna(0)
 
-    temp_df["_reason_clean"] = temp_df[reason_col].apply(clean_reason_text)
+    temp_df["_reason_clean"] = temp_df[reason_col].apply(normalize_delay_reason)
 
     temp_df = temp_df[temp_df["_reason_clean"] != ""]
 
     if temp_df.empty:
-        return ""
+        return []
 
     reason_summary = (
         temp_df
@@ -382,21 +469,92 @@ def summarize_reason_breakup(reason_df, reason_col, downtime_col):
         .sort_values(by=downtime_col, ascending=False)
     )
 
-    parts = []
+    result = []
 
     for _, row in reason_summary.iterrows():
-        reason = row["_reason_clean"]
         mins = int(round(row[downtime_col]))
 
         if mins > 0:
-            parts.append(f"{reason} ({mins} mins)")
+            result.append({
+                "reason": row["_reason_clean"],
+                "mins": mins
+            })
 
-    return ", ".join(parts)
+    return result
+
+
+def format_breakup_with_minutes(breakup):
+    """
+    Example:
+    9 mins due to web break and 5 mins due to folder jam
+    """
+
+    if not breakup:
+        return ""
+
+    parts = []
+
+    for item in breakup:
+        parts.append(f"{item['mins']} mins due to {item['reason']}")
+
+    if len(parts) == 1:
+        return parts[0]
+
+    if len(parts) == 2:
+        return " and ".join(parts)
+
+    return ", ".join(parts[:-1]) + ", and " + parts[-1]
+
+
+def format_reason_names_only(breakup):
+    """
+    Example:
+    folder jams and paper drifting
+    """
+
+    if not breakup:
+        return ""
+
+    names = []
+
+    for item in breakup:
+        reason = item["reason"]
+
+        if reason == "folder jam":
+            reason = "folder jams"
+        elif reason == "web break":
+            reason = "web breaks"
+
+        names.append(reason)
+
+    names = list(dict.fromkeys(names))
+
+    if len(names) == 1:
+        return names[0]
+
+    if len(names) == 2:
+        return " and ".join(names)
+
+    return ", ".join(names[:-1]) + ", and " + names[-1]
+
+
+def make_machine_text(machine_list):
+    if not machine_list:
+        return ""
+
+    if len(machine_list) == 1:
+        return machine_list[0]
+
+    if len(machine_list) == 2:
+        return f"{machine_list[0]} and {machine_list[1]}"
+
+    return ", ".join(machine_list)
 
 
 def generate_delayed_finish_reason(general_df, downtime_df, last_finished_df):
     """
-    Generates Claude-style boss-facing delayed finish reason.
+    Generates polished boss-facing delayed finish reason.
+    Uses facts from Excel, but converts raw machine text into Director-level wording.
     """
 
     general_runid_col = find_column(
@@ -488,7 +646,7 @@ def generate_delayed_finish_reason(general_df, downtime_df, last_finished_df):
     else:
         edition_name_for_reason = "the last edition"
 
-    last_machine_text = " and ".join(last_machines)
+    machine_text = make_machine_text(last_machines)
 
     downtime_main_df = downtime_df[
         downtime_df[downtime_main_supp_col].astype(str).str.strip().str.lower() == "main"
@@ -496,7 +654,7 @@ def generate_delayed_finish_reason(general_df, downtime_df, last_finished_df):
 
     if downtime_main_df.empty:
         return (
-            f"Sir, the late finish of {edition_name_for_reason} on {last_machine_text} was recorded without any relevant downtime entry in the downtime sheet.",
+            f"Sir, the late finish of {edition_name_for_reason} on {machine_text} was recorded without any relevant downtime entry.",
             []
         )
 
@@ -507,10 +665,12 @@ def generate_delayed_finish_reason(general_df, downtime_df, last_finished_df):
         )
     ].copy()
 
+    # Direct downtime for last-finished runids
     direct_downtime_df = downtime_main_df[
         downtime_main_df[downtime_runid_col].astype(str).str.strip().isin(last_runids)
     ].copy()
 
+    # Folders linked with last-finished runids
     folders = direct_downtime_df[folder_col].dropna().astype(str).str.strip().unique().tolist()
 
     if not folders:
@@ -528,18 +688,68 @@ def generate_delayed_finish_reason(general_df, downtime_df, last_finished_df):
         ~same_folder_df[downtime_runid_col].astype(str).str.strip().isin(last_runids)
     ].copy()
 
-    direct_breakup = summarize_reason_breakup(
-        direct_downtime_df,
-        downtime_reason_col,
-        downtime_minutes_col
-    )
+    # Intro line
+    reason_lines = []
 
-    cascading_breakup = summarize_reason_breakup(
+    if len(last_machines) > 1:
+        reason_lines.append(
+            f"Sir, the late finish of {edition_name_for_reason} on both {machine_text} "
+            f"was primarily due to multiple web breaks and folder-related stoppages."
+        )
+    else:
+        reason_lines.append(
+            f"Sir, the late finish of {edition_name_for_reason} on {machine_text} "
+            f"was primarily due to production interruptions during the final stage of printing."
+        )
+
+    # Direct downtime machine-wise, so Colorman-A and Colorman-B are not mixed wrongly
+    direct_machine_sentences = []
+
+    for _, last_row in last_finished_df.iterrows():
+        runid = str(last_row[general_runid_col]).strip()
+        machine = str(last_row[general_machine_col]).strip()
+
+        machine_direct_df = direct_downtime_df[
+            direct_downtime_df[downtime_runid_col].astype(str).str.strip() == runid
+        ].copy()
+
+        machine_breakup = get_reason_breakup(
+            machine_direct_df,
+            downtime_reason_col,
+            downtime_minutes_col
+        )
+
+        machine_total = sum(item["mins"] for item in machine_breakup)
+
+        if machine_breakup and machine_total > 0:
+            direct_machine_sentences.append(
+                f"On {machine}, the last edition recorded {machine_total} mins downtime, including "
+                f"{format_breakup_with_minutes(machine_breakup)}."
+            )
+        else:
+            direct_machine_sentences.append(
+                f"On {machine}, the last edition had no direct downtime, but the finish was affected by cascading delay from earlier same-folder stoppages."
+            )
+
+    if direct_machine_sentences:
+        reason_lines.extend(direct_machine_sentences)
+
+    # Cascading downtime
+    cascading_breakup = get_reason_breakup(
         cascading_df,
         downtime_reason_col,
         downtime_minutes_col
     )
 
+    if cascading_breakup:
+        cascading_reason_names = format_reason_names_only(cascading_breakup)
+
+        reason_lines.append(
+            f"Earlier stoppages on the same folder, mainly due to {cascading_reason_names}, "
+            f"further added pressure on the final run."
+        )
+
+    # Additional print finish delay reason
     additional_reasons = []
 
     if print_delay_reason_col is not None:
@@ -550,38 +760,6 @@ def generate_delayed_finish_reason(general_df, downtime_df, last_finished_df):
 
     additional_reasons = list(dict.fromkeys(additional_reasons))
 
-    reason_lines = []
-
-    if len(last_machines) > 1:
-        intro = (
-            f"Sir, the late finish of {edition_name_for_reason} on both "
-            f"{last_machine_text} was primarily due to production interruptions "
-            f"and cascading folder-level delays during the final stage of printing."
-        )
-    else:
-        intro = (
-            f"Sir, the late finish of {edition_name_for_reason} on "
-            f"{last_machine_text} was primarily due to production interruptions "
-            f"during the final stage of printing."
-        )
-
-    reason_lines.append(intro)
-
-    if direct_breakup:
-        reason_lines.append(
-            f"The last edition had direct downtime due to {direct_breakup}."
-        )
-
-    if cascading_breakup:
-        reason_lines.append(
-            f"Earlier stoppages on the same folder also contributed to the delay, mainly due to {cascading_breakup}."
-        )
-
-    if not direct_breakup and cascading_breakup:
-        reason_lines.append(
-            "There was no major direct downtime against the last-finished run, but the finish was affected by cascading delay from earlier same-folder stoppages."
-        )
-
     if additional_reasons:
         reason_lines.append(
             "Additional delay reason: " + "; ".join(additional_reasons) + "."
@@ -590,10 +768,14 @@ def generate_delayed_finish_reason(general_df, downtime_df, last_finished_df):
     final_reason = " ".join(reason_lines)
 
     return final_reason, []
+
+
+# -------------------------------------------------
+# STEP 5: WORD FILE CREATION
+# -------------------------------------------------
 def create_word_report(report_text):
     """
     Creates a Word file from generated PF Delay Report text.
-    Returns Word file as BytesIO object.
     """
 
     document = Document()
@@ -636,6 +818,11 @@ def create_word_report(report_text):
     word_buffer.seek(0)
 
     return word_buffer
+
+
+# -------------------------------------------------
+# MAIN STREAMLIT MODULE
+# -------------------------------------------------
 def show_pf_delay_report():
     st.markdown("## PF Delay Report")
     st.caption("Generate Director-level Print Finished delay report from Production Excel file.")
@@ -776,6 +963,7 @@ def show_pf_delay_report():
             report_lines.append(f"{item['machine']}: {item['downtime']} mins")
 
         report_lines.append("")
+
         delayed_reason, reason_missing_columns = generate_delayed_finish_reason(
             general_df,
             downtime_df,
@@ -800,9 +988,10 @@ def show_pf_delay_report():
         st.text_area(
             "Generated Report Text",
             value=report_text,
-            height=500,
+            height=600,
             key="pf_delay_report_text_preview"
         )
+
         word_file = create_word_report(report_text)
 
         download_file_name = f"PF_Delay_Report_{issue_date}.docx"
@@ -816,5 +1005,5 @@ def show_pf_delay_report():
         )
 
     except Exception as e:
-        st.error("Unable to read uploaded Excel file.")
+        st.error("Unable to generate PF Delay Report.")
         st.exception(e)
