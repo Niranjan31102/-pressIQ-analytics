@@ -24,10 +24,6 @@ LPRS_RULES = {
 # BASIC HELPERS
 # -------------------------------------------------
 def find_column(df, possible_names):
-    """
-    Finds a column from dataframe using possible column names.
-    This helps because Excel column names may slightly vary.
-    """
     df_columns_clean = {
         str(col).strip().lower(): col
         for col in df.columns
@@ -42,9 +38,6 @@ def find_column(df, possible_names):
 
 
 def format_time(value):
-    """
-    Converts Excel time/date value into HH:MM hrs format.
-    """
     if pd.isna(value):
         return ""
 
@@ -55,28 +48,7 @@ def format_time(value):
         return str(value)
 
 
-def format_minutes(value):
-    """
-    Converts downtime value into mins format.
-    """
-    if pd.isna(value):
-        return "0 mins"
-
-    try:
-        value = float(value)
-        return f"{int(round(value))} mins"
-    except Exception:
-        return f"{value} mins"
-
-
 def clean_complexity(value):
-    """
-    Example:
-    C4-High Pagination (SNP) + Multiple Innovations
-
-    Output:
-    High Pagination (SNP) + Multiple Innovations
-    """
     if pd.isna(value):
         return ""
 
@@ -99,9 +71,6 @@ def clean_reason_text(value):
 # TIME / DELAY CALCULATION
 # -------------------------------------------------
 def parse_time_to_minutes(value):
-    """
-    Converts time value to minutes from midnight.
-    """
     if pd.isna(value):
         return None
 
@@ -122,10 +91,6 @@ def parse_time_to_minutes(value):
 
 
 def calculate_page_release_delay(product_name, lpr_value):
-    """
-    Calculates delay based on product-wise LPRS rule.
-    Handles midnight crossing also.
-    """
     product_text = str(product_name).strip()
 
     if product_text not in LPRS_RULES:
@@ -148,17 +113,42 @@ def calculate_page_release_delay(product_name, lpr_value):
 
 
 # -------------------------------------------------
-# STEP 1: IDENTIFY LAST FINISHED MAIN EDITION
+# EXCLUSION RULE
 # -------------------------------------------------
-def identify_last_finished_main_edition(general_df):
+def should_exclude_downtime(row, related_col=None, reason_col=None):
     """
-    Logic:
-    - Filter Main editions
-    - Use Production End Date + Production End time
-    - Find latest print finish datetime
-    - Return all rows matching latest finish datetime
+    Exclude Reflong / RMC / Editorial downtime.
+    Checks both Related and Reason columns.
     """
 
+    related_text = ""
+    reason_text = ""
+
+    if related_col is not None:
+        related_text = str(row.get(related_col, "")).strip().lower()
+
+    if reason_col is not None:
+        reason_text = str(row.get(reason_col, "")).strip().lower()
+
+    combined_text = related_text + " " + reason_text
+
+    exclude_words = [
+        "reflong",
+        "rmc",
+        "editorial",
+    ]
+
+    for word in exclude_words:
+        if word in combined_text:
+            return True
+
+    return False
+
+
+# -------------------------------------------------
+# IDENTIFY LAST FINISHED MAIN EDITION
+# -------------------------------------------------
+def identify_last_finished_main_edition(general_df):
     main_supp_col = find_column(
         general_df,
         ["Main/Supplement", "Main Supplement", "Main_Supplement"]
@@ -174,7 +164,7 @@ def identify_last_finished_main_edition(general_df):
         ["Production End Date", "Last Production End Date"]
     )
 
-    product_name_col = find_column(
+    product_code_col = find_column(
         general_df,
         ["Product Name", "Edition", "Products", "Product"]
     )
@@ -182,11 +172,6 @@ def identify_last_finished_main_edition(general_df):
     machine_col = find_column(
         general_df,
         ["Machine", "Machine Name"]
-    )
-
-    downtime_col = find_column(
-        general_df,
-        ["Total Downtime", "Total DownTime", "Downtime"]
     )
 
     runid_col = find_column(
@@ -198,9 +183,8 @@ def identify_last_finished_main_edition(general_df):
         "Main/Supplement": main_supp_col,
         "Production End": production_end_col,
         "Production End Date": production_end_date_col,
-        "Product Name / Edition / Products": product_name_col,
+        "Product Name / Edition / Products": product_code_col,
         "Machine": machine_col,
-        "Total Downtime": downtime_col,
         "Runid": runid_col,
     }
 
@@ -242,7 +226,7 @@ def identify_last_finished_main_edition(general_df):
 
 
 # -------------------------------------------------
-# STEP 2: BOOK WISE DETAILS MATCHING
+# BOOK WISE DETAILS MATCHING
 # -------------------------------------------------
 def get_bookwise_info(bookwise_df, runid):
     runid_col = find_column(
@@ -316,9 +300,100 @@ def get_issue_date(last_finished_df):
 
 
 # -------------------------------------------------
-# STEP 3: MACHINE-WISE TOTAL DOWNTIME
+# VALID DOWNTIME CALCULATION FROM DOWN TIME SHEET
 # -------------------------------------------------
-def calculate_machine_wise_downtime(general_df):
+def get_valid_downtime_from_downtime_sheet(downtime_df, runids=None):
+    """
+    Calculates valid downtime from Down Time sheet.
+    Excludes Reflong / RMC / Editorial.
+    """
+
+    if runids is None:
+        runids = []
+
+    if not isinstance(runids, list):
+        runids = [runids]
+
+    runids = [str(x).strip() for x in runids]
+
+    runid_col = find_column(
+        downtime_df,
+        ["Runid", "Run ID", "RunId"]
+    )
+
+    main_supp_col = find_column(
+        downtime_df,
+        ["Main/Supplement", "Main Supplement", "Main_Supplement"]
+    )
+
+    related_col = find_column(
+        downtime_df,
+        ["Related"]
+    )
+
+    reason_col = find_column(
+        downtime_df,
+        ["Reason", "Downtime Reason", "Down Time Reason"]
+    )
+
+    downtime_col = find_column(
+        downtime_df,
+        ["Total Downtime", "Total DownTime", "Downtime", "Down Time"]
+    )
+
+    required_columns = {
+        "Runid": runid_col,
+        "Main/Supplement": main_supp_col,
+        "Down Time Minutes": downtime_col,
+    }
+
+    missing_columns = [
+        name for name, col in required_columns.items()
+        if col is None
+    ]
+
+    if missing_columns:
+        return 0, missing_columns
+
+    df = downtime_df[
+        downtime_df[main_supp_col].astype(str).str.strip().str.lower() == "main"
+    ].copy()
+
+    if runids:
+        df = df[
+            df[runid_col].astype(str).str.strip().isin(runids)
+        ].copy()
+
+    if df.empty:
+        return 0, []
+
+    df = df[
+        ~df.apply(
+            lambda row: should_exclude_downtime(row, related_col, reason_col),
+            axis=1
+        )
+    ].copy()
+
+    if df.empty:
+        return 0, []
+
+    df[downtime_col] = pd.to_numeric(
+        df[downtime_col],
+        errors="coerce"
+    ).fillna(0)
+
+    total_downtime = int(round(df[downtime_col].sum()))
+
+    return total_downtime, []
+
+
+def calculate_machine_wise_downtime(general_df, downtime_df):
+    """
+    Calculates machine-wise downtime for Main editions.
+    Machine and Runid list comes from General sheet.
+    Downtime comes from Down Time sheet after excluding Reflong/RMC/Editorial.
+    """
+
     main_supp_col = find_column(
         general_df,
         ["Main/Supplement", "Main Supplement", "Main_Supplement"]
@@ -329,15 +404,15 @@ def calculate_machine_wise_downtime(general_df):
         ["Machine", "Machine Name"]
     )
 
-    downtime_col = find_column(
+    runid_col = find_column(
         general_df,
-        ["Total Downtime", "Total DownTime", "Downtime"]
+        ["Runid", "Run ID", "RunId"]
     )
 
     required_columns = {
         "Main/Supplement": main_supp_col,
         "Machine": machine_col,
-        "Total Downtime": downtime_col,
+        "Runid": runid_col,
     }
 
     missing_columns = [
@@ -348,72 +423,71 @@ def calculate_machine_wise_downtime(general_df):
     if missing_columns:
         return None, missing_columns
 
-    main_df = general_df[
+    main_general_df = general_df[
         general_df[main_supp_col].astype(str).str.strip().str.lower() == "main"
     ].copy()
 
-    if main_df.empty:
+    if main_general_df.empty:
         return [], []
 
-    main_df[downtime_col] = pd.to_numeric(
-        main_df[downtime_col],
-        errors="coerce"
-    ).fillna(0)
-
-    machine_summary = (
-        main_df
-        .groupby(machine_col, dropna=False)[downtime_col]
-        .sum()
-        .reset_index()
+    machine_list = (
+        main_general_df[machine_col]
+        .dropna()
+        .astype(str)
+        .str.strip()
+        .unique()
+        .tolist()
     )
 
     result = []
 
-    for _, row in machine_summary.iterrows():
-        machine_name = str(row[machine_col]).strip()
-        downtime_value = int(round(row[downtime_col]))
+    for machine_name in machine_list:
+        machine_runids = (
+            main_general_df[
+                main_general_df[machine_col].astype(str).str.strip() == machine_name
+            ][runid_col]
+            .dropna()
+            .astype(str)
+            .str.strip()
+            .unique()
+            .tolist()
+        )
+
+        valid_downtime, missing_dt_columns = get_valid_downtime_from_downtime_sheet(
+            downtime_df,
+            runids=machine_runids
+        )
+
+        if missing_dt_columns:
+            return None, missing_dt_columns
 
         result.append({
             "machine": machine_name,
-            "downtime": downtime_value
+            "downtime": valid_downtime
         })
 
     return result, []
 
 
 # -------------------------------------------------
-# STEP 4: DIRECTOR-LEVEL DELAY REASON WRITING
+# DIRECTOR-LEVEL DELAY REASON WRITING
 # -------------------------------------------------
-def should_exclude_downtime(row, related_col):
-    if related_col is None:
-        return False
-
-    related_text = str(row[related_col]).strip().lower()
-
-    exclude_words = [
-        "reflong-changeover",
-        "editorial",
-    ]
-
-    for word in exclude_words:
-        if word in related_text:
-            return True
-
-    return False
-
-
 def normalize_delay_reason(raw_reason):
-    """
-    Converts raw machine/press reason text into Director-level language.
-    """
-
     text = clean_reason_text(raw_reason).lower()
 
     if text == "":
         return ""
 
     if "web break" in text or "webbreak" in text:
+        if "blanket" in text or "delamination" in text:
+            return "web break caused by blanket delamination"
         return "web break"
+
+    if "blanket" in text or "delamination" in text:
+        return "web break caused by blanket delamination"
+
+    if "safe stop" in text:
+        return "safe stop tripping"
 
     if "folder jam" in text:
         return "folder jam"
@@ -440,10 +514,6 @@ def normalize_delay_reason(raw_reason):
 
 
 def get_reason_breakup(reason_df, reason_col, downtime_col):
-    """
-    Returns clean reason-wise downtime summary.
-    """
-
     if reason_df.empty:
         return []
 
@@ -484,18 +554,14 @@ def get_reason_breakup(reason_df, reason_col, downtime_col):
 
 
 def format_breakup_with_minutes(breakup):
-    """
-    Example:
-    9 mins due to web break and 5 mins due to folder jam
-    """
-
     if not breakup:
         return ""
 
     parts = []
 
     for item in breakup:
-        parts.append(f"{item['mins']} mins due to {item['reason']}")
+        minute_word = "min" if item["mins"] == 1 else "mins"
+        parts.append(f"{item['mins']} {minute_word} due to {item['reason']}")
 
     if len(parts) == 1:
         return parts[0]
@@ -507,11 +573,6 @@ def format_breakup_with_minutes(breakup):
 
 
 def format_reason_names_only(breakup):
-    """
-    Example:
-    folder jams and paper drifting
-    """
-
     if not breakup:
         return ""
 
@@ -552,11 +613,6 @@ def make_machine_text(machine_list):
 
 
 def generate_delayed_finish_reason(general_df, downtime_df, last_finished_df):
-    """
-    Generates polished boss-facing delayed finish reason.
-    Uses facts from Excel, but converts raw machine text into Director-level wording.
-    """
-
     general_runid_col = find_column(
         general_df,
         ["Runid", "Run ID", "RunId"]
@@ -660,25 +716,27 @@ def generate_delayed_finish_reason(general_df, downtime_df, last_finished_df):
 
     downtime_main_df = downtime_main_df[
         ~downtime_main_df.apply(
-            lambda row: should_exclude_downtime(row, related_col),
+            lambda row: should_exclude_downtime(row, related_col, downtime_reason_col),
             axis=1
         )
     ].copy()
 
-    # Direct downtime for last-finished runids
     direct_downtime_df = downtime_main_df[
         downtime_main_df[downtime_runid_col].astype(str).str.strip().isin(last_runids)
     ].copy()
 
-    # Folders linked with last-finished runids
-    folders = direct_downtime_df[folder_col].dropna().astype(str).str.strip().unique().tolist()
+    possible_folders_df = downtime_df[
+        downtime_df[downtime_runid_col].astype(str).str.strip().isin(last_runids)
+    ]
 
-    if not folders:
-        possible_folders_df = downtime_df[
-            downtime_df[downtime_runid_col].astype(str).str.strip().isin(last_runids)
-        ]
-
-        folders = possible_folders_df[folder_col].dropna().astype(str).str.strip().unique().tolist()
+    folders = (
+        possible_folders_df[folder_col]
+        .dropna()
+        .astype(str)
+        .str.strip()
+        .unique()
+        .tolist()
+    )
 
     same_folder_df = downtime_main_df[
         downtime_main_df[folder_col].astype(str).str.strip().isin(folders)
@@ -688,21 +746,19 @@ def generate_delayed_finish_reason(general_df, downtime_df, last_finished_df):
         ~same_folder_df[downtime_runid_col].astype(str).str.strip().isin(last_runids)
     ].copy()
 
-    # Intro line
     reason_lines = []
 
     if len(last_machines) > 1:
         reason_lines.append(
             f"Sir, the late finish of {edition_name_for_reason} on both {machine_text} "
-            f"was primarily due to multiple web breaks and folder-related stoppages."
+            f"was primarily due to direct production interruptions during the final stage of printing."
         )
     else:
         reason_lines.append(
             f"Sir, the late finish of {edition_name_for_reason} on {machine_text} "
-            f"was primarily due to production interruptions during the final stage of printing."
+            f"was primarily due to direct production interruptions during the final stage of printing."
         )
 
-    # Direct downtime machine-wise, so Colorman-A and Colorman-B are not mixed wrongly
     direct_machine_sentences = []
 
     for _, last_row in last_finished_df.iterrows():
@@ -723,18 +779,17 @@ def generate_delayed_finish_reason(general_df, downtime_df, last_finished_df):
 
         if machine_breakup and machine_total > 0:
             direct_machine_sentences.append(
-                f"On {machine}, the last edition recorded {machine_total} mins downtime, including "
+                f"On {machine}, the edition recorded {machine_total} mins downtime, including "
                 f"{format_breakup_with_minutes(machine_breakup)}."
             )
         else:
             direct_machine_sentences.append(
-                f"On {machine}, the last edition had no direct downtime, but the finish was affected by cascading delay from earlier same-folder stoppages."
+                f"On {machine}, the edition had no valid direct downtime after excluding Reflong/RMC/Editorial downtime."
             )
 
     if direct_machine_sentences:
         reason_lines.extend(direct_machine_sentences)
 
-    # Cascading downtime
     cascading_breakup = get_reason_breakup(
         cascading_df,
         downtime_reason_col,
@@ -743,13 +798,15 @@ def generate_delayed_finish_reason(general_df, downtime_df, last_finished_df):
 
     if cascading_breakup:
         cascading_reason_names = format_reason_names_only(cascading_breakup)
-
         reason_lines.append(
-            f"Earlier stoppages on the same folder, mainly due to {cascading_reason_names}, "
-            f"further added pressure on the final run."
+            f"Earlier valid stoppages on the same folder, mainly due to {cascading_reason_names}, "
+            f"also added pressure on the final run."
+        )
+    else:
+        reason_lines.append(
+            "There was no major valid cascading downtime from earlier Main runs on the same folders after excluding Reflong/RMC/Editorial downtime."
         )
 
-    # Additional print finish delay reason
     additional_reasons = []
 
     if print_delay_reason_col is not None:
@@ -771,13 +828,9 @@ def generate_delayed_finish_reason(general_df, downtime_df, last_finished_df):
 
 
 # -------------------------------------------------
-# STEP 5: WORD FILE CREATION
+# WORD FILE CREATION
 # -------------------------------------------------
 def create_word_report(report_text):
-    """
-    Creates a Word file from generated PF Delay Report text.
-    """
-
     document = Document()
 
     style = document.styles["Normal"]
@@ -870,7 +923,7 @@ def show_pf_delay_report():
             st.warning("No Main edition records found with valid print finish time.")
             return
 
-        product_name_col = find_column(
+        product_code_col = find_column(
             last_finished_df,
             ["Product Name", "Edition", "Products", "Product"]
         )
@@ -878,11 +931,6 @@ def show_pf_delay_report():
         machine_col = find_column(
             last_finished_df,
             ["Machine", "Machine Name"]
-        )
-
-        downtime_col = find_column(
-            last_finished_df,
-            ["Total Downtime", "Total DownTime", "Downtime"]
         )
 
         production_end_col = find_column(
@@ -907,7 +955,7 @@ def show_pf_delay_report():
 
         for _, row in last_finished_df.iterrows():
             runid = row[runid_col]
-            product_name = row[product_name_col]
+            product_code = row[product_code_col]
 
             book_info, book_missing_columns = get_bookwise_info(bookwise_df, runid)
 
@@ -918,7 +966,7 @@ def show_pf_delay_report():
                 return
 
             if book_info is None:
-                edition_name = str(row[product_name_col])
+                edition_name = str(row[product_code_col])
                 complexity = "Bookwise Details missing"
                 lpr = ""
                 lprs = ""
@@ -927,7 +975,7 @@ def show_pf_delay_report():
                 edition_name = book_info["edition"]
                 complexity = book_info["complexity"]
                 lpr, lprs, delay = calculate_page_release_delay(
-                    product_name,
+                    product_code,
                     book_info["last_tiff"]
                 )
 
@@ -936,10 +984,21 @@ def show_pf_delay_report():
                 first_lprs = lprs
                 first_delay = delay
 
+            valid_last_downtime, last_dt_missing_columns = get_valid_downtime_from_downtime_sheet(
+                downtime_df,
+                runids=[runid]
+            )
+
+            if last_dt_missing_columns:
+                st.error("Required column missing for last edition downtime calculation.")
+                st.write("Missing column(s):")
+                st.write(last_dt_missing_columns)
+                return
+
             report_lines.append(f"Last Edition: {edition_name}")
             report_lines.append(f"Print Finish: {format_time(row[production_end_col])}")
             report_lines.append(f"Machine: {row[machine_col]}")
-            report_lines.append(f"Total Downtime: {format_minutes(row[downtime_col])}")
+            report_lines.append(f"Total Downtime: {valid_last_downtime} mins")
             report_lines.append(f"Complexity: {complexity}")
             report_lines.append("")
 
@@ -949,7 +1008,10 @@ def show_pf_delay_report():
         report_lines.append(f"Delay: {first_delay}")
         report_lines.append("")
 
-        machine_wise_downtime, machine_missing_columns = calculate_machine_wise_downtime(general_df)
+        machine_wise_downtime, machine_missing_columns = calculate_machine_wise_downtime(
+            general_df,
+            downtime_df
+        )
 
         if machine_missing_columns:
             st.error("Required column missing for machine-wise downtime calculation.")
@@ -988,7 +1050,7 @@ def show_pf_delay_report():
         st.text_area(
             "Generated Report Text",
             value=report_text,
-            height=600,
+            height=650,
             key="pf_delay_report_text_preview"
         )
 
