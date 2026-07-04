@@ -612,7 +612,25 @@ def make_machine_text(machine_list):
     return ", ".join(machine_list)
 
 
+def join_sentence_parts(parts):
+    if not parts:
+        return ""
+
+    if len(parts) == 1:
+        return parts[0]
+
+    if len(parts) == 2:
+        return " and ".join(parts)
+
+    return ", ".join(parts[:-1]) + ", and " + parts[-1]
+
+
 def generate_delayed_finish_reason(general_df, downtime_df, last_finished_df):
+    """
+    Generates non-generic, human-readable boss-facing delay reason.
+    Intro sentence is built from actual downtime reasons.
+    """
+
     general_runid_col = find_column(
         general_df,
         ["Runid", "Run ID", "RunId"]
@@ -710,7 +728,7 @@ def generate_delayed_finish_reason(general_df, downtime_df, last_finished_df):
 
     if downtime_main_df.empty:
         return (
-            f"Sir, the late finish of {edition_name_for_reason} on {machine_text} was recorded without any relevant downtime entry.",
+            f"Sir, the late finish of {edition_name_for_reason} on {machine_text} was recorded without any valid downtime entry.",
             []
         )
 
@@ -747,19 +765,8 @@ def generate_delayed_finish_reason(general_df, downtime_df, last_finished_df):
     ].copy()
 
     reason_lines = []
-
-    if len(last_machines) > 1:
-        reason_lines.append(
-            f"Sir, the late finish of {edition_name_for_reason} on both {machine_text} "
-            f"was primarily due to direct production interruptions during the final stage of printing."
-        )
-    else:
-        reason_lines.append(
-            f"Sir, the late finish of {edition_name_for_reason} on {machine_text} "
-            f"was primarily due to direct production interruptions during the final stage of printing."
-        )
-
     direct_machine_sentences = []
+    machine_reason_parts = []
 
     for _, last_row in last_finished_df.iterrows():
         runid = str(last_row[general_runid_col]).strip()
@@ -778,14 +785,30 @@ def generate_delayed_finish_reason(general_df, downtime_df, last_finished_df):
         machine_total = sum(item["mins"] for item in machine_breakup)
 
         if machine_breakup and machine_total > 0:
+            reason_names = format_reason_names_only(machine_breakup)
+            machine_reason_parts.append(f"{reason_names} on {machine}")
+
             direct_machine_sentences.append(
                 f"On {machine}, the edition recorded {machine_total} mins downtime, including "
                 f"{format_breakup_with_minutes(machine_breakup)}."
             )
         else:
             direct_machine_sentences.append(
-                f"On {machine}, the edition had no valid direct downtime after excluding Reflong/RMC/Editorial downtime."
+                f"On {machine}, no valid direct downtime was recorded after excluding Reflong/RMC/Editorial downtime."
             )
+
+    if machine_reason_parts:
+        main_reason_text = join_sentence_parts(machine_reason_parts)
+
+        reason_lines.append(
+            f"Sir, the late finish of {edition_name_for_reason} on {machine_text} "
+            f"was mainly due to {main_reason_text}."
+        )
+    else:
+        reason_lines.append(
+            f"Sir, the late finish of {edition_name_for_reason} on {machine_text} "
+            f"was not linked to any valid direct downtime after excluding Reflong/RMC/Editorial entries."
+        )
 
     if direct_machine_sentences:
         reason_lines.extend(direct_machine_sentences)
@@ -801,10 +824,6 @@ def generate_delayed_finish_reason(general_df, downtime_df, last_finished_df):
         reason_lines.append(
             f"Earlier valid stoppages on the same folder, mainly due to {cascading_reason_names}, "
             f"also added pressure on the final run."
-        )
-    else:
-        reason_lines.append(
-            "There was no major valid cascading downtime from earlier Main runs on the same folders after excluding Reflong/RMC/Editorial downtime."
         )
 
     additional_reasons = []
