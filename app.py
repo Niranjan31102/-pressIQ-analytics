@@ -258,11 +258,7 @@ elif main_intelligence == "PF Intelligence":
         ]
     )
 elif main_intelligence == "Actual vs Predicted Waste":
-    if run_actual_vs_predicted_waste:
-        run_actual_vs_predicted_waste()
-    else:
-        st.error("Actual vs Predicted Waste module could not be loaded.")
-        st.exception(actual_vs_predicted_waste_import_error)
+    pass
         
 if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
@@ -275,12 +271,8 @@ st.markdown(
     f'<div class="sub-title">{main_intelligence}</div>',
     unsafe_allow_html=True
 )
-
 # ---------------- ROUTER ----------------
-if main_intelligence == "Pan India Waste Tracker Analyzer":
-    run_waste_tracker()
-
-elif module == "Edition Wise Wastage Analyzer":
+if module == "Edition Wise Wastage Analyzer":
     run_edition_waste_analyzer()
 
 elif module == "ADAM Production Report Analyzer":
@@ -300,6 +292,11 @@ elif module == "Utility Performance Analyzer":
 
 elif module == "PF Delay Report":
     show_pf_delay_report()
-    
+
 elif main_intelligence == "Actual vs Predicted Waste":
-    run_actual_vs_predicted_waste()
+    if run_actual_vs_predicted_waste:
+        run_actual_vs_predicted_waste()
+    else:
+        st.error("Actual vs Predicted Waste module could not be loaded.")
+        st.exception(actual_vs_predicted_waste_import_error)
+
