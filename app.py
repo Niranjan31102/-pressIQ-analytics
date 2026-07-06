@@ -226,6 +226,7 @@ main_intelligence = st.sidebar.radio(
         "Actual vs Predicted Waste",
     ]
 )
+module = None
 
 if main_intelligence == "Waste Intelligence":
     st.sidebar.markdown("### Waste Intelligence")
