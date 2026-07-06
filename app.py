@@ -270,7 +270,10 @@ if st.sidebar.button("Logout"):
 
 # ---------------- HEADER ----------------
 st.markdown('<div class="main-title">PressIQ Analytics</div>', unsafe_allow_html=True)
-st.markdown(f'<div class="sub-title">{module}</div>', unsafe_allow_html=True)
+st.markdown(
+    f'<div class="sub-title">{main_intelligence}</div>',
+    unsafe_allow_html=True
+)
 
 # ---------------- ROUTER ----------------
 if module == "Pan India Waste Tracker Analyzer":
