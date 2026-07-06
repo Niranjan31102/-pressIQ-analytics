@@ -9,6 +9,11 @@ from modules.downtime import run_downtime_analyzer
 from modules.micro_stoppage import run_micro_stoppage_analyzer
 from modules.utility_performance import run_utility_performance_analyzer
 from modules.pf_delay_report import show_pf_delay_report
+try:
+    from modules.actual_vs_predicted_waste import run_actual_vs_predicted_waste
+except Exception as e:
+    run_actual_vs_predicted_waste = None
+    actual_vs_predicted_waste_import_error = e
 
 st.set_page_config(
     page_title="PressIQ Analytics",
@@ -218,6 +223,7 @@ main_intelligence = st.sidebar.radio(
         "Waste Intelligence",
         "Utility Intelligence",
         "PF Intelligence",
+        "Actual vs Predicted Waste",
     ]
 )
 
@@ -250,10 +256,17 @@ elif main_intelligence == "PF Intelligence":
             "PF Delay Report",
         ]
     )
-
+elif main_intelligence == "Actual vs Predicted Waste":
+    if run_actual_vs_predicted_waste:
+        run_actual_vs_predicted_waste()
+    else:
+        st.error("Actual vs Predicted Waste module could not be loaded.")
+        st.exception(actual_vs_predicted_waste_import_error)
+        
 if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
     st.rerun()
+
 
 # ---------------- HEADER ----------------
 st.markdown('<div class="main-title">PressIQ Analytics</div>', unsafe_allow_html=True)
