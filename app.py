@@ -276,7 +276,7 @@ st.markdown(
 )
 
 # ---------------- ROUTER ----------------
-if module == "Pan India Waste Tracker Analyzer":
+if main_intelligence == "Pan India Waste Tracker Analyzer":
     run_waste_tracker()
 
 elif module == "Edition Wise Wastage Analyzer":
@@ -299,3 +299,6 @@ elif module == "Utility Performance Analyzer":
 
 elif module == "PF Delay Report":
     show_pf_delay_report()
+    
+elif main_intelligence == "Actual vs Predicted Waste":
+    run_actual_vs_predicted_waste()
