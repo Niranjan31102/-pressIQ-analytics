@@ -127,7 +127,7 @@ def run_actual_vs_predicted_waste():
 
     required_cols = [
         "Issue Date",
-        "Product Name",
+        "Products",
         "Edition",
         "Main/Supplement",
         "Machine",
@@ -177,7 +177,7 @@ def run_actual_vs_predicted_waste():
 
     for _, row in work_df.iterrows():
         detected = detect_product_code(
-            product_name=row["Product Name"],
+            product_name=row["Products"],
             edition_name=row["Edition"],
             report_type=selected_report,
             master_df=master_df
@@ -187,7 +187,7 @@ def run_actual_vs_predicted_waste():
             "Status": detected["match_status"],
             "Issue Date": row["Issue Date"],
             "Machine": row["Machine"],
-            "Product Name": row["Product Name"],
+            "Product Name": row["Products"],
             "Edition": row["Edition"],
             "Auto Code": detected["auto_code"],
             "Final Code": detected["final_code"],
