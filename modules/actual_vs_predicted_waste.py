@@ -1,5 +1,6 @@
 import html
 from pathlib import Path
+from textwrap import dedent
 
 import pandas as pd
 import streamlit as st
@@ -720,7 +721,7 @@ def render_premium_working_table(
         selected_report
     )
 
-    working_table_html = f"""
+   working_table_html = dedent(f"""
     <div class="avpw-section">
 
         <div class="avpw-heading-row">
@@ -777,7 +778,7 @@ def render_premium_working_table(
         </div>
 
     </div>
-    """
+    """)
 
     st.markdown(
         working_table_html,
