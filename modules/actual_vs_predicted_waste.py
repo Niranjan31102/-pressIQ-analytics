@@ -1,109 +1,90 @@
-import os
 import html
+from pathlib import Path
+
 import pandas as pd
 import streamlit as st
 
 
-PRODUCT_MASTER_PATH = "backend_data/product_master.xlsx"
+# =========================================================
+# FILE PATHS
+# =========================================================
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+PRODUCT_MASTER_PATH = (
+    PROJECT_ROOT
+    / "backend_data"
+    / "product_master.xlsx"
+)
+
+
+# =========================================================
+# BASIC HELPERS
+# =========================================================
 
 def clean_text(value):
+    """
+    Convert any value into clean uppercase text for matching.
+    """
+
     if pd.isna(value):
         return ""
+
     return str(value).strip().upper()
 
 
-def load_product_master():
-    if not os.path.exists(PRODUCT_MASTER_PATH):
-        st.error(
-            "Product Master file not found. Please add this file:\n\n"
-            "backend_data/product_master.xlsx"
-        )
-        return pd.DataFrame()
+def safe_display_text(value, fallback="—"):
+    """
+    Convert a value into safe text for HTML display.
+    """
 
-    try:
-        master_df = pd.read_excel(
-            PRODUCT_MASTER_PATH,
-            sheet_name="Product_Master"
-        )
-    except Exception as e:
-        st.error(f"Unable to read Product_Master sheet: {e}")
-        return pd.DataFrame()
+    if pd.isna(value):
+        return fallback
 
-    required_cols = [
-        "Priority",
-        "Match Text",
-        "Display Code",
-        "Report Type",
-        "Status"
-    ]
+    text = str(value).strip()
 
-    missing_cols = [c for c in required_cols if c not in master_df.columns]
+    if not text:
+        return fallback
 
-    if missing_cols:
-        st.error(f"Missing columns in Product Master: {missing_cols}")
-        return pd.DataFrame()
-
-    master_df = master_df.copy()
-
-    master_df["Priority"] = pd.to_numeric(
-        master_df["Priority"],
-        errors="coerce"
-    ).fillna(9999)
-
-    master_df["Match Text Clean"] = master_df["Match Text"].apply(clean_text)
-    master_df["Report Type Clean"] = master_df["Report Type"].apply(clean_text)
-    master_df["Status Clean"] = master_df["Status"].apply(clean_text)
-
-    master_df = master_df[
-        master_df["Status Clean"].isin(["ACTIVE", "YES", "Y"])
-    ].copy()
-
-    master_df = master_df.sort_values("Priority")
-
-    return master_df
+    return html.escape(text)
 
 
-def detect_product_code(product_name, edition_name, report_type, master_df):
-    product_clean = clean_text(product_name)
-    edition_clean = clean_text(edition_name)
+def find_column(df, possible_names):
+    """
+    Find a production-report column using a list of possible names.
 
-    search_text = f"{product_clean} {edition_clean}".strip()
+    This protects the module from small differences such as:
+    In-Charge / Incharge / Machine In-Charge.
+    """
 
-    report_type_clean = clean_text(report_type)
-
-    filtered_master = master_df[
-        master_df["Report Type Clean"] == report_type_clean
-    ].copy()
-
-    for _, row in filtered_master.iterrows():
-        match_text = row["Match Text Clean"]
-
-        if match_text and match_text in search_text:
-            return {
-                "auto_code": row["Display Code"],
-                "final_code": row["Display Code"],
-                "match_status": "🟢 Auto Matched",
-                "matched_text": row["Match Text"],
-            }
-
-    fallback_name = product_name if str(product_name).strip() else edition_name
-
-    return {
-        "auto_code": fallback_name,
-        "final_code": fallback_name,
-        "match_status": "🟡 Review Required",
-        "matched_text": "Not Found",
+    normalized_columns = {
+        clean_text(column): column
+        for column in df.columns
     }
 
-def format_number(value):
+    for name in possible_names:
+        normalized_name = clean_text(name)
+
+        if normalized_name in normalized_columns:
+            return normalized_columns[normalized_name]
+
+    return None
+
+
+def format_indian_number(value):
     """
-    Format production numbers using Indian-style comma grouping where possible.
-    Example: 114850 becomes 1,14,850.
+    Format numbers using Indian comma grouping.
+
+    Examples:
+    25090  -> 25,090
+    114850 -> 1,14,850
     """
 
+    if pd.isna(value):
+        return "—"
+
     try:
-        number = int(float(value))
+        number = int(round(float(value)))
     except (TypeError, ValueError):
         return "—"
 
@@ -129,93 +110,306 @@ def format_number(value):
 
         formatted = ",".join(groups + [last_three])
 
-    return f"-{formatted}" if negative else formatted
+    if negative:
+        formatted = f"-{formatted}"
+
+    return formatted
 
 
 def format_report_date(value):
     """
-    Convert report date to DD/MM/YYYY format.
+    Format the issue date as DD/MM/YYYY.
     """
 
     if pd.isna(value):
         return "—"
 
     try:
-        date_value = pd.to_datetime(value)
-        return date_value.strftime("%d/%m/%Y")
+        parsed_date = pd.to_datetime(value)
+        return parsed_date.strftime("%d/%m/%Y")
     except Exception:
-        return html.escape(str(value))
+        return safe_display_text(value)
 
 
-def render_premium_working_table(table_df, selected_report):
+# =========================================================
+# PRODUCT MASTER
+# =========================================================
+
+@st.cache_data(show_spinner=False)
+def load_product_master(file_modified_time):
     """
-    Display the Actual vs Predicted Waste working table
-    using a custom PressIQ premium design.
+    Read and prepare the Product Master file.
+
+    file_modified_time is included so Streamlit reloads the
+    master automatically whenever the Excel file changes.
+    """
+
+    if not PRODUCT_MASTER_PATH.exists():
+        return pd.DataFrame(), (
+            "Product Master file was not found at:\n\n"
+            "backend_data/product_master.xlsx"
+        )
+
+    try:
+        master_df = pd.read_excel(
+            PRODUCT_MASTER_PATH,
+            sheet_name="Product_Master"
+        )
+    except Exception as error:
+        return pd.DataFrame(), (
+            f"Unable to read the Product_Master sheet: {error}"
+        )
+
+    required_columns = [
+        "Priority",
+        "Match Text",
+        "Display Code",
+        "Report Type",
+        "Status",
+    ]
+
+    missing_columns = [
+        column
+        for column in required_columns
+        if column not in master_df.columns
+    ]
+
+    if missing_columns:
+        return pd.DataFrame(), (
+            "Missing columns in Product Master: "
+            + ", ".join(missing_columns)
+        )
+
+    master_df = master_df.copy()
+
+    master_df["Priority"] = pd.to_numeric(
+        master_df["Priority"],
+        errors="coerce"
+    ).fillna(9999)
+
+    master_df["Match Text Clean"] = (
+        master_df["Match Text"]
+        .apply(clean_text)
+    )
+
+    master_df["Display Code Clean"] = (
+        master_df["Display Code"]
+        .apply(lambda value: str(value).strip() if not pd.isna(value) else "")
+    )
+
+    master_df["Report Type Clean"] = (
+        master_df["Report Type"]
+        .apply(clean_text)
+    )
+
+    master_df["Status Clean"] = (
+        master_df["Status"]
+        .apply(clean_text)
+    )
+
+    master_df = master_df[
+        master_df["Status Clean"].isin(
+            ["ACTIVE", "YES", "Y", "TRUE", "1"]
+        )
+    ].copy()
+
+    master_df = master_df[
+        master_df["Match Text Clean"] != ""
+    ].copy()
+
+    master_df = master_df[
+        master_df["Display Code Clean"] != ""
+    ].copy()
+
+    master_df = master_df.sort_values(
+        by=["Priority"],
+        ascending=True
+    ).reset_index(drop=True)
+
+    return master_df, None
+
+
+def get_product_master():
+    """
+    Load Product Master using its modification time.
+    """
+
+    if not PRODUCT_MASTER_PATH.exists():
+        return pd.DataFrame(), (
+            "Product Master file was not found at:\n\n"
+            "backend_data/product_master.xlsx"
+        )
+
+    modified_time = PRODUCT_MASTER_PATH.stat().st_mtime
+
+    return load_product_master(modified_time)
+
+
+def detect_product_code(
+    product_name,
+    edition_name,
+    report_type,
+    master_df
+):
+    """
+    Detect the product display code.
+
+    Matching approach:
+    1. Filter Product Master by Main or Supplement.
+    2. Follow Priority order.
+    3. Search in both Products and Edition.
+    4. If no match is found, show the original full name.
+    """
+
+    product_text = clean_text(product_name)
+    edition_text = clean_text(edition_name)
+
+    combined_search_text = (
+        f"{product_text} {edition_text}"
+    ).strip()
+
+    report_type_clean = clean_text(report_type)
+
+    relevant_master = master_df[
+        master_df["Report Type Clean"] == report_type_clean
+    ].copy()
+
+    for _, master_row in relevant_master.iterrows():
+        match_text = master_row["Match Text Clean"]
+
+        if match_text and match_text in combined_search_text:
+            display_code = str(
+                master_row["Display Code"]
+            ).strip()
+
+            return {
+                "auto_code": display_code,
+                "final_code": display_code,
+                "match_status": "🟢 Auto Matched",
+                "matched_text": str(
+                    master_row["Match Text"]
+                ).strip(),
+            }
+
+    product_fallback = (
+        str(product_name).strip()
+        if not pd.isna(product_name)
+        and str(product_name).strip()
+        else ""
+    )
+
+    edition_fallback = (
+        str(edition_name).strip()
+        if not pd.isna(edition_name)
+        and str(edition_name).strip()
+        else ""
+    )
+
+    fallback_name = (
+        product_fallback
+        or edition_fallback
+        or "Unnamed Product"
+    )
+
+    return {
+        "auto_code": fallback_name,
+        "final_code": fallback_name,
+        "match_status": "🟡 Review Required",
+        "matched_text": "Not Found in Product Master",
+    }
+
+
+# =========================================================
+# PREMIUM WORKING TABLE
+# =========================================================
+
+def render_premium_working_table(
+    table_df,
+    selected_report
+):
+    """
+    Render the working table using custom HTML and CSS.
+
+    This is the premium display table, not a generic
+    Streamlit dataframe.
     """
 
     if table_df.empty:
-        st.warning(f"No {selected_report} records are available.")
+        st.warning(
+            f"No {selected_report} records are available."
+        )
         return
 
     st.markdown(
         """
         <style>
-        .piq-working-section {
-            margin-top: 18px;
-            margin-bottom: 24px;
+
+        .avpw-section {
+            margin-top: 24px;
+            margin-bottom: 30px;
         }
 
-        .piq-table-heading-row {
+        .avpw-heading-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 16px;
+            gap: 18px;
             margin-bottom: 14px;
         }
 
-        .piq-table-title {
-            font-size: 20px;
-            font-weight: 800;
+        .avpw-heading-title {
             color: #0f172a;
-            margin: 0;
+            font-size: 21px;
+            font-weight: 850;
+            line-height: 1.2;
         }
 
-        .piq-table-subtitle {
-            font-size: 13px;
+        .avpw-heading-subtitle {
             color: #64748b;
-            margin-top: 4px;
+            font-size: 13px;
+            margin-top: 5px;
         }
 
-        .piq-report-badge {
+        .avpw-report-badge {
             display: inline-flex;
             align-items: center;
-            padding: 7px 12px;
+            gap: 8px;
+            padding: 8px 13px;
             border-radius: 999px;
-            background: #e8f0ff;
-            color: #153e75;
-            border: 1px solid #c9d8f5;
+            background: #eaf2ff;
+            border: 1px solid #cbdcf7;
+            color: #173f70;
             font-size: 12px;
             font-weight: 800;
             white-space: nowrap;
         }
 
-        .piq-table-shell {
+        .avpw-report-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
+        }
+
+        .avpw-table-card {
             background: #ffffff;
-            border: 1px solid #dbe3ef;
+            border: 1px solid #d9e2ef;
             border-radius: 18px;
             overflow: hidden;
             box-shadow:
-                0 12px 30px rgba(15, 23, 42, 0.07),
-                0 2px 8px rgba(15, 23, 42, 0.04);
+                0 14px 34px rgba(15, 23, 42, 0.07),
+                0 3px 10px rgba(15, 23, 42, 0.04);
         }
 
-        .piq-table-scroll {
+        .avpw-table-scroll {
+            width: 100%;
+            max-height: 570px;
             overflow-x: auto;
             overflow-y: auto;
-            max-height: 560px;
         }
 
-        .piq-premium-table {
+        table.avpw-table {
             width: 100%;
             min-width: 1320px;
             border-collapse: separate;
@@ -228,269 +422,331 @@ def render_premium_working_table(table_df, selected_report):
                 sans-serif;
         }
 
-        .piq-premium-table thead th {
+        table.avpw-table thead th {
             position: sticky;
             top: 0;
-            z-index: 5;
+            z-index: 4;
             padding: 15px 12px;
-            background: linear-gradient(135deg, #0b1f3a, #123866);
+            background: linear-gradient(
+                135deg,
+                #071a36 0%,
+                #0b2c59 55%,
+                #123f73 100%
+            );
             color: #ffffff;
-            font-size: 11px;
-            font-weight: 800;
-            letter-spacing: 0.45px;
-            line-height: 1.35;
+            border-right: 1px solid rgba(255, 255, 255, 0.14);
             text-align: center;
+            vertical-align: middle;
+            font-size: 11px;
+            font-weight: 850;
+            line-height: 1.35;
+            letter-spacing: 0.38px;
             text-transform: uppercase;
-            border-right: 1px solid rgba(255, 255, 255, 0.12);
             white-space: nowrap;
         }
 
-        .piq-premium-table thead th:last-child {
+        table.avpw-table thead th:last-child {
             border-right: none;
         }
 
-        .piq-premium-table tbody td {
+        table.avpw-table tbody td {
             padding: 14px 12px;
-            border-bottom: 1px solid #e9eef5;
-            border-right: 1px solid #eef2f7;
+            background: #ffffff;
             color: #263548;
-            font-size: 13px;
-            font-weight: 600;
+            border-right: 1px solid #edf1f6;
+            border-bottom: 1px solid #e7edf4;
             text-align: center;
             vertical-align: middle;
-            background: #ffffff;
+            font-size: 13px;
+            font-weight: 600;
         }
 
-        .piq-premium-table tbody tr:nth-child(even) td {
+        table.avpw-table tbody tr:nth-child(even) td {
             background: #f8fafc;
         }
 
-        .piq-premium-table tbody tr:hover td {
+        table.avpw-table tbody tr:hover td {
             background: #f0f6ff;
         }
 
-        .piq-premium-table tbody tr:last-child td {
+        table.avpw-table tbody tr:last-child td {
             border-bottom: none;
         }
 
-        .piq-premium-table tbody td:last-child {
+        table.avpw-table tbody td:last-child {
             border-right: none;
         }
 
-        .piq-machine-badge {
+        .avpw-machine-badge {
             display: inline-flex;
-            justify-content: center;
             align-items: center;
-            min-width: 34px;
-            height: 28px;
-            padding: 0 9px;
+            justify-content: center;
+            min-width: 35px;
+            height: 29px;
+            padding: 0 10px;
             border-radius: 8px;
             background: #dbeafe;
             border: 1px solid #bfdbfe;
-            color: #1e40af;
+            color: #1e3a8a;
             font-size: 12px;
             font-weight: 900;
         }
 
-        .piq-publication-badge {
+        .avpw-publication-badge {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 72px;
+            min-width: 68px;
             padding: 7px 11px;
             border-radius: 9px;
             background: #eef2ff;
-            border: 1px solid #d9ddff;
+            border: 1px solid #d8ddff;
             color: #3730a3;
             font-size: 12px;
             font-weight: 900;
-            letter-spacing: 0.25px;
+            letter-spacing: 0.2px;
         }
 
-        .piq-po-cell {
+        .avpw-po-cell {
             color: #7c2d12 !important;
             background: #fff7ed !important;
-            font-weight: 800 !important;
+            font-weight: 850 !important;
         }
 
-        .piq-predicted-cell {
+        .avpw-predicted-cell {
             color: #166534 !important;
             background: #f0fdf4 !important;
-            font-weight: 800 !important;
+            font-weight: 850 !important;
         }
 
-        .piq-actual-cell {
-            color: #0f3d63 !important;
-            background: #eff6ff !important;
-            font-weight: 800 !important;
+        .avpw-actual-cell {
+            color: #075985 !important;
+            background: #f0f9ff !important;
+            font-weight: 850 !important;
         }
 
-        .piq-extra-cell {
+        .avpw-extra-cell {
             color: #9a3412 !important;
             background: #fff7ed !important;
-            font-weight: 800 !important;
+            font-weight: 850 !important;
         }
 
-        .piq-reason-cell {
-            min-width: 280px;
-            max-width: 340px;
+        .avpw-reason-cell {
+            min-width: 290px;
+            max-width: 360px;
             text-align: left !important;
-            line-height: 1.45;
             white-space: normal;
+            line-height: 1.45;
             color: #475569 !important;
             font-weight: 500 !important;
         }
 
-        .piq-empty-value {
+        .avpw-empty-value {
             color: #94a3b8;
-            font-weight: 700;
+            font-weight: 750;
         }
 
-        .piq-status-dot {
-            display: inline-block;
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            margin-right: 7px;
-            background: #22c55e;
-            vertical-align: middle;
+        .avpw-review-note {
+            margin-top: 12px;
+            padding: 10px 13px;
+            border-radius: 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            color: #64748b;
+            font-size: 12px;
         }
 
         @media (max-width: 900px) {
-            .piq-table-heading-row {
-                align-items: flex-start;
+
+            .avpw-heading-row {
                 flex-direction: column;
+                align-items: flex-start;
             }
 
-            .piq-table-shell {
+            .avpw-table-card {
                 border-radius: 14px;
             }
         }
+
         </style>
         """,
         unsafe_allow_html=True
     )
 
-    table_rows = []
+    html_rows = []
 
     for _, row in table_df.iterrows():
-        edition_date = format_report_date(row.get("Issue Date"))
-        machine = html.escape(str(row.get("Machine", "—")))
-        incharge = html.escape(str(row.get("Machine In-charge", "—")))
-        publication = html.escape(str(row.get("Final Code", "—")))
+        edition_date = format_report_date(
+            row.get("Issue Date")
+        )
 
-        po = format_number(row.get("PO"))
-        actual_waste = format_number(row.get("Actual Waste"))
+        machine = safe_display_text(
+            row.get("Machine")
+        )
+
+        machine_incharge = safe_display_text(
+            row.get("Machine In-charge")
+        )
+
+        publication = safe_display_text(
+            row.get("Final Code")
+        )
+
+        po = format_indian_number(
+            row.get("PO")
+        )
+
+        actual_waste = format_indian_number(
+            row.get("Actual Waste")
+        )
 
         predicted_waste = row.get("Predicted Waste")
 
-        if pd.isna(predicted_waste) or str(predicted_waste).strip() == "":
-            predicted_display = '<span class="piq-empty-value">—</span>'
-            extra_display = '<span class="piq-empty-value">—</span>'
+        if (
+            pd.isna(predicted_waste)
+            or str(predicted_waste).strip() == ""
+        ):
+            predicted_display = (
+                '<span class="avpw-empty-value">—</span>'
+            )
+
+            extra_display = (
+                '<span class="avpw-empty-value">—</span>'
+            )
+
             reason_display = "NA"
 
         else:
             try:
                 predicted_number = float(predicted_waste)
-                actual_number = float(row.get("Actual Waste", 0))
+
+                actual_number = pd.to_numeric(
+                    row.get("Actual Waste"),
+                    errors="coerce"
+                )
+
+                if pd.isna(actual_number):
+                    actual_number = 0
 
                 extra_number = max(
-                    actual_number - predicted_number,
+                    float(actual_number) - predicted_number,
                     0
                 )
 
-                predicted_display = format_number(predicted_number)
-                extra_display = format_number(extra_number)
+                predicted_display = format_indian_number(
+                    predicted_number
+                )
 
-                reason_value = row.get(
-                    "Reason for Extra Waste",
-                    "NA"
+                extra_display = format_indian_number(
+                    extra_number
                 )
 
                 if extra_number <= 0:
                     reason_display = "NA"
                 else:
+                    entered_reason = str(
+                        row.get(
+                            "Reason for Extra Waste",
+                            ""
+                        )
+                    ).strip()
+
                     reason_display = (
-                        str(reason_value).strip()
-                        if str(reason_value).strip()
+                        entered_reason
+                        if entered_reason
+                        and entered_reason.upper() != "NAN"
                         else "Reason Required"
                     )
 
             except (TypeError, ValueError):
-                predicted_display = '<span class="piq-empty-value">—</span>'
-                extra_display = '<span class="piq-empty-value">—</span>'
+                predicted_display = (
+                    '<span class="avpw-empty-value">—</span>'
+                )
+
+                extra_display = (
+                    '<span class="avpw-empty-value">—</span>'
+                )
+
                 reason_display = "NA"
 
-        reason_display = html.escape(str(reason_display))
+        reason_display = safe_display_text(
+            reason_display,
+            fallback="NA"
+        )
 
-        table_rows.append(
+        html_rows.append(
             f"""
             <tr>
                 <td>{edition_date}</td>
 
                 <td>
-                    <span class="piq-machine-badge">
+                    <span class="avpw-machine-badge">
                         {machine}
                     </span>
                 </td>
 
-                <td>{incharge}</td>
+                <td>{machine_incharge}</td>
 
                 <td>
-                    <span class="piq-publication-badge">
+                    <span class="avpw-publication-badge">
                         {publication}
                     </span>
                 </td>
 
-                <td class="piq-po-cell">
+                <td class="avpw-po-cell">
                     {po}
                 </td>
 
-                <td class="piq-predicted-cell">
+                <td class="avpw-predicted-cell">
                     {predicted_display}
                 </td>
 
-                <td class="piq-actual-cell">
+                <td class="avpw-actual-cell">
                     {actual_waste}
                 </td>
 
-                <td class="piq-extra-cell">
+                <td class="avpw-extra-cell">
                     {extra_display}
                 </td>
 
-                <td class="piq-reason-cell">
+                <td class="avpw-reason-cell">
                     {reason_display}
                 </td>
             </tr>
             """
         )
 
-    table_html = f"""
-    <div class="piq-working-section">
+    selected_report_safe = safe_display_text(
+        selected_report
+    )
 
-        <div class="piq-table-heading-row">
+    working_table_html = f"""
+    <div class="avpw-section">
+
+        <div class="avpw-heading-row">
 
             <div>
-                <div class="piq-table-title">
+                <div class="avpw-heading-title">
                     Production Working Table
                 </div>
 
-                <div class="piq-table-subtitle">
-                    Review publication, production order and waste details before generating the final report.
+                <div class="avpw-heading-subtitle">
+                    Review production details before preparing the final report.
                 </div>
             </div>
 
-            <div class="piq-report-badge">
-                <span class="piq-status-dot"></span>
-                {html.escape(selected_report)} Report
+            <div class="avpw-report-badge">
+                <span class="avpw-report-dot"></span>
+                {selected_report_safe} Report
             </div>
 
         </div>
 
-        <div class="piq-table-shell">
-            <div class="piq-table-scroll">
+        <div class="avpw-table-card">
 
-                <table class="piq-premium-table">
+            <div class="avpw-table-scroll">
+
+                <table class="avpw-table">
 
                     <thead>
                         <tr>
@@ -507,25 +763,41 @@ def render_premium_working_table(table_df, selected_report):
                     </thead>
 
                     <tbody>
-                        {''.join(table_rows)}
+                        {''.join(html_rows)}
                     </tbody>
 
                 </table>
 
             </div>
+
+        </div>
+
+        <div class="avpw-review-note">
+            Predicted Waste is intentionally blank until the prediction criteria are finalized.
         </div>
 
     </div>
     """
 
     st.markdown(
-        table_html,
+        working_table_html,
         unsafe_allow_html=True
     )
+
+
+# =========================================================
+# MAIN MODULE
+# =========================================================
+
 def run_actual_vs_predicted_waste():
 
-    st.markdown("## Actual vs Predicted Waste")
-    st.caption("Product Master Matching Engine")
+    st.markdown(
+        "## Actual vs Predicted Waste"
+    )
+
+    st.caption(
+        "Product Master Matching Engine and Production Working Table"
+    )
 
     uploaded_file = st.file_uploader(
         "Upload Production Report",
@@ -534,163 +806,397 @@ def run_actual_vs_predicted_waste():
     )
 
     if uploaded_file is None:
-        st.info("Please upload Production Report.")
+        st.info(
+            "Please upload the Production Report."
+        )
         return
 
-    master_df = load_product_master()
+    master_df, master_error = get_product_master()
+
+    if master_error:
+        st.error(master_error)
+        return
 
     if master_df.empty:
+        st.error(
+            "Product Master contains no active matching rules."
+        )
         return
 
     try:
-        df = pd.read_excel(
+        production_df = pd.read_excel(
             uploaded_file,
             sheet_name="General"
         )
-    except Exception as e:
-        st.error(f"Unable to read General sheet: {e}")
+    except Exception as error:
+        st.error(
+            f"Unable to read the General sheet: {error}"
+        )
         return
 
-    required_cols = [
-        "Issue Date",
-        "Products",
-        "Edition",
-        "Main/Supplement",
-        "Machine",
-        "Print Order",
-        "Waste",
+    # -----------------------------------------------------
+    # FIND REQUIRED PRODUCTION REPORT COLUMNS
+    # -----------------------------------------------------
+
+    issue_date_col = find_column(
+        production_df,
+        [
+            "Issue Date",
+            "Edition Date",
+        ]
+    )
+
+    products_col = find_column(
+        production_df,
+        [
+            "Products",
+            "Product Name",
+            "Product",
+        ]
+    )
+
+    edition_col = find_column(
+        production_df,
+        [
+            "Edition",
+            "Edition Name",
+        ]
+    )
+
+    report_type_col = find_column(
+        production_df,
+        [
+            "Main/Supplement",
+            "Main / Supplement",
+            "Main Supplement",
+        ]
+    )
+
+    machine_col = find_column(
+        production_df,
+        [
+            "Machine",
+            "Machine Name",
+        ]
+    )
+
+    print_order_col = find_column(
+        production_df,
+        [
+            "Print Order",
+            "PO",
+            "PrintOrder",
+        ]
+    )
+
+    waste_col = find_column(
+        production_df,
+        [
+            "Waste",
+            "Actual Waste",
+            "Total Waste",
+        ]
+    )
+
+    incharge_col = find_column(
+        production_df,
+        [
+            "In-Charge",
+            "Incharge",
+            "Machine In-Charge",
+            "Machine Incharge",
+            "Shift In-Charge",
+        ]
+    )
+
+    required_column_map = {
+        "Issue Date": issue_date_col,
+        "Products": products_col,
+        "Edition": edition_col,
+        "Main/Supplement": report_type_col,
+        "Machine": machine_col,
+        "Print Order": print_order_col,
+        "Waste": waste_col,
+    }
+
+    missing_columns = [
+        expected_name
+        for expected_name, actual_name
+        in required_column_map.items()
+        if actual_name is None
     ]
 
-    missing_cols = [c for c in required_cols if c not in df.columns]
+    if missing_columns:
+        st.error(
+            "Missing columns in Production Report: "
+            + ", ".join(missing_columns)
+        )
 
-    if missing_cols:
-        st.error(f"Missing columns in Production Report: {missing_cols}")
+        with st.expander(
+            "Show available General sheet columns"
+        ):
+            st.write(
+                list(production_df.columns)
+            )
+
         return
 
-    df = df.copy()
+    production_df = production_df.copy()
 
-    df["Main/Supplement Clean"] = df["Main/Supplement"].apply(clean_text)
+    production_df["_Report Type Clean"] = (
+        production_df[report_type_col]
+        .apply(clean_text)
+    )
 
-    main_df = df[df["Main/Supplement Clean"] == "MAIN"].copy()
-    supp_df = df[df["Main/Supplement Clean"] == "SUPPLEMENT"].copy()
+    main_df = production_df[
+        production_df["_Report Type Clean"] == "MAIN"
+    ].copy()
 
-    st.success("Production Report loaded successfully.")
+    supplement_df = production_df[
+        production_df["_Report Type Clean"] == "SUPPLEMENT"
+    ].copy()
 
-    col1, col2 = st.columns(2)
+    st.success(
+        "Production Report loaded successfully."
+    )
 
-    with col1:
-        st.metric("Main Editions", len(main_df))
+    metric_col_1, metric_col_2 = st.columns(2)
 
-    with col2:
-        st.metric("Supplement Editions", len(supp_df))
+    with metric_col_1:
+        st.metric(
+            "Main Editions",
+            len(main_df)
+        )
+
+    with metric_col_2:
+        st.metric(
+            "Supplement Editions",
+            len(supplement_df)
+        )
 
     selected_report = st.radio(
         "Select Report Type",
-        ["Main", "Supplement"],
-        horizontal=True
+        options=[
+            "Main",
+            "Supplement",
+        ],
+        horizontal=True,
+        key="actual_vs_predicted_report_type"
     )
 
     if selected_report == "Main":
-        work_df = main_df.copy()
+        selected_df = main_df.copy()
     else:
-        work_df = supp_df.copy()
+        selected_df = supplement_df.copy()
 
-    if work_df.empty:
-        st.warning(f"No data found for {selected_report}.")
+    if selected_df.empty:
+        st.warning(
+            f"No {selected_report} records were found."
+        )
         return
+
+    # -----------------------------------------------------
+    # BUILD PRODUCT MATCHING RESULT
+    # -----------------------------------------------------
 
     output_rows = []
 
-    for _, row in work_df.iterrows():
-        detected = detect_product_code(
-            product_name=row["Products"],
-            edition_name=row["Edition"],
+    for source_index, row in selected_df.iterrows():
+        product_name = row.get(
+            products_col,
+            ""
+        )
+
+        edition_name = row.get(
+            edition_col,
+            ""
+        )
+
+        detected_product = detect_product_code(
+            product_name=product_name,
+            edition_name=edition_name,
             report_type=selected_report,
             master_df=master_df
         )
 
-        output_rows.append({
-            "Status": detected["match_status"],
-            "Issue Date": row["Issue Date"],
-            "Machine": row["Machine"],
-            "Machine In-charge": row.get("In-Charge", "—"),
-            "Product Name": row["Products"],
-            "Edition": row["Edition"],
-            "Auto Code": detected["auto_code"],
-            "Final Code": detected["final_code"],
-            "Matched Text": detected["matched_text"],
-            "PO": row["Print Order"],
-            "Actual Waste": row["Waste"],
-        })
+        machine_incharge = (
+            row.get(incharge_col, "—")
+            if incharge_col
+            else "—"
+        )
 
-    result_df = pd.DataFrame(output_
-    result_df["Predicted Waste"] = pd.NA
-    result_df["Extra Waste"] = pd.NA
-    result_df["Reason for Extra Waste"] = "NA"
+        output_rows.append(
+            {
+                "Row ID": str(source_index),
+                "Status": detected_product[
+                    "match_status"
+                ],
+                "Issue Date": row.get(
+                    issue_date_col
+                ),
+                "Machine": row.get(
+                    machine_col
+                ),
+                "Machine In-charge": machine_incharge,
+                "Product Name": product_name,
+                "Edition": edition_name,
+                "Auto Code": detected_product[
+                    "auto_code"
+                ],
+                "Final Code": detected_product[
+                    "final_code"
+                ],
+                "Matched Text": detected_product[
+                    "matched_text"
+                ],
+                "PO": pd.to_numeric(
+                    row.get(print_order_col),
+                    errors="coerce"
+                ),
+                "Actual Waste": pd.to_numeric(
+                    row.get(waste_col),
+                    errors="coerce"
+                ),
+                "Predicted Waste": pd.NA,
+                "Extra Waste": pd.NA,
+                "Reason for Extra Waste": "NA",
+            }
+        )
 
-    review_count = (result_df["Status"] == "🟡 Review Required").sum()
+    result_df = pd.DataFrame(
+        output_rows
+    )
+
+    review_count = int(
+        (
+            result_df["Status"]
+            == "🟡 Review Required"
+        ).sum()
+    )
 
     if review_count > 0:
         st.warning(
-            f"{review_count} product(s) not found in Product Master. "
-            "Please review and edit Final Code before final report."
+            f"{review_count} product(s) were not found in "
+            "Product Master. Review the yellow rows and "
+            "correct Final Code if required."
         )
     else:
-        st.success("All products matched successfully from Product Master.")
+        st.success(
+            "All products matched successfully from Product Master."
+        )
 
-    st.markdown("### Review Product Codes")
+    # -----------------------------------------------------
+    # PRODUCT CODE REVIEW
+    # -----------------------------------------------------
 
-    edited_df = st.data_editor(
-        result_df,
+    st.markdown(
+        "### Product Code Review"
+    )
+
+    st.caption(
+        "Only Final Code is editable. This review table will later "
+        "be replaced by the row-level premium edit panel."
+    )
+
+    editor_columns = [
+        "Status",
+        "Issue Date",
+        "Machine",
+        "Product Name",
+        "Edition",
+        "Auto Code",
+        "Final Code",
+        "Matched Text",
+    ]
+
+    edited_code_df = st.data_editor(
+        result_df[editor_columns],
         use_container_width=True,
         hide_index=True,
         num_rows="fixed",
+        disabled=[
+            "Status",
+            "Issue Date",
+            "Machine",
+            "Product Name",
+            "Edition",
+            "Auto Code",
+            "Matched Text",
+        ],
         column_config={
-            "Final Code": st.column_config.TextColumn(
-                "Final Code",
-                help="Edit this if detected product code is wrong.",
-                required=True,
-            ),
             "Status": st.column_config.TextColumn(
                 "Status",
-                disabled=True,
+                width="medium"
             ),
-            "Auto Code": st.column_config.TextColumn(
-                "Auto Code",
-                disabled=True,
+            "Issue Date": st.column_config.DateColumn(
+                "Issue Date",
+                format="DD/MM/YYYY",
+                disabled=True
             ),
-            "Matched Text": st.column_config.TextColumn(
-                "Matched Text",
-                disabled=True,
+            "Machine": st.column_config.TextColumn(
+                "Machine",
+                disabled=True
             ),
             "Product Name": st.column_config.TextColumn(
                 "Product Name",
-                disabled=True,
+                width="large",
+                disabled=True
             ),
             "Edition": st.column_config.TextColumn(
                 "Edition",
-                disabled=True,
+                width="large",
+                disabled=True
+            ),
+            "Auto Code": st.column_config.TextColumn(
+                "Auto Code",
+                disabled=True
+            ),
+            "Final Code": st.column_config.TextColumn(
+                "Final Code",
+                help=(
+                    "Change this only when the automatic "
+                    "publication code is incorrect."
+                ),
+                required=True
+            ),
+            "Matched Text": st.column_config.TextColumn(
+                "Matched Text",
+                width="large",
+                disabled=True
             ),
         },
-        key=f"product_code_editor_{selected_report}"
+        key=f"product_code_review_{selected_report}"
     )
 
-    edited_df["Final Code"] = edited_df["Final Code"].astype(str).str.strip()
+    # -----------------------------------------------------
+    # COPY EDITED FINAL CODES BACK INTO RESULT
+    # -----------------------------------------------------
 
-    edited_df["Status"] = edited_df.apply(
-        lambda r: "✏️ Edited"
-        if str(r["Final Code"]).strip() != str(r["Auto Code"]).strip()
-        else r["Status"],
+    final_result_df = result_df.copy()
+
+    final_result_df["Final Code"] = (
+        edited_code_df["Final Code"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .values
+    )
+
+    final_result_df["Status"] = final_result_df.apply(
+        lambda row: (
+            "✏️ Edited"
+            if clean_text(row["Final Code"])
+            != clean_text(row["Auto Code"])
+            else row["Status"]
+        ),
         axis=1
     )
 
-    premium_table_df = edited_df.copy()
-
-    premium_table_df["Predicted Waste"] = pd.NA
-    premium_table_df["Extra Waste"] = pd.NA
-    premium_table_df["Reason for Extra Waste"] = "NA"
+    # -----------------------------------------------------
+    # PREMIUM WORKING TABLE
+    # -----------------------------------------------------
 
     render_premium_working_table(
-        premium_table_df,
+        final_result_df,
         selected_report
     )
