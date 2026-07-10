@@ -946,11 +946,8 @@ def run_actual_vs_predicted_waste():
     incharge_col = find_column(
         production_df,
         [
-            "In-Charge",
-            "Incharge",
             "Machine In-Charge",
             "Machine Incharge",
-            "Shift In-Charge",
         ]
     )
 
