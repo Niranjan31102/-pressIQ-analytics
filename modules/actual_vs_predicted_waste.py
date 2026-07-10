@@ -721,64 +721,66 @@ def render_premium_working_table(
         selected_report
     )
 
-   working_table_html = dedent(f"""
-    <div class="avpw-section">
+      working_table_html = dedent(
+        f"""
+        <div class="avpw-section">
 
-        <div class="avpw-heading-row">
+            <div class="avpw-heading-row">
 
-            <div>
-                <div class="avpw-heading-title">
-                    Production Working Table
+                <div>
+                    <div class="avpw-heading-title">
+                        Production Working Table
+                    </div>
+
+                    <div class="avpw-heading-subtitle">
+                        Review production details before preparing the final report.
+                    </div>
                 </div>
 
-                <div class="avpw-heading-subtitle">
-                    Review production details before preparing the final report.
+                <div class="avpw-report-badge">
+                    <span class="avpw-report-dot"></span>
+                    {selected_report_safe} Report
                 </div>
-            </div>
-
-            <div class="avpw-report-badge">
-                <span class="avpw-report-dot"></span>
-                {selected_report_safe} Report
-            </div>
-
-        </div>
-
-        <div class="avpw-table-card">
-
-            <div class="avpw-table-scroll">
-
-                <table class="avpw-table">
-
-                    <thead>
-                        <tr>
-                            <th>Edition Date</th>
-                            <th>Machine</th>
-                            <th>Machine In-charge</th>
-                            <th>Publication</th>
-                            <th>PO</th>
-                            <th>Predicted Waste</th>
-                            <th>Actual Waste</th>
-                            <th>Extra Waste</th>
-                            <th>Reason for Extra Waste</th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-                        {''.join(html_rows)}
-                    </tbody>
-
-                </table>
 
             </div>
 
-        </div>
+            <div class="avpw-table-card">
 
-        <div class="avpw-review-note">
-            Predicted Waste is intentionally blank until the prediction criteria are finalized.
-        </div>
+                <div class="avpw-table-scroll">
 
-    </div>
-    """)
+                    <table class="avpw-table">
+
+                        <thead>
+                            <tr>
+                                <th>Edition Date</th>
+                                <th>Machine</th>
+                                <th>Machine In-charge</th>
+                                <th>Publication</th>
+                                <th>PO</th>
+                                <th>Predicted Waste</th>
+                                <th>Actual Waste</th>
+                                <th>Extra Waste</th>
+                                <th>Reason for Extra Waste</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {''.join(html_rows)}
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+            <div class="avpw-review-note">
+                Predicted Waste is intentionally blank until the prediction criteria are finalized.
+            </div>
+
+        </div>
+        """
+    )
 
     st.markdown(
         working_table_html,
