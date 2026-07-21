@@ -16,7 +16,7 @@ except Exception as e:
     actual_vs_predicted_waste_import_error = e
 
 st.set_page_config(
-    page_title="PressIQ Analytics",
+    page_title="PressIQ",
     page_icon="🏭",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -118,7 +118,7 @@ if not st.session_state.logged_in:
         """
         <div class="login-brand-row">
             <div class="login-simple-logo">PIQ</div>
-            <div class="login-main-title">PressIQ Analytics</div>
+            <div class="login-main-title">PressIQ</div>
         </div>
         """,
         unsafe_allow_html=True
@@ -191,7 +191,7 @@ if not st.session_state.logged_in:
                 <span class="support-link">niranjan.kute@timesofindia.com</span>
             </div>
             <div class="login-copyright">
-                © 2026 PressIQ Analytics — Designed & Developed by Niranjan Kute. All rights reserved.
+                © 2026 PressIQ — Designed & Developed by Niranjan Kute. All rights reserved.
             </div>
         </div>
         """,
@@ -206,7 +206,7 @@ st.sidebar.markdown(
     <div class="sidebar-brand">
         <div class="sidebar-simple-logo">PIQ</div>
         <div>
-            <div class="sidebar-title">PressIQ Analytics</div>
+            <div class="sidebar-title">PressIQ</div>
         </div>
     </div>
     """,
@@ -266,7 +266,7 @@ if st.sidebar.button("Logout"):
 
 
 # ---------------- HEADER ----------------
-st.markdown('<div class="main-title">PressIQ Analytics</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">PressIQ</div>', unsafe_allow_html=True)
 st.markdown(
     f'<div class="sub-title">{main_intelligence}</div>',
     unsafe_allow_html=True
