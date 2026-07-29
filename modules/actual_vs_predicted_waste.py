@@ -1,4 +1,6 @@
 from pathlib import Path
+from textwrap import dedent
+import html
 
 import streamlit as st
 
@@ -25,53 +27,40 @@ PREDICTION_MASTER_PATH = (
 
 
 # ============================================================
-# MODULE CSS
+# MODULE-SPECIFIC CSS
 # ============================================================
 
 def add_actual_vs_predicted_css():
+    """
+    Add styles used only by the Actual vs Predicted Waste module.
+
+    No sidebar radio styling is included here, so the existing
+    PressIQ navigation will remain unchanged.
+    """
+
     st.markdown(
         """
         <style>
 
-        /* =========================================
-           MODULE WORKFLOW
-        ========================================= */
+        /* -----------------------------------------
+           WORKFLOW
+        ----------------------------------------- */
 
         .avp-workflow {
             display: grid;
-            grid-template-columns: 1fr 44px 1fr 44px 1fr;
+            grid-template-columns: 1fr 42px 1fr 42px 1fr;
             align-items: center;
             gap: 8px;
-            margin: 0.2rem 0 1.4rem 0;
+            margin: 0.15rem 0 1.35rem 0;
         }
 
         .avp-step {
-            background: #ffffff;
+            background: rgba(255, 255, 255, 0.94);
             border: 1px solid rgba(148, 163, 184, 0.28);
             border-radius: 16px;
             padding: 0.85rem 1rem;
-            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
             text-align: center;
-        }
-
-        .avp-step-number {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            background: #dbeafe;
-            color: #1d4ed8;
-            font-size: 0.78rem;
-            font-weight: 900;
-            margin-bottom: 0.4rem;
-        }
-
-        .avp-step-title {
-            color: #0f172a;
-            font-size: 0.88rem;
-            font-weight: 850;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
         }
 
         .avp-step-active {
@@ -81,7 +70,21 @@ def add_actual_vs_predicted_css():
                 #eff6ff 0%,
                 #ffffff 100%
             );
-            box-shadow: 0 12px 28px rgba(37, 99, 235, 0.12);
+            box-shadow: 0 12px 28px rgba(37, 99, 235, 0.13);
+        }
+
+        .avp-step-number {
+            width: 28px;
+            height: 28px;
+            margin: 0 auto 0.4rem auto;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #dbeafe;
+            color: #1d4ed8;
+            font-size: 0.78rem;
+            font-weight: 900;
         }
 
         .avp-step-active .avp-step-number {
@@ -89,117 +92,142 @@ def add_actual_vs_predicted_css():
             color: #ffffff;
         }
 
+        .avp-step-title {
+            color: #0f172a;
+            font-size: 0.88rem;
+            font-weight: 850;
+        }
+
         .avp-arrow {
             text-align: center;
             color: #94a3b8;
-            font-size: 1.3rem;
+            font-size: 1.25rem;
             font-weight: 900;
         }
 
-        /* =========================================
-           PRODUCTION TYPE SECTION
-        ========================================= */
+        /* -----------------------------------------
+           COMMON SECTION
+        ----------------------------------------- */
 
-        .avp-section-card {
-            background: rgba(255, 255, 255, 0.92);
+        .avp-section {
+            background: rgba(255, 255, 255, 0.94);
             border: 1px solid rgba(148, 163, 184, 0.26);
             border-radius: 22px;
             padding: 1.25rem;
+            margin-bottom: 1rem;
             box-shadow: 0 16px 38px rgba(15, 23, 42, 0.07);
-            margin-bottom: 1.1rem;
         }
 
         .avp-section-title {
             color: #0f172a;
             font-size: 1.08rem;
             font-weight: 900;
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.2rem;
         }
 
         .avp-section-caption {
             color: #64748b;
             font-size: 0.86rem;
-            margin-bottom: 0.85rem;
         }
 
-        /* Convert horizontal radio options into cards */
+        /* -----------------------------------------
+           PRODUCTION TYPE CARDS
+        ----------------------------------------- */
 
-        div[data-testid="stRadio"] div[role="radiogroup"] {
-            display: grid !important;
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-            gap: 1rem !important;
+        .avp-production-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+            margin: 0.8rem 0 0.45rem 0;
         }
 
-        div[data-testid="stRadio"] div[role="radiogroup"] label {
-            background: #ffffff !important;
-            border: 1.5px solid #cbd5e1 !important;
-            border-radius: 18px !important;
-            padding: 1rem 1.1rem !important;
-            min-height: 86px !important;
-            display: flex !important;
-            align-items: center !important;
-            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06) !important;
-            transition: all 0.2s ease !important;
+        .avp-production-card {
+            background: #ffffff;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 18px;
+            padding: 1.05rem 1.1rem;
+            min-height: 102px;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
         }
 
-        div[data-testid="stRadio"] div[role="radiogroup"] label:hover {
-            border-color: #2563eb !important;
-            transform: translateY(-2px);
-            box-shadow: 0 14px 28px rgba(37, 99, 235, 0.12) !important;
-        }
-
-        div[data-testid="stRadio"] div[role="radiogroup"] label:has(
-            input:checked
-        ) {
-            border-color: #2563eb !important;
+        .avp-production-card-selected {
+            border-color: #2563eb;
             background: linear-gradient(
                 135deg,
                 #eff6ff 0%,
                 #ffffff 100%
-            ) !important;
-            box-shadow: 0 14px 30px rgba(37, 99, 235, 0.16) !important;
+            );
+            box-shadow: 0 14px 30px rgba(37, 99, 235, 0.15);
         }
 
-        div[data-testid="stRadio"] div[role="radiogroup"] label p {
-            color: #0f172a !important;
-            font-size: 0.98rem !important;
-            font-weight: 850 !important;
+        .avp-production-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.7rem;
         }
 
-        /* =========================================
+        .avp-production-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            font-size: 1.1rem;
+        }
+
+        .avp-selection-mark {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #2563eb;
+            color: #ffffff;
+            font-size: 0.72rem;
+            font-weight: 900;
+        }
+
+        .avp-production-name {
+            color: #0f172a;
+            font-size: 1rem;
+            font-weight: 900;
+            margin-top: 0.72rem;
+        }
+
+        .avp-production-description {
+            color: #64748b;
+            font-size: 0.82rem;
+            margin-top: 0.16rem;
+        }
+
+        /* -----------------------------------------
            UPLOAD AREA
-        ========================================= */
+        ----------------------------------------- */
 
         .avp-upload-heading {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 0.8rem;
+            gap: 0.8rem;
         }
 
         .avp-upload-icon {
-            width: 42px;
-            height: 42px;
-            border-radius: 13px;
+            width: 44px;
+            height: 44px;
+            min-width: 44px;
+            border-radius: 14px;
             background: #eff6ff;
+            border: 1px solid #bfdbfe;
             color: #2563eb;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.2rem;
-            border: 1px solid #bfdbfe;
-        }
-
-        .avp-upload-title {
-            color: #0f172a;
-            font-size: 1.05rem;
+            font-size: 1.25rem;
             font-weight: 900;
-        }
-
-        .avp-upload-caption {
-            color: #64748b;
-            font-size: 0.82rem;
-            margin-top: 0.12rem;
         }
 
         .avp-file-ready {
@@ -207,11 +235,23 @@ def add_actual_vs_predicted_css():
             border: 1px solid #a7f3d0;
             border-left: 5px solid #10b981;
             border-radius: 14px;
-            padding: 0.85rem 1rem;
+            padding: 0.82rem 1rem;
             color: #065f46;
-            font-size: 0.88rem;
+            font-size: 0.86rem;
             font-weight: 750;
-            margin-top: 0.8rem;
+            margin: 0.75rem 0 0.3rem 0;
+            word-break: break-word;
+        }
+
+        .avp-placeholder {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-left: 5px solid #2563eb;
+            border-radius: 14px;
+            padding: 0.9rem 1rem;
+            color: #1e3a8a;
+            font-size: 0.88rem;
+            font-weight: 700;
         }
 
         .avp-footer {
@@ -232,8 +272,8 @@ def add_actual_vs_predicted_css():
                 transform: rotate(90deg);
             }
 
-            div[data-testid="stRadio"] div[role="radiogroup"] {
-                grid-template-columns: 1fr !important;
+            .avp-production-grid {
+                grid-template-columns: 1fr;
             }
         }
 
@@ -248,9 +288,13 @@ def add_actual_vs_predicted_css():
 # ============================================================
 
 def initialize_actual_vs_predicted_state():
+    """
+    Create the session-state values required by this module.
+    """
+
     defaults = {
         "avp_stage": "upload",
-        "avp_report_type": "Main Production",
+        "avp_report_type": "Main",
         "avp_uploaded_file_name": "",
         "avp_working_table": None,
         "avp_final_report_png": None,
@@ -263,10 +307,26 @@ def initialize_actual_vs_predicted_state():
 
 
 # ============================================================
-# UI COMPONENTS
+# SMALL HELPERS
+# ============================================================
+
+def safe_html_text(value):
+    """
+    Escape uploaded file names before showing them in HTML.
+    """
+
+    return html.escape(str(value).strip())
+
+
+# ============================================================
+# WORKFLOW
 # ============================================================
 
 def render_workflow():
+    """
+    Display Upload, Working Table and Final Report stages.
+    """
+
     current_stage = st.session_state.avp_stage
 
     upload_class = (
@@ -287,7 +347,7 @@ def render_workflow():
         else "avp-step"
     )
 
-    st.markdown(
+    workflow_html = dedent(
         f"""
         <div class="avp-workflow">
 
@@ -311,15 +371,32 @@ def render_workflow():
             </div>
 
         </div>
-        """,
+        """
+    ).strip()
+
+    st.markdown(
+        workflow_html,
         unsafe_allow_html=True,
     )
 
 
-def render_upload_screen():
-    st.markdown(
+# ============================================================
+# PRODUCTION TYPE CARDS
+# ============================================================
+
+def render_production_type_cards():
+    """
+    Display Main and Supplement cards side by side.
+
+    Streamlit buttons are used instead of a radio widget so
+    sidebar navigation styling is never affected.
+    """
+
+    current_report_type = st.session_state.avp_report_type
+
+    section_html = dedent(
         """
-        <div class="avp-section-card">
+        <div class="avp-section">
             <div class="avp-section-title">
                 Select Production Type
             </div>
@@ -327,31 +404,125 @@ def render_upload_screen():
                 Choose the report you want to prepare.
             </div>
         </div>
-        """,
+        """
+    ).strip()
+
+    st.markdown(
+        section_html,
         unsafe_allow_html=True,
     )
 
-    selected_report_type = st.radio(
-        "Production Type",
-        options=[
-            "🌙 Main Production",
-            "🌆 Supplement Production",
-        ],
-        horizontal=True,
-        label_visibility="collapsed",
-        key="avp_report_type_selector",
+    main_selected_class = (
+        "avp-production-card avp-production-card-selected"
+        if current_report_type == "Main"
+        else "avp-production-card"
     )
 
-    if "Main" in selected_report_type:
-        st.session_state.avp_report_type = "Main Production"
-    else:
-        st.session_state.avp_report_type = "Supplement Production"
+    supplement_selected_class = (
+        "avp-production-card avp-production-card-selected"
+        if current_report_type == "Supplement"
+        else "avp-production-card"
+    )
+
+    main_mark = (
+        '<div class="avp-selection-mark">✓</div>'
+        if current_report_type == "Main"
+        else ""
+    )
+
+    supplement_mark = (
+        '<div class="avp-selection-mark">✓</div>'
+        if current_report_type == "Supplement"
+        else ""
+    )
+
+    main_column, supplement_column = st.columns(2)
+
+    with main_column:
+        main_card_html = dedent(
+            f"""
+            <div class="{main_selected_class}">
+                <div class="avp-production-top">
+                    <div class="avp-production-icon">M</div>
+                    {main_mark}
+                </div>
+
+                <div class="avp-production-name">
+                    Main Production
+                </div>
+
+                <div class="avp-production-description">
+                    Main editions and integrated sections
+                </div>
+            </div>
+            """
+        ).strip()
+
+        st.markdown(
+            main_card_html,
+            unsafe_allow_html=True,
+        )
+
+        if st.button(
+            "Select Main Production",
+            use_container_width=True,
+            key="avp_select_main",
+            disabled=current_report_type == "Main",
+        ):
+            st.session_state.avp_report_type = "Main"
+            st.rerun()
+
+    with supplement_column:
+        supplement_card_html = dedent(
+            f"""
+            <div class="{supplement_selected_class}">
+                <div class="avp-production-top">
+                    <div class="avp-production-icon">S</div>
+                    {supplement_mark}
+                </div>
+
+                <div class="avp-production-name">
+                    Supplement Production
+                </div>
+
+                <div class="avp-production-description">
+                    Supplement editions and pullouts
+                </div>
+            </div>
+            """
+        ).strip()
+
+        st.markdown(
+            supplement_card_html,
+            unsafe_allow_html=True,
+        )
+
+        if st.button(
+            "Select Supplement Production",
+            use_container_width=True,
+            key="avp_select_supplement",
+            disabled=current_report_type == "Supplement",
+        ):
+            st.session_state.avp_report_type = "Supplement"
+            st.rerun()
+
+
+# ============================================================
+# UPLOAD SCREEN
+# ============================================================
+
+def render_upload_screen():
+    """
+    Display production-type selection and file uploader.
+    """
+
+    render_production_type_cards()
 
     st.markdown("")
 
-    st.markdown(
+    upload_heading_html = dedent(
         """
-        <div class="avp-section-card">
+        <div class="avp-section">
 
             <div class="avp-upload-heading">
 
@@ -360,11 +531,11 @@ def render_upload_screen():
                 </div>
 
                 <div>
-                    <div class="avp-upload-title">
+                    <div class="avp-section-title">
                         Upload Production Report
                     </div>
 
-                    <div class="avp-upload-caption">
+                    <div class="avp-section-caption">
                         Supported file format: Excel (.xlsx or .xls)
                     </div>
                 </div>
@@ -372,7 +543,11 @@ def render_upload_screen():
             </div>
 
         </div>
-        """,
+        """
+    ).strip()
+
+    st.markdown(
+        upload_heading_html,
         unsafe_allow_html=True,
     )
 
@@ -386,12 +561,18 @@ def render_upload_screen():
     if uploaded_file is not None:
         st.session_state.avp_uploaded_file_name = uploaded_file.name
 
-        st.markdown(
+        safe_file_name = safe_html_text(uploaded_file.name)
+
+        file_ready_html = dedent(
             f"""
             <div class="avp-file-ready">
-                ✓ File ready: {uploaded_file.name}
+                ✓ File ready: {safe_file_name}
             </div>
-            """,
+            """
+        ).strip()
+
+        st.markdown(
+            file_ready_html,
             unsafe_allow_html=True,
         )
 
@@ -406,8 +587,10 @@ def render_upload_screen():
     )
 
     if process_clicked:
+        st.session_state.avp_uploaded_file_name = uploaded_file.name
+
         with st.spinner("Processing report. Please wait..."):
-            st.session_state.avp_uploaded_file_name = uploaded_file.name
+            pass
 
         st.success(
             "Upload screen is working correctly. "
@@ -416,10 +599,67 @@ def render_upload_screen():
 
 
 # ============================================================
+# TEMPORARY PLACEHOLDER SCREENS
+# ============================================================
+
+def render_review_placeholder():
+    placeholder_html = dedent(
+        """
+        <div class="avp-placeholder">
+            The Working Table will be connected in the next development step.
+        </div>
+        """
+    ).strip()
+
+    st.markdown(
+        placeholder_html,
+        unsafe_allow_html=True,
+    )
+
+
+def render_report_placeholder():
+    placeholder_html = dedent(
+        """
+        <div class="avp-placeholder">
+            The Final Management Report will be connected later.
+        </div>
+        """
+    ).strip()
+
+    st.markdown(
+        placeholder_html,
+        unsafe_allow_html=True,
+    )
+
+
+# ============================================================
+# FOOTER
+# ============================================================
+
+def render_module_footer():
+    footer_html = dedent(
+        """
+        <div class="avp-footer">
+            Powered by PressIQ AI · Designed for Production Intelligence
+        </div>
+        """
+    ).strip()
+
+    st.markdown(
+        footer_html,
+        unsafe_allow_html=True,
+    )
+
+
+# ============================================================
 # MAIN MODULE
 # ============================================================
 
 def run_actual_vs_predicted_waste():
+    """
+    Main entry point called by app.py.
+    """
+
     initialize_actual_vs_predicted_state()
     add_actual_vs_predicted_css()
 
@@ -434,16 +674,9 @@ def run_actual_vs_predicted_waste():
         render_upload_screen()
 
     elif st.session_state.avp_stage == "review":
-        st.info("Working Table will be connected in the next development step.")
+        render_review_placeholder()
 
     elif st.session_state.avp_stage == "report":
-        st.info("Final Management Report will be connected later.")
+        render_report_placeholder()
 
-    st.markdown(
-        """
-        <div class="avp-footer">
-            Powered by PressIQ AI · Designed for Production Intelligence
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    render_module_footer()
