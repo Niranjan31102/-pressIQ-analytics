@@ -1,129 +1,888 @@
 import base64
+
 import pandas as pd
 import streamlit as st
+
 from ui_theme import module_hero
-from modules.avp_engine import process_report, finalize_calculations, machine_summary
+from modules.avp_engine import process_report, finalize_calculations
 from modules.avp_report import generate_management_png
 
 
-def _css():
-    st.markdown('''<style>
-    .avp-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:8px 0 22px}.avp-step{padding:16px 18px;border-radius:18px;background:linear-gradient(145deg,#fff,#f4f8ff);border:1px solid #d8e3f3;box-shadow:0 10px 25px rgba(15,23,42,.06)}.avp-step.on{border-color:#38bdf8;box-shadow:0 12px 30px rgba(37,99,235,.15)}.avp-n{font-size:12px;font-weight:900;color:#2563eb}.avp-t{font-size:16px;font-weight:900;color:#0f172a;margin-top:4px}.avp-s{font-size:12px;color:#64748b;margin-top:3px}.avp-info{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0}.avp-k{background:white;border:1px solid #dbe5f1;border-radius:16px;padding:14px;text-align:center;box-shadow:0 8px 20px rgba(15,23,42,.05)}.avp-kl{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;font-weight:800}.avp-kv{font-size:22px;color:#0f172a;font-weight:950;margin-top:4px}.avp-title{font-size:18px;font-weight:950;color:#0f172a;margin:16px 0 8px}.avp-note{background:#fff7ed;border:1px solid #fed7aa;border-left:5px solid #f97316;border-radius:14px;padding:12px 14px;margin:10px 0;color:#9a3412;font-weight:700}.avp-ready{background:#ecfdf5;border:1px solid #a7f3d0;border-left:5px solid #10b981;border-radius:14px;padding:12px 14px;margin:10px 0;color:#065f46;font-weight:800}.avp-footer{text-align:center;color:#94a3b8;font-size:12px;margin:28px 0 8px}.stButton>button{min-height:48px}.avp-preview img{width:100%;border-radius:18px;box-shadow:0 18px 45px rgba(15,23,42,.12);border:1px solid #dbe5f1}@media(max-width:800px){.avp-steps,.avp-info{grid-template-columns:1fr 1fr}}
-    </style>''',unsafe_allow_html=True)
+# ============================================================
+# MODULE STYLE
+# ============================================================
 
+def _css():
+    st.markdown(
+        """
+        <style>
+        .avp-steps {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            margin: 8px 0 22px;
+        }
+
+        .avp-step {
+            padding: 16px 18px;
+            border-radius: 18px;
+            background: linear-gradient(145deg, #ffffff, #f4f8ff);
+            border: 1px solid #d8e3f3;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+        }
+
+        .avp-step.on {
+            border-color: #38bdf8;
+            background: linear-gradient(145deg, #ffffff, #eef8ff);
+            box-shadow: 0 12px 30px rgba(37, 99, 235, 0.15);
+        }
+
+        .avp-n {
+            font-size: 12px;
+            font-weight: 900;
+            color: #2563eb;
+        }
+
+        .avp-t {
+            font-size: 16px;
+            font-weight: 900;
+            color: #0f172a;
+            margin-top: 4px;
+        }
+
+        .avp-s {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 3px;
+        }
+
+        .avp-info {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin: 14px 0;
+        }
+
+        .avp-k {
+            background: #ffffff;
+            border: 1px solid #dbe5f1;
+            border-radius: 16px;
+            padding: 14px;
+            text-align: center;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+        }
+
+        .avp-kl {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #64748b;
+            font-weight: 800;
+        }
+
+        .avp-kv {
+            font-size: 22px;
+            color: #0f172a;
+            font-weight: 950;
+            margin-top: 4px;
+        }
+
+        .avp-title {
+            font-size: 18px;
+            font-weight: 950;
+            color: #0f172a;
+            margin: 16px 0 8px;
+        }
+
+        .avp-subtle {
+            font-size: 12px;
+            color: #64748b;
+            margin: -3px 0 12px;
+        }
+
+        .avp-note {
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            border-left: 5px solid #f97316;
+            border-radius: 14px;
+            padding: 12px 14px;
+            margin: 10px 0;
+            color: #9a3412;
+            font-weight: 700;
+        }
+
+        .avp-ready {
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            border-left: 5px solid #10b981;
+            border-radius: 14px;
+            padding: 12px 14px;
+            margin: 10px 0;
+            color: #065f46;
+            font-weight: 800;
+        }
+
+        .avp-warning-soft {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-left: 5px solid #f59e0b;
+            border-radius: 14px;
+            padding: 12px 14px;
+            margin: 10px 0;
+            color: #92400e;
+            font-weight: 700;
+        }
+
+        .avp-editor-card {
+            background: linear-gradient(145deg, #ffffff, #f8fbff);
+            border: 1px solid #dbe5f1;
+            border-radius: 18px;
+            padding: 16px 18px;
+            margin: 10px 0 14px;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+        }
+
+        .avp-editor-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .avp-editor-pub {
+            font-size: 18px;
+            font-weight: 950;
+            color: #0f172a;
+        }
+
+        .avp-editor-machine {
+            font-size: 12px;
+            font-weight: 800;
+            color: #2563eb;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 999px;
+            padding: 5px 10px;
+        }
+
+        .avp-metrics {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .avp-mini {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 10px 12px;
+            background: #ffffff;
+        }
+
+        .avp-mini-label {
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 850;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .avp-mini-value {
+            color: #0f172a;
+            font-size: 17px;
+            font-weight: 950;
+            margin-top: 2px;
+        }
+
+        .avp-footer {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 12px;
+            margin: 28px 0 8px;
+        }
+
+        .stButton > button {
+            min-height: 48px;
+        }
+
+        .avp-preview img {
+            width: 100%;
+            border-radius: 18px;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+            border: 1px solid #dbe5f1;
+        }
+
+        @media (max-width: 800px) {
+            .avp-steps,
+            .avp-info,
+            .avp-metrics {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+# ============================================================
+# SESSION STATE
+# ============================================================
 
 def _init():
-    defaults={'avp_stage':'upload','avp_raw':None,'avp_work':None,'avp_type':'Main','avp_png':None,'avp_reason_row':None}
-    for k,v in defaults.items():
-        if k not in st.session_state: st.session_state[k]=v
+    defaults = {
+        "avp_stage": "upload",
+        "avp_raw": None,
+        "avp_work": None,
+        "avp_type": "Main",
+        "avp_png": None,
+        "avp_reason_row": None,
+    }
 
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+
+
+# ============================================================
+# COMMON UI
+# ============================================================
 
 def _steps():
-    stage=st.session_state.avp_stage; order=['upload','review','report']; idx=order.index(stage)
-    labels=[('01','Upload Report'),('02','Working Table'),('03','Final Report')]
-    html='<div class="avp-steps">'
-    for i,(n,t) in enumerate(labels):
-        cls='avp-step on' if i==idx else 'avp-step'; status='Active' if i==idx else ('Complete' if i<idx else 'Pending')
-        html+=f'<div class="{cls}"><div class="avp-n">{n}</div><div class="avp-t">{t}</div><div class="avp-s">{status}</div></div>'
-    st.markdown(html+'</div>',unsafe_allow_html=True)
+    stage = st.session_state.avp_stage
+    order = ["upload", "review", "report"]
+    current_index = order.index(stage)
+
+    labels = [
+        ("01", "Upload Report"),
+        ("02", "Working Table"),
+        ("03", "Final Report"),
+    ]
+
+    html = '<div class="avp-steps">'
+
+    for index, (number, title) in enumerate(labels):
+        css_class = "avp-step on" if index == current_index else "avp-step"
+        status = (
+            "Active"
+            if index == current_index
+            else "Complete"
+            if index < current_index
+            else "Pending"
+        )
+
+        html += (
+            f'<div class="{css_class}">'
+            f'<div class="avp-n">{number}</div>'
+            f'<div class="avp-t">{title}</div>'
+            f'<div class="avp-s">{status}</div>'
+            "</div>"
+        )
+
+    html += "</div>"
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def _summary_cards(df):
-    dates=pd.to_datetime(df['Edition Date'],errors='coerce').dropna(); date=dates.iloc[0].strftime('%d %b %Y') if not dates.empty else '—'
-    main=int((df['_type']=='MAIN').sum()) if '_type' in df else 0; supp=int((df['_type']=='SUPPLEMENT').sum()) if '_type' in df else 0
-    st.markdown(f'''<div class="avp-info"><div class="avp-k"><div class="avp-kl">Issue Date</div><div class="avp-kv">{date}</div></div><div class="avp-k"><div class="avp-kl">Main Editions</div><div class="avp-kv">{main}</div></div><div class="avp-k"><div class="avp-kl">Supplement</div><div class="avp-kv">{supp}</div></div><div class="avp-k"><div class="avp-kl">Total Editions</div><div class="avp-kv">{main+supp}</div></div></div>''',unsafe_allow_html=True)
+    dates = pd.to_datetime(df["Edition Date"], errors="coerce").dropna()
+    issue_date = dates.iloc[0].strftime("%d %b %Y") if not dates.empty else "—"
 
+    main_count = int((df["_type"] == "MAIN").sum()) if "_type" in df else 0
+    supplement_count = (
+        int((df["_type"] == "SUPPLEMENT").sum()) if "_type" in df else 0
+    )
+
+    st.markdown(
+        f"""
+        <div class="avp-info">
+            <div class="avp-k">
+                <div class="avp-kl">Issue Date</div>
+                <div class="avp-kv">{issue_date}</div>
+            </div>
+            <div class="avp-k">
+                <div class="avp-kl">Main Editions</div>
+                <div class="avp-kv">{main_count}</div>
+            </div>
+            <div class="avp-k">
+                <div class="avp-kl">Supplement</div>
+                <div class="avp-kv">{supplement_count}</div>
+            </div>
+            <div class="avp-k">
+                <div class="avp-kl">Total Editions</div>
+                <div class="avp-kv">{main_count + supplement_count}</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _safe_reason(value):
+    text = str(value).strip() if value is not None else ""
+    return "NA" if text.upper() in {"", "NA", "NAN", "NONE"} else text
+
+
+def _report_ready_df(df):
+    ready = df.copy()
+    ready["Reason for Extra Waste"] = ready["Reason for Extra Waste"].apply(_safe_reason)
+    return ready
+
+
+# ============================================================
+# UPLOAD SCREEN
+# ============================================================
 
 def _upload():
-    st.markdown('<div class="avp-title">Upload Production Report</div>',unsafe_allow_html=True)
-    f=st.file_uploader('Upload Production Report',type=['xlsx','xls'],label_visibility='collapsed',key='avp_upload_v1')
-    if f is None: return
-    try:
-        f.seek(0); general=pd.read_excel(f,sheet_name='General'); f.seek(0)
-        type_col=next((c for c in general.columns if str(c).strip().upper().replace(' ','') in ['MAIN/SUPPLEMENT','MAINSUPPLEMENT']),None)
-        date_col=next((c for c in general.columns if str(c).strip().upper() in ['ISSUE DATE','EDITION DATE']),None)
-        preview=pd.DataFrame({'Edition Date':general[date_col] if date_col else pd.NaT,'_type':general[type_col].astype(str).str.strip().str.upper() if type_col else ''})
-        _summary_cards(preview)
-    except Exception as e:
-        st.error(f'Unable to read report summary: {e}'); return
-    st.markdown('<div class="avp-title">Select Production Type</div>',unsafe_allow_html=True)
-    c1,c2=st.columns(2)
-    with c1:
-        if st.button(('✓  MAIN' if st.session_state.avp_type=='Main' else 'MAIN'),use_container_width=True,key='avp_main'): st.session_state.avp_type='Main'; st.rerun()
-    with c2:
-        if st.button(('✓  SUPPLEMENT' if st.session_state.avp_type=='Supplement' else 'SUPPLEMENT'),use_container_width=True,key='avp_supp'): st.session_state.avp_type='Supplement'; st.rerun()
-    if st.button('Process Report',type='primary',use_container_width=True,key='avp_process'):
-        try:
-            with st.spinner('Processing report...'):
-                f.seek(0); all_df=process_report(f); selected=all_df[all_df['Match Status'].notna()].copy(); selected=selected[selected.apply(lambda r: True,axis=1)]
-                selected=selected[selected['Row ID'].isin(selected['Row ID'])]
-                # filter by original report type through product master result set using General re-read index
-                f.seek(0); g=pd.read_excel(f,sheet_name='General'); tc=next((c for c in g.columns if str(c).strip().upper().replace(' ','') in ['MAIN/SUPPLEMENT','MAINSUPPLEMENT']),None)
-                if tc:
-                    wanted=st.session_state.avp_type.upper(); valid=set(g[g[tc].astype(str).str.strip().str.upper()==wanted].index.astype(str)); selected=selected[selected['Row ID'].isin(valid)]
-                if selected.empty: raise ValueError(f'No {st.session_state.avp_type} editions found.')
-                st.session_state.avp_work=selected.reset_index(drop=True); st.session_state.avp_stage='review'; st.session_state.avp_png=None
-            st.rerun()
-        except Exception as e: st.error(str(e))
+    st.markdown(
+        '<div class="avp-title">Upload Production Report</div>',
+        unsafe_allow_html=True,
+    )
 
+    uploaded_file = st.file_uploader(
+        "Upload Production Report",
+        type=["xlsx", "xls"],
+        label_visibility="collapsed",
+        key="avp_upload_v1",
+    )
+
+    if uploaded_file is None:
+        return
+
+    try:
+        uploaded_file.seek(0)
+        general = pd.read_excel(uploaded_file, sheet_name="General")
+        uploaded_file.seek(0)
+
+        type_col = next(
+            (
+                column
+                for column in general.columns
+                if str(column).strip().upper().replace(" ", "")
+                in ["MAIN/SUPPLEMENT", "MAINSUPPLEMENT"]
+            ),
+            None,
+        )
+
+        date_col = next(
+            (
+                column
+                for column in general.columns
+                if str(column).strip().upper() in ["ISSUE DATE", "EDITION DATE"]
+            ),
+            None,
+        )
+
+        preview = pd.DataFrame(
+            {
+                "Edition Date": general[date_col] if date_col else pd.NaT,
+                "_type": (
+                    general[type_col].astype(str).str.strip().str.upper()
+                    if type_col
+                    else ""
+                ),
+            }
+        )
+
+        _summary_cards(preview)
+
+    except Exception as error:
+        st.error(f"Unable to read report summary: {error}")
+        return
+
+    st.markdown(
+        '<div class="avp-title">Select Production Type</div>',
+        unsafe_allow_html=True,
+    )
+
+    col_main, col_supplement = st.columns(2)
+
+    with col_main:
+        main_label = "✓  MAIN" if st.session_state.avp_type == "Main" else "MAIN"
+        if st.button(main_label, use_container_width=True, key="avp_main"):
+            st.session_state.avp_type = "Main"
+            st.rerun()
+
+    with col_supplement:
+        supplement_label = (
+            "✓  SUPPLEMENT"
+            if st.session_state.avp_type == "Supplement"
+            else "SUPPLEMENT"
+        )
+        if st.button(
+            supplement_label,
+            use_container_width=True,
+            key="avp_supp",
+        ):
+            st.session_state.avp_type = "Supplement"
+            st.rerun()
+
+    if st.button(
+        "Process Report",
+        type="primary",
+        use_container_width=True,
+        key="avp_process",
+    ):
+        try:
+            with st.spinner("Processing report..."):
+                uploaded_file.seek(0)
+                all_df = process_report(uploaded_file)
+
+                selected = all_df.copy()
+
+                uploaded_file.seek(0)
+                general = pd.read_excel(uploaded_file, sheet_name="General")
+
+                type_col = next(
+                    (
+                        column
+                        for column in general.columns
+                        if str(column).strip().upper().replace(" ", "")
+                        in ["MAIN/SUPPLEMENT", "MAINSUPPLEMENT"]
+                    ),
+                    None,
+                )
+
+                if type_col:
+                    wanted = st.session_state.avp_type.upper()
+                    valid_rows = set(
+                        general[
+                            general[type_col].astype(str).str.strip().str.upper()
+                            == wanted
+                        ].index.astype(str)
+                    )
+                    selected = selected[selected["Row ID"].isin(valid_rows)]
+
+                if selected.empty:
+                    raise ValueError(
+                        f"No {st.session_state.avp_type} editions found."
+                    )
+
+                st.session_state.avp_work = selected.reset_index(drop=True)
+                st.session_state.avp_stage = "review"
+                st.session_state.avp_png = None
+                st.session_state.avp_reason_row = None
+
+            st.rerun()
+
+        except Exception as error:
+            st.error(str(error))
+
+
+# ============================================================
+# WORKING TABLE HELPERS
+# ============================================================
+
+def _display_working_table(calc):
+    display = calc.copy()
+
+    display["Edition Date"] = pd.to_datetime(
+        display["Edition Date"],
+        errors="coerce",
+    ).dt.strftime("%d/%m/%Y")
+
+    display["Edition Date"] = display["Edition Date"].fillna("—")
+
+    reason_added = ~display["Reason for Extra Waste"].astype(str).str.strip().str.upper().isin(
+        ["", "NA", "NAN", "NONE"]
+    )
+
+    display["Reason"] = "NA"
+    display.loc[
+        (display["Extra Waste"].fillna(0) > 0) & ~reason_added,
+        "Reason",
+    ] = "Add Reason"
+    display.loc[
+        (display["Extra Waste"].fillna(0) > 0) & reason_added,
+        "Reason",
+    ] = "✓ Added"
+
+    table = display[
+        [
+            "Edition Date",
+            "Machine",
+            "Machine In-charge",
+            "Publication",
+            "PO",
+            "Predicted Waste",
+            "Predicted %",
+            "Actual Waste",
+            "Actual %",
+            "Extra Waste",
+            "Reason",
+        ]
+    ].copy()
+
+    numeric_columns = [
+        "PO",
+        "Predicted Waste",
+        "Actual Waste",
+        "Extra Waste",
+    ]
+
+    for column in numeric_columns:
+        table[column] = pd.to_numeric(table[column], errors="coerce")
+
+    def highlight_row(row):
+        extra = pd.to_numeric(row.get("Extra Waste"), errors="coerce")
+        if pd.notna(extra) and extra > 0:
+            return ["background-color: #fff7ed"] * len(row)
+        return [""] * len(row)
+
+    styled = table.style.apply(highlight_row, axis=1).format(
+        {
+            "PO": lambda value: "—" if pd.isna(value) else f"{int(value):,}",
+            "Predicted Waste": lambda value: "—" if pd.isna(value) else f"{int(value):,}",
+            "Predicted %": lambda value: "—" if pd.isna(value) else f"{value:.2f}%",
+            "Actual Waste": lambda value: "—" if pd.isna(value) else f"{int(value):,}",
+            "Actual %": lambda value: "—" if pd.isna(value) else f"{value:.2f}%",
+            "Extra Waste": lambda value: "—" if pd.isna(value) else f"{int(value):,}",
+        }
+    )
+
+    st.dataframe(
+        styled,
+        use_container_width=True,
+        hide_index=True,
+        height=min(680, 92 + len(table) * 42),
+        column_config={
+            "Edition Date": st.column_config.TextColumn("Edition Date", width="small"),
+            "Machine": st.column_config.TextColumn("Machine", width="medium"),
+            "Machine In-charge": st.column_config.TextColumn(
+                "Machine In-charge", width="medium"
+            ),
+            "Publication": st.column_config.TextColumn("Publication", width="small"),
+            "PO": st.column_config.NumberColumn("PO", width="small"),
+            "Predicted Waste": st.column_config.NumberColumn(
+                "Predicted Waste", width="small"
+            ),
+            "Predicted %": st.column_config.NumberColumn("Predicted %", width="small"),
+            "Actual Waste": st.column_config.NumberColumn("Actual Waste", width="small"),
+            "Actual %": st.column_config.NumberColumn("Actual %", width="small"),
+            "Extra Waste": st.column_config.NumberColumn("Extra Waste", width="small"),
+            "Reason": st.column_config.TextColumn("Reason", width="small"),
+        },
+    )
+
+
+def _publication_exceptions(df):
+    unmatched = df[df["Match Status"] == "Review Required"]
+
+    if unmatched.empty:
+        return
+
+    st.markdown(
+        f'<div class="avp-note">{len(unmatched)} publication(s) were not matched automatically. Only these publication values are editable.</div>',
+        unsafe_allow_html=True,
+    )
+
+    for index in unmatched.index:
+        df.at[index, "Publication"] = st.text_input(
+            f"Publication — {df.at[index, 'Product Name']}",
+            value=str(df.at[index, "Publication"]),
+            key=f"avp_pub_{index}",
+        )
+
+
+def _manual_prediction_exceptions(df):
+    manual = df[df["Manual Prediction Required"] == True]
+
+    if manual.empty:
+        return
+
+    st.markdown(
+        f'<div class="avp-note">Manual predicted waste is required for {len(manual)} edition(s) because the page count is outside configured Prediction Master ranges.</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("**Manual Predicted Waste — only exception rows are editable**")
+
+    for index in manual.index:
+        existing = df.at[index, "Predicted Waste"]
+        default_value = int(existing) if pd.notna(existing) else 0
+
+        entered = st.number_input(
+            (
+                f"{df.at[index, 'Publication']} | "
+                f"{df.at[index, 'Machine']} | "
+                f"{df.at[index, 'Pages']} pages"
+            ),
+            min_value=0,
+            value=default_value,
+            step=50,
+            key=f"avp_manual_{index}",
+        )
+
+        df.at[index, "Predicted Waste"] = entered if entered > 0 else pd.NA
+
+
+def _reason_editor(df, calc):
+    extra_rows = calc[calc["Extra Waste"].fillna(0) > 0]
+
+    st.markdown(
+        '<div class="avp-title">Reason Editor</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="avp-subtle">Select an edition with extra waste. Write the full operational reason here; the table stays compact even when the reason is long.</div>',
+        unsafe_allow_html=True,
+    )
+
+    if extra_rows.empty:
+        st.markdown(
+            '<div class="avp-ready">No edition has extra waste above predicted waste.</div>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    options = list(extra_rows.index)
+
+    if st.session_state.avp_reason_row not in options:
+        st.session_state.avp_reason_row = options[0]
+
+    chosen = st.selectbox(
+        "Select edition to enter / edit reason",
+        options,
+        index=options.index(st.session_state.avp_reason_row),
+        format_func=lambda index: (
+            f"{calc.at[index, 'Publication']} • "
+            f"{calc.at[index, 'Machine']} • "
+            f"Extra {int(calc.at[index, 'Extra Waste']):,}"
+        ),
+        key="avp_reason_selector",
+    )
+
+    st.session_state.avp_reason_row = chosen
+
+    predicted = calc.at[chosen, "Predicted Waste"]
+    actual = calc.at[chosen, "Actual Waste"]
+    extra = calc.at[chosen, "Extra Waste"]
+    po = calc.at[chosen, "PO"]
+
+    st.markdown(
+        f"""
+        <div class="avp-editor-card">
+            <div class="avp-editor-head">
+                <div class="avp-editor-pub">{calc.at[chosen, 'Publication']}</div>
+                <div class="avp-editor-machine">{calc.at[chosen, 'Machine']}</div>
+            </div>
+            <div class="avp-metrics">
+                <div class="avp-mini">
+                    <div class="avp-mini-label">PO</div>
+                    <div class="avp-mini-value">{int(po):,}</div>
+                </div>
+                <div class="avp-mini">
+                    <div class="avp-mini-label">Predicted</div>
+                    <div class="avp-mini-value">{'—' if pd.isna(predicted) else f'{int(predicted):,}'}</div>
+                </div>
+                <div class="avp-mini">
+                    <div class="avp-mini-label">Actual</div>
+                    <div class="avp-mini-value">{int(actual):,}</div>
+                </div>
+                <div class="avp-mini">
+                    <div class="avp-mini-label">Extra</div>
+                    <div class="avp-mini-value">{int(extra):,}</div>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    current_reason = _safe_reason(df.at[chosen, "Reason for Extra Waste"])
+    if current_reason == "NA":
+        current_reason = ""
+
+    reason = st.text_area(
+        "Reason for Extra Waste",
+        value=current_reason,
+        height=190,
+        key=f"avp_reason_{chosen}",
+        placeholder="Enter complete operational reason. No practical word limit.",
+    )
+
+    save_col, clear_col, _ = st.columns([1, 1, 4])
+
+    with save_col:
+        if st.button("Save Reason", key=f"avp_save_reason_{chosen}"):
+            df.at[chosen, "Reason for Extra Waste"] = reason.strip() or "NA"
+            st.session_state.avp_work = df
+            st.success("Reason saved.")
+
+    with clear_col:
+        if st.button("Clear Reason", key=f"avp_clear_reason_{chosen}"):
+            df.at[chosen, "Reason for Extra Waste"] = "NA"
+            st.session_state.avp_work = df
+            st.rerun()
+
+
+# ============================================================
+# WORKING TABLE SCREEN
+# ============================================================
 
 def _review():
-    df=st.session_state.avp_work
-    if df is None or df.empty: st.session_state.avp_stage='upload'; st.rerun()
-    st.markdown('<div class="avp-title">Production Working Table</div>',unsafe_allow_html=True)
-    manual=df[df['Manual Prediction Required']==True]
-    if not manual.empty: st.markdown(f'<div class="avp-note">Manual prediction required for {len(manual)} edition(s) because the page count is outside configured Prediction Master ranges.</div>',unsafe_allow_html=True)
-    # publication edits only for unmatched
-    unmatched=df[df['Match Status']=='Review Required']
-    if not unmatched.empty:
-        st.warning(f'{len(unmatched)} publication(s) require review.')
-        for i in unmatched.index:
-            df.at[i,'Publication']=st.text_input(f"Publication — {df.at[i,'Product Name']}",value=str(df.at[i,'Publication']),key=f'avp_pub_{i}')
-    if not manual.empty:
-        st.markdown('**Manual Predicted Waste — only exception rows are editable**')
-        for i in manual.index:
-            val=st.number_input(f"{df.at[i,'Publication']} | {df.at[i,'Machine']} | {df.at[i,'Pages']} pages",min_value=0,value=int(df.at[i,'Predicted Waste']) if pd.notna(df.at[i,'Predicted Waste']) else 0,step=50,key=f'avp_manual_{i}')
-            df.at[i,'Predicted Waste']=val if val>0 else pd.NA
-    calc=finalize_calculations(df)
-    view_cols=['Edition Date','Machine','Machine In-charge','Publication','PO','Predicted Waste','Predicted %','Actual Waste','Actual %','Extra Waste','Reason for Extra Waste']
-    st.dataframe(calc[view_cols],use_container_width=True,hide_index=True,height=min(650,100+len(calc)*42))
-    st.markdown('<div class="avp-title">Reason Editor</div>',unsafe_allow_html=True)
-    needs=calc[calc['Extra Waste'].fillna(0)>0]
-    if needs.empty: st.markdown('<div class="avp-ready">No extra-waste reason is required.</div>',unsafe_allow_html=True)
-    else:
-        options=list(needs.index); chosen=st.selectbox('Select edition to enter / edit reason',options,format_func=lambda i:f"{calc.at[i,'Publication']} • {calc.at[i,'Machine']} • Extra {int(calc.at[i,'Extra Waste']):,}")
-        current='' if str(df.at[chosen,'Reason for Extra Waste']).upper() in ['NA','NAN'] else str(df.at[chosen,'Reason for Extra Waste'])
-        reason=st.text_area('Reason for Extra Waste',value=current,height=150,key=f'avp_reason_{chosen}',placeholder='Enter complete operational reason. No practical word limit.')
-        if st.button('Save Reason',key='avp_save_reason'):
-            df.at[chosen,'Reason for Extra Waste']=reason.strip() or 'NA'; st.session_state.avp_work=df; st.success('Reason saved.')
-    calc=finalize_calculations(df); missing_manual=calc['Predicted Waste'].isna().any(); missing_reason=((calc['Extra Waste'].fillna(0)>0)&(calc['Reason for Extra Waste'].astype(str).str.strip().str.upper().isin(['','NA','NAN']))).any()
-    if missing_manual: st.warning('Complete all manual predicted-waste exceptions before generating the report.')
-    elif missing_reason: st.warning('Enter reasons for all editions where Actual Waste is above Predicted Waste.')
-    else: st.markdown('<div class="avp-ready">Working table complete. Ready to generate the management report.</div>',unsafe_allow_html=True)
-    b1,b2=st.columns([1,2])
-    with b1:
-        if st.button('← Back to Upload',use_container_width=True): st.session_state.avp_stage='upload'; st.rerun()
-    with b2:
-        if st.button('Generate Final Report',type='primary',use_container_width=True,disabled=missing_manual or missing_reason):
-            st.session_state.avp_work=df; st.session_state.avp_png=generate_management_png(df,st.session_state.avp_type); st.session_state.avp_stage='report'; st.rerun()
+    df = st.session_state.avp_work
 
+    if df is None or df.empty:
+        st.session_state.avp_stage = "upload"
+        st.rerun()
+
+    st.markdown(
+        '<div class="avp-title">Production Working Table</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="avp-subtle">Review calculated waste, handle only genuine exceptions, and record operational reasons where needed.</div>',
+        unsafe_allow_html=True,
+    )
+
+    _publication_exceptions(df)
+    _manual_prediction_exceptions(df)
+
+    st.session_state.avp_work = df
+
+    calc = finalize_calculations(df)
+    _display_working_table(calc)
+
+    _reason_editor(df, calc)
+
+    # Recalculate after any current edits.
+    calc = finalize_calculations(df)
+
+    missing_manual = calc["Predicted Waste"].isna().any()
+
+    missing_reason_mask = (
+        (calc["Extra Waste"].fillna(0) > 0)
+        & calc["Reason for Extra Waste"]
+        .astype(str)
+        .str.strip()
+        .str.upper()
+        .isin(["", "NA", "NAN", "NONE"])
+    )
+    missing_reason_count = int(missing_reason_mask.sum())
+
+    if missing_manual:
+        st.markdown(
+            '<div class="avp-note">Complete all manual predicted-waste exception rows before generating the final report.</div>',
+            unsafe_allow_html=True,
+        )
+    elif missing_reason_count > 0:
+        st.markdown(
+            f'<div class="avp-warning-soft">{missing_reason_count} extra-waste edition(s) currently have no reason. This does not block Final Report generation; enter reasons wherever the excess waste is operationally meaningful.</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            '<div class="avp-ready">Working table is ready for the management report.</div>',
+            unsafe_allow_html=True,
+        )
+
+    back_col, report_col = st.columns([1, 2])
+
+    with back_col:
+        if st.button("← Back to Upload", use_container_width=True):
+            st.session_state.avp_stage = "upload"
+            st.rerun()
+
+    with report_col:
+        if st.button(
+            "Generate Final Report",
+            type="primary",
+            use_container_width=True,
+            disabled=missing_manual,
+        ):
+            ready_df = _report_ready_df(df)
+            st.session_state.avp_work = ready_df
+            st.session_state.avp_png = generate_management_png(
+                ready_df,
+                st.session_state.avp_type,
+            )
+            st.session_state.avp_stage = "report"
+            st.rerun()
+
+
+# ============================================================
+# FINAL REPORT SCREEN
+# ============================================================
 
 def _report():
-    df=st.session_state.avp_work; png=st.session_state.avp_png
-    if df is None: st.session_state.avp_stage='upload'; st.rerun()
-    if png is None: png=generate_management_png(df,st.session_state.avp_type); st.session_state.avp_png=png
-    st.markdown('<div class="avp-title">Final Management Report</div>',unsafe_allow_html=True)
-    b64=base64.b64encode(png).decode(); st.markdown(f'<div class="avp-preview"><img src="data:image/png;base64,{b64}"></div>',unsafe_allow_html=True)
-    c1,c2,c3=st.columns([1,1,1])
-    with c1:
-        if st.button('← Working Table',use_container_width=True): st.session_state.avp_stage='review'; st.rerun()
-    with c2: st.download_button('Download PNG',data=png,file_name=f"PressIQ_Actual_vs_Predicted_{st.session_state.avp_type}.png",mime='image/png',use_container_width=True)
-    with c3: st.link_button('Open WhatsApp Web','https://web.whatsapp.com/',use_container_width=True)
+    df = st.session_state.avp_work
+    png = st.session_state.avp_png
 
+    if df is None:
+        st.session_state.avp_stage = "upload"
+        st.rerun()
+
+    if png is None:
+        ready_df = _report_ready_df(df)
+        png = generate_management_png(
+            ready_df,
+            st.session_state.avp_type,
+        )
+        st.session_state.avp_png = png
+
+    st.markdown(
+        '<div class="avp-title">Final Management Report</div>',
+        unsafe_allow_html=True,
+    )
+
+    encoded = base64.b64encode(png).decode()
+
+    st.markdown(
+        f'<div class="avp-preview"><img src="data:image/png;base64,{encoded}"></div>',
+        unsafe_allow_html=True,
+    )
+
+    col_back, col_download, col_whatsapp = st.columns(3)
+
+    with col_back:
+        if st.button("← Working Table", use_container_width=True):
+            st.session_state.avp_stage = "review"
+            st.rerun()
+
+    with col_download:
+        st.download_button(
+            "Download PNG",
+            data=png,
+            file_name=(
+                "PressIQ_Actual_vs_Predicted_"
+                f"{st.session_state.avp_type}.png"
+            ),
+            mime="image/png",
+            use_container_width=True,
+        )
+
+    with col_whatsapp:
+        st.link_button(
+            "Open WhatsApp Web",
+            "https://web.whatsapp.com/",
+            use_container_width=True,
+        )
+
+
+# ============================================================
+# MODULE ENTRY POINT
+# ============================================================
 
 def run_actual_vs_predicted_waste():
-    _init(); _css(); module_hero('Actual vs Predicted Waste','') ; _steps()
-    if st.session_state.avp_stage=='upload': _upload()
-    elif st.session_state.avp_stage=='review': _review()
-    else: _report()
-    st.markdown('<div class="avp-footer">Powered by PressIQ AI · Designed for Production Intelligence</div>',unsafe_allow_html=True)
+    _init()
+    _css()
+
+    module_hero(
+        "Actual vs Predicted Waste",
+        "",
+    )
+
+    _steps()
+
+    if st.session_state.avp_stage == "upload":
+        _upload()
+    elif st.session_state.avp_stage == "review":
+        _review()
+    else:
+        _report()
+
+    st.markdown(
+        '<div class="avp-footer">Powered by PressIQ AI · Designed for Production Intelligence</div>',
+        unsafe_allow_html=True,
+    )
