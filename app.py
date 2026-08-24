@@ -220,10 +220,10 @@ st.sidebar.markdown("### Main Intelligence")
 main_intelligence = st.sidebar.radio(
     "Select Intelligence",
     [
-        "Waste Intelligence",
+        "Actual vs Predicted Waste",
         "Utility Intelligence",
         "PF Intelligence",
-        "Actual vs Predicted Waste",
+        "Waste Intelligence",
     ]
 )
 module = None
