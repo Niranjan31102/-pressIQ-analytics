@@ -167,7 +167,41 @@ def _manual_prediction_exceptions(df):
         existing = df.at[index,"Predicted Waste"]; default_value = int(existing) if pd.notna(existing) else 0
         entered = st.number_input(f"{df.at[index,'Publication']} | {df.at[index,'Machine']} | {df.at[index,'Pages']} pages", min_value=0, value=default_value, step=50, key=f"avp_manual_{index}")
         df.at[index,"Predicted Waste"] = entered if entered > 0 else pd.NA
+def _save_reason_callback(chosen):
+    df = st.session_state.avp_work
 
+    reason = str(
+        st.session_state.get(
+            "avp_reason_text",
+            "",
+        )
+    ).strip()
+
+    df.at[
+        chosen,
+        "Reason for Extra Waste",
+    ] = reason or "NA"
+
+    st.session_state.avp_work = df
+
+    # Safe here because callback runs before Streamlit rebuilds widgets
+    st.session_state.avp_reason_loaded_row = chosen
+    st.session_state.avp_reason_text = ""
+
+
+def _clear_reason_callback(chosen):
+    df = st.session_state.avp_work
+
+    df.at[
+        chosen,
+        "Reason for Extra Waste",
+    ] = "NA"
+
+    st.session_state.avp_work = df
+
+    # Clear editor safely before widget is rebuilt
+    st.session_state.avp_reason_loaded_row = chosen
+    st.session_state.avp_reason_text = ""
 
 def _reason_editor(df, calc):
     extra_rows = calc[calc["Extra Waste"].fillna(0) > 0]
@@ -197,20 +231,20 @@ def _reason_editor(df, calc):
     st.text_area("Reason for Extra Waste", height=190, key="avp_reason_text", placeholder="Enter complete operational reason. No practical word limit.")
     save_col, clear_col, _ = st.columns([1,1,4])
     with save_col:
-        if st.button("Save Reason", key=f"avp_save_reason_{chosen}"):
-            entered = st.session_state.avp_reason_text.strip()
-            df.at[chosen,"Reason for Extra Waste"] = entered or "NA"
-            st.session_state.avp_work = df
-            st.session_state.avp_reason_loaded_row = chosen
-            st.session_state.avp_reason_text = ""
-            st.rerun()
+        st.button(
+            "Save Reason",
+            key=f"avp_save_reason_{chosen}",
+            on_click=_save_reason_callback,
+            args=(chosen,),
+        )
+
     with clear_col:
-        if st.button("Clear Reason", key=f"avp_clear_reason_{chosen}"):
-            df.at[chosen,"Reason for Extra Waste"] = "NA"
-            st.session_state.avp_work = df
-            st.session_state.avp_reason_loaded_row = chosen
-            st.session_state.avp_reason_text = ""
-            st.rerun()
+        st.button(
+            "Clear Reason",
+            key=f"avp_clear_reason_{chosen}",
+            on_click=_clear_reason_callback,
+            args=(chosen,),
+       )
 
 
 def _review():
