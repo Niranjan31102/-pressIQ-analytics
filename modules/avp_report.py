@@ -425,7 +425,12 @@ def generate_management_png(df, report_type):
     with sync_playwright() as p:
         browser = p.chromium.launch(
             headless=True,
-            args=["--no-sandbox"],
+            executable_path="/usr/bin/chromium",
+            args=[
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+            ],
         )
 
         page = browser.new_page(
