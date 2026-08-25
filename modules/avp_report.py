@@ -230,26 +230,26 @@ def generate_management_png(df, report_type):
     machines, overall = _build_summary(data)
 
     # Main target: readable on management WhatsApp/mobile.
-    W = 1600
-    M = 28
+    W = 1200
+    M = 18
 
-    HEADER_H = 112
-    TABLE_GAP = 20
-    GROUP_H = 48
-    SUB_H = 44
+    HEADER_H = 125
+    TABLE_GAP = 16
+    GROUP_H = 54
+    SUB_H = 46
 
     columns = [
-        ("EDITION DATE", 120),
-        ("MACHINE", 130),
-        ("MACHINE\nIN-CHARGE", 150),
-        ("PUBLICATION", 105),
-        ("PO", 95),
-        ("PRED QTY", 100),
-        ("PRED %", 88),
-        ("ACT QTY", 100),
-        ("ACT %", 88),
-        ("EXTRA WASTE\n(Qty)", 100),
-        ("REASON FOR EXTRA WASTE", 496),
+        ("EDITION DATE", 90),
+        ("MACHINE", 100),
+        ("MACHINE\nIN-CHARGE", 115),
+        ("PUBLICATION", 78),
+        ("PO", 72),
+        ("PRED QTY", 74),
+        ("PRED %", 66),
+        ("ACT QTY", 74),
+        ("ACT %", 66),
+        ("EXTRA WASTE\n(Qty)", 78),
+        ("REASON FOR EXTRA WASTE", 345),
     ]
 
     widths = [w for _, w in columns]
@@ -257,7 +257,7 @@ def generate_management_png(df, report_type):
     # Reason wrapping by actual pixel width.
     temp = Image.new("RGB", (W, 100), WHITE)
     tdraw = ImageDraw.Draw(temp)
-    reason_font = _font(17, False)
+    reason_font = _font(22, True)
 
     wrapped_reasons = []
     row_heights = []
@@ -278,18 +278,18 @@ def generate_management_png(df, report_type):
 
         # Compact normal rows, grow only when remark is genuinely long.
         if len(lines) == 1:
-            row_h = 72
+            row_h = 82
         elif len(lines) == 2:
-            row_h = 86
+            row_h = 96
         elif len(lines) == 3:
-            row_h = 100
+            row_h = 112
         else:
-            row_h = 38 + len(lines) * 22
+            row_h = 44 + len(lines) * 28
 
         row_heights.append(row_h)
 
     SUMMARY_GAP = 28
-    SUMMARY_H = 200
+    SUMMARY_H = 215
     BOTTOM = 26
 
     table_top = HEADER_H + TABLE_GAP
@@ -319,27 +319,27 @@ def generate_management_png(df, report_type):
 
     _txt(
         draw,
-        (34, 30),
+        (28, 30),
         "PIQ",
-        46,
+        54,
         True,
         WHITE,
     )
 
     _txt(
         draw,
-        (128, 51),
+        (130, 53),
         "PressIQ",
-        22,
+        25,
         True,
         "#E2E8F0",
     )
 
     _txt(
         draw,
-        (W // 2, 36),
+        (W // 2, 34),
         "Actual vs Predicted Waste Report",
-        34,
+        38,
         True,
         WHITE,
         "ma",
@@ -360,9 +360,9 @@ def generate_management_png(df, report_type):
 
     _txt(
         draw,
-        (W // 2, 79),
+        (W // 2, 86),
         f"{shift}   •   {issue_date}",
-        17,
+        20,
         True,
         "#DCEAFF",
         "ma",
@@ -391,7 +391,7 @@ def generate_management_png(df, report_type):
             draw,
             (left, y, left + w, y + GROUP_H + SUB_H),
             columns[idx][0],
-            15,
+            19,
             True,
             WHITE,
         )
@@ -410,7 +410,7 @@ def generate_management_png(df, report_type):
         draw,
         (pred_left + pred_w / 2, y + GROUP_H / 2),
         "PREDICTED WASTE",
-        15,
+        19,
         True,
         WHITE,
         "mm",
@@ -430,7 +430,7 @@ def generate_management_png(df, report_type):
         draw,
         (act_left + act_w / 2, y + GROUP_H / 2),
         "ACTUAL WASTE",
-        15,
+        19,
         True,
         WHITE,
         "mm",
@@ -456,7 +456,7 @@ def generate_management_png(df, report_type):
             draw,
             (left + w / 2, y + GROUP_H + SUB_H / 2),
             label,
-            14,
+            18,
             True,
             WHITE,
             "mm",
@@ -504,7 +504,7 @@ def generate_management_png(df, report_type):
 
             # Management table: stronger visual hierarchy.
             color = TEXT
-            bold = True if j in {1, 2, 3, 4, 5, 6, 7, 8, 9} else False
+            bold = True
 
             if j == 6:
                 color = BLUE
@@ -529,8 +529,8 @@ def generate_management_png(df, report_type):
                     draw,
                     (x, y, x + w, y + row_h),
                     value,
-                    17,
-                    False,
+                    22,
+                    True,
                     TEXT,
                 )
             else:
@@ -538,8 +538,8 @@ def generate_management_png(df, report_type):
                     draw,
                     (x, y, x + w, y + row_h),
                     value,
-                    17,
-                    bold,
+                    22,
+                    True,
                     color,
                 )
 
@@ -580,13 +580,13 @@ def generate_management_png(df, report_type):
             draw,
             (left + 20, y + 25),
             title,
-            17,
+            20,
             True,
             WHITE,
             "lm",
         )
 
-        total_w = 160
+        total_w = 135
         total_right = left + card_w - 18
         total_left = total_right - total_w
 
@@ -611,7 +611,7 @@ def generate_management_png(df, report_type):
                 draw,
                 (cx - each / 2, y + 70, cx + each / 2, y + 118),
                 label,
-                14,
+                17,
                 True,
                 TEXT,
             )
@@ -626,7 +626,7 @@ def generate_management_png(df, report_type):
                 draw,
                 (cx, y + 151),
                 "—" if value is None else f"{value:.2f}%",
-                26,
+                30,
                 True,
                 BLUE if kind == "pred" else GREEN,
                 "ma",
@@ -645,7 +645,7 @@ def generate_management_png(df, report_type):
             draw,
             ((total_left + total_right) / 2, total_top + 28),
             "TOTAL PREDICT" if kind == "pred" else "TOTAL ACTUAL",
-            12,
+            15,
             True,
             WHITE,
             "ma",
@@ -661,7 +661,7 @@ def generate_management_png(df, report_type):
             draw,
             ((total_left + total_right) / 2, total_top + 76),
             "—" if total_val is None else f"{total_val:.2f}%",
-            31,
+            36,
             True,
             WHITE,
             "ma",
