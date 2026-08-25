@@ -1,948 +1,165 @@
 from io import BytesIO
 import textwrap
-
 import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
-
 from modules.avp_engine import finalize_calculations
 
+NAVY="#041A3D"; NAVY2="#0A2E63"; BLUE="#2563EB"; GREEN="#0A7A57"; RED="#E53935"
+TEXT="#0F172A"; GRID="#DCE4EF"; ALT="#F8FAFC"; WHITE="#FFFFFF"
 
-# ============================================================
-# DESIGN CONSTANTS
-# ============================================================
-
-NAVY = "#061A3F"
-NAVY_2 = "#0A2B63"
-BLUE = "#123C78"
-BLUE_VALUE = "#1769E0"
-GREEN = "#087A57"
-GREEN_VALUE = "#07875F"
-RED = "#E53935"
-TEXT = "#111827"
-MUTED = "#64748B"
-GRID = "#D9E2EF"
-ALT = "#F8FAFC"
-WHITE = "#FFFFFF"
-
-
-# ============================================================
-# FONT / TEXT HELPERS
-# ============================================================
-
-def _font(size, bold=False):
-    candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-        if bold
-        else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf"
-        if bold
-        else "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+def _font(size,bold=False):
+    paths=[
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
     ]
-
-    for path in candidates:
-        try:
-            return ImageFont.truetype(path, size)
-        except Exception:
-            continue
-
+    for p in paths:
+        try: return ImageFont.truetype(p,size)
+        except Exception: pass
     return ImageFont.load_default()
 
+def _txt(draw,xy,text,size=20,bold=False,fill=TEXT,anchor=None):
+    draw.text(xy,str(text),font=_font(size,bold),fill=fill,anchor=anchor)
 
-def _text(draw, xy, value, size=20, bold=False, fill=TEXT, anchor=None):
-    draw.text(
-        xy,
-        str(value),
-        font=_font(size, bold),
-        fill=fill,
-        anchor=anchor,
-    )
+def _center(draw,box,text,size=18,bold=False,fill=TEXT,spacing=4):
+    x1,y1,x2,y2=box; value=str(text); f=_font(size,bold)
+    b=draw.multiline_textbbox((0,0),value,font=f,spacing=spacing,align="center")
+    tw=b[2]-b[0]; th=b[3]-b[1]
+    draw.multiline_text((x1+((x2-x1)-tw)/2,y1+((y2-y1)-th)/2),value,font=f,fill=fill,spacing=spacing,align="center")
 
+def _left(draw,box,text,size=18,bold=False,fill=TEXT,spacing=4):
+    x1,y1,x2,y2=box; value=str(text); f=_font(size,bold)
+    b=draw.multiline_textbbox((0,0),value,font=f,spacing=spacing); th=b[3]-b[1]
+    draw.multiline_text((x1+12,y1+max(8,((y2-y1)-th)/2)),value,font=f,fill=fill,spacing=spacing)
 
-def _center(draw, box, value, size=18, bold=False, fill=TEXT, spacing=4):
-    x1, y1, x2, y2 = box
-    value = str(value)
-    font = _font(size, bold)
+def _safe_reason(v):
+    t="" if v is None else str(v).strip()
+    return "NA" if t.upper() in {"","NA","NAN","NONE"} else t
 
-    bbox = draw.multiline_textbbox(
-        (0, 0),
-        value,
-        font=font,
-        spacing=spacing,
-        align="center",
-    )
+def _fmt_int(v):
+    return "—" if pd.isna(v) else f"{int(round(float(v))):,}"
 
-    tw = bbox[2] - bbox[0]
-    th = bbox[3] - bbox[1]
-
-    x = x1 + ((x2 - x1) - tw) / 2
-    y = y1 + ((y2 - y1) - th) / 2
-
-    draw.multiline_text(
-        (x, y),
-        value,
-        font=font,
-        fill=fill,
-        spacing=spacing,
-        align="center",
-    )
-
-
-def _left(draw, box, value, size=18, bold=False, fill=TEXT, spacing=5):
-    x1, y1, x2, y2 = box
-    value = str(value)
-    font = _font(size, bold)
-
-    bbox = draw.multiline_textbbox(
-        (0, 0),
-        value,
-        font=font,
-        spacing=spacing,
-    )
-
-    th = bbox[3] - bbox[1]
-    y = y1 + max(10, ((y2 - y1) - th) / 2)
-
-    draw.multiline_text(
-        (x1 + 14, y),
-        value,
-        font=font,
-        fill=fill,
-        spacing=spacing,
-    )
-
-
-def _safe_reason(value):
-    text = "" if value is None else str(value).strip()
-
-    if text.upper() in {"", "NA", "NAN", "NONE"}:
-        return "NA"
-
-    return text
-
-
-def _fmt_int(value):
-    if pd.isna(value):
-        return "—"
-
-    return f"{int(round(float(value))):,}"
-
-
-def _fmt_pct(value):
-    if pd.isna(value):
-        return "—"
-
-    return f"{float(value):.2f}%"
-
-
-# ============================================================
-# MACHINE SUMMARY
-# ============================================================
+def _fmt_pct(v):
+    return "—" if pd.isna(v) else f"{float(v):.2f}%"
 
 def _machine_bucket(row):
-    display_machine = str(row.get("Machine", "")).strip().upper()
-    calc_machine = str(row.get("Calc Machine", "")).strip().upper()
+    dm=str(row.get("Machine","")).upper().strip()
+    cm=str(row.get("Calc Machine","")).upper().strip()
+    if "PRESS-4" in dm or "PRESS 4" in dm: return "PRESS-4 / COL B"
+    if "CROMOMAN-C" in {dm,cm}: return "CROMO"
+    if "COLORMAN-A" in {dm,cm}: return "COL A"
+    if "COLORMAN-B" in {dm,cm}: return "COL B"
+    return dm or cm or "OTHER"
 
-    # Press-4 gets its own summary bucket and must not be counted in COL B.
-    if "PRESS-4" in display_machine or "PRESS 4" in display_machine:
-        return "PRESS-4 / COL B"
-
-    if calc_machine == "CROMOMAN-C" or display_machine == "CROMOMAN-C":
-        return "CROMO"
-
-    if calc_machine == "COLORMAN-A" or display_machine == "COLORMAN-A":
-        return "COL A"
-
-    if calc_machine == "COLORMAN-B" or display_machine == "COLORMAN-B":
-        return "COL B"
-
-    return display_machine or calc_machine or "OTHER"
-
-
-def _build_machine_summary(data):
-    work = data.copy()
-    work["_Summary Machine"] = work.apply(_machine_bucket, axis=1)
-
-    order = ["CROMO", "COL A", "COL B", "PRESS-4 / COL B"]
-    summary = []
-
+def _summary(data):
+    work=data.copy(); work["_bucket"]=work.apply(_machine_bucket,axis=1)
+    order=["CROMO","COL A","COL B","PRESS-4 / COL B"]; machines=[]
     for bucket in order:
-        group = work[work["_Summary Machine"] == bucket]
+        g=work[work["_bucket"]==bucket]
+        if g.empty: continue
+        po=pd.to_numeric(g["PO"],errors="coerce").fillna(0).sum()
+        pred=pd.to_numeric(g["Predicted Waste"],errors="coerce").sum(min_count=1)
+        act=pd.to_numeric(g["Actual Waste"],errors="coerce").fillna(0).sum()
+        machines.append({"name":bucket,"pred":round(pred/po*100,2) if po and pd.notna(pred) else None,"actual":round(act/po*100,2) if po else None})
+    po=pd.to_numeric(work["PO"],errors="coerce").fillna(0).sum()
+    pred=pd.to_numeric(work["Predicted Waste"],errors="coerce").sum(min_count=1)
+    act=pd.to_numeric(work["Actual Waste"],errors="coerce").fillna(0).sum()
+    return machines,{"pred":round(pred/po*100,2) if po and pd.notna(pred) else None,"actual":round(act/po*100,2) if po else None}
 
-        if group.empty:
-            continue
-
-        total_po = pd.to_numeric(group["PO"], errors="coerce").fillna(0).sum()
-        total_pred = pd.to_numeric(
-            group["Predicted Waste"], errors="coerce"
-        ).sum(min_count=1)
-        total_actual = pd.to_numeric(
-            group["Actual Waste"], errors="coerce"
-        ).fillna(0).sum()
-
-        summary.append(
-            {
-                "Label": bucket,
-                "Predicted %": (
-                    round(total_pred / total_po * 100, 2)
-                    if total_po and pd.notna(total_pred)
-                    else None
-                ),
-                "Actual %": (
-                    round(total_actual / total_po * 100, 2)
-                    if total_po
-                    else None
-                ),
-            }
-        )
-
-    total_po = pd.to_numeric(work["PO"], errors="coerce").fillna(0).sum()
-    total_pred = pd.to_numeric(
-        work["Predicted Waste"], errors="coerce"
-    ).sum(min_count=1)
-    total_actual = pd.to_numeric(
-        work["Actual Waste"], errors="coerce"
-    ).fillna(0).sum()
-
-    overall = {
-        "Predicted %": (
-            round(total_pred / total_po * 100, 2)
-            if total_po and pd.notna(total_pred)
-            else None
-        ),
-        "Actual %": (
-            round(total_actual / total_po * 100, 2)
-            if total_po
-            else None
-        ),
-    }
-
-    return summary, overall
-
-
-# ============================================================
-# DECORATIVE ICONS
-# ============================================================
-
-def _draw_status_icon(draw, center, good):
-    cx, cy = center
-    outline = "#16C98D" if good else "#FB7185"
-
-    draw.ellipse(
-        (cx - 34, cy - 34, cx + 34, cy + 34),
-        outline=outline,
-        width=5,
-    )
-
+def _status_icon(draw,cx,cy,good):
+    c="#22C58B" if good else "#FB7185"
+    draw.ellipse((cx-31,cy-31,cx+31,cy+31),outline=c,width=5)
     if good:
-        draw.line(
-            (cx - 16, cy, cx - 3, cy + 13),
-            fill=outline,
-            width=6,
-        )
-        draw.line(
-            (cx - 3, cy + 13, cx + 20, cy - 14),
-            fill=outline,
-            width=6,
-        )
+        draw.line((cx-15,cy,cx-4,cy+11),fill=c,width=6); draw.line((cx-4,cy+11,cx+18,cy-14),fill=c,width=6)
     else:
-        draw.line(
-            (cx - 15, cy - 15, cx + 15, cy + 15),
-            fill=outline,
-            width=5,
-        )
-        draw.line(
-            (cx + 15, cy - 15, cx - 15, cy + 15),
-            fill=outline,
-            width=5,
-        )
+        draw.line((cx-14,cy-14,cx+14,cy+14),fill=c,width=5); draw.line((cx+14,cy-14,cx-14,cy+14),fill=c,width=5)
 
-
-def _draw_summary_icon(draw, center, kind, color):
-    cx, cy = center
-
-    draw.ellipse(
-        (cx - 27, cy - 27, cx + 27, cy + 27),
-        fill="#F2F7FF" if kind == "pred" else "#EFFAF6",
-    )
-
-    if kind == "pred":
-        points = [
-            (0, -15),
-            (11, -11),
-            (15, 0),
-            (11, 11),
-            (0, 15),
-            (-11, 11),
-            (-15, 0),
-            (-11, -11),
-        ]
-
-        for dx, dy in points:
-            draw.ellipse(
-                (
-                    cx + dx - 3,
-                    cy + dy - 3,
-                    cx + dx + 3,
-                    cy + dy + 3,
-                ),
-                fill=color,
-            )
+def _summary_icon(draw,cx,cy,kind):
+    c=BLUE if kind=="pred" else GREEN; bg="#EFF6FF" if kind=="pred" else "#ECFDF5"
+    draw.ellipse((cx-24,cy-24,cx+24,cy+24),fill=bg)
+    if kind=="pred":
+        for dx,dy in [(0,-13),(9,-9),(13,0),(9,9),(0,13),(-9,9),(-13,0),(-9,-9)]:
+            draw.ellipse((cx+dx-3,cy+dy-3,cx+dx+3,cy+dy+3),fill=c)
     else:
-        polygon = [
-            (cx, cy - 17),
-            (cx - 13, cy + 5),
-            (cx - 9, cy + 15),
-            (cx, cy + 20),
-            (cx + 9, cy + 15),
-            (cx + 13, cy + 5),
-        ]
-        draw.polygon(polygon, fill=color)
-
-
-# ============================================================
-# FINAL MANAGEMENT PNG
-# ============================================================
-
-def generate_management_png(df, report_type):
-    data = finalize_calculations(df).reset_index(drop=True)
-    machine_summary, overall = _build_machine_summary(data)
-
-    width = 2048
-    margin = 38
-
-    header_h = 198
-    table_gap = 34
-
-    group_header_h = 56
-    sub_header_h = 54
-
-    columns = [
-        ("EDITION DATE", 150),
-        ("MACHINE", 185),
-        ("MACHINE\nIN-CHARGE", 205),
-        ("PUBLICATION", 135),
-        ("PO", 130),
-        ("PRED QTY", 130),
-        ("PRED %", 112),
-        ("ACT QTY", 130),
-        ("ACT %", 112),
-        ("EXTRA WASTE\n(Qty)", 125),
-        ("REASON FOR EXTRA WASTE", 568),
-    ]
-
-    widths = [item[1] for item in columns]
-
-    # Long reasons increase row height automatically.
-    row_heights = []
-    wrapped_reasons = []
-
-    for _, row in data.iterrows():
-        reason = _safe_reason(row.get("Reason for Extra Waste", "NA"))
-
-        lines = textwrap.wrap(
-            reason,
-            width=59,
-            break_long_words=False,
-            break_on_hyphens=False,
-        ) or ["NA"]
-
-        wrapped_reasons.append("\n".join(lines))
-
-        row_heights.append(
-            max(
-                92,
-                34 + len(lines) * 24,
-            )
-        )
-
-    summary_top_gap = 48
-    summary_h = 258
-    bottom_pad = 42
-
-    table_top = header_h + table_gap
-
-    height = (
-        table_top
-        + group_header_h
-        + sub_header_h
-        + sum(row_heights)
-        + summary_top_gap
-        + summary_h
-        + bottom_pad
-    )
-
-    image = Image.new(
-        "RGB",
-        (width, height),
-        WHITE,
-    )
-
-    draw = ImageDraw.Draw(image)
-
-    # ========================================================
-    # HEADER
-    # ========================================================
-
-    draw.rounded_rectangle(
-        (0, 0, width, header_h),
-        radius=28,
-        fill=NAVY,
-    )
-
-    _text(
-        draw,
-        (48, 56),
-        "PIQ",
-        58,
-        True,
-        WHITE,
-    )
-
-    _text(
-        draw,
-        (177, 79),
-        "PressIQ Analytics",
-        23,
-        True,
-        "#E2E8F0",
-    )
-
-    _text(
-        draw,
-        (width // 2, 54),
-        "Actual vs Predicted Waste Report",
-        43,
-        True,
-        WHITE,
-        "ma",
-    )
-
-    issue_date = "—"
-
-    if (
-        "Edition Date" in data.columns
-        and data["Edition Date"].notna().any()
-    ):
-        issue_date = pd.to_datetime(
-            data["Edition Date"].dropna().iloc[0]
-        ).strftime("%d %B %Y")
-
-    production_label = (
-        "MAIN SHIFT"
-        if str(report_type).strip().upper() == "MAIN"
-        else "SUPPLEMENT"
-    )
-
-    pill_w = 405
-    pill_h = 54
-    pill_x1 = width // 2 - pill_w // 2
-    pill_y1 = 112
-
-    draw.rounded_rectangle(
-        (
-            pill_x1,
-            pill_y1,
-            pill_x1 + pill_w,
-            pill_y1 + pill_h,
-        ),
-        radius=27,
-        fill="#0B2858",
-        outline="#315C95",
-        width=2,
-    )
-
-    _text(
-        draw,
-        (
-            width // 2,
-            pill_y1 + pill_h / 2,
-        ),
-        f"{production_label}    {issue_date}",
-        20,
-        True,
-        "#EAF2FF",
-        "mm",
-    )
-
-    predicted_total = overall["Predicted %"]
-    actual_total = overall["Actual %"]
-
-    within_target = (
-        predicted_total is not None
-        and actual_total is not None
-        and actual_total <= predicted_total
-    )
-
-    status = "WITHIN TARGET" if within_target else "ABOVE TARGET"
-    status_color = "#35D39A" if within_target else "#FB7185"
-
-    sx1 = width - 510
-    sy1 = 25
-    sx2 = width - 40
-    sy2 = 171
-
-    draw.rounded_rectangle(
-        (sx1, sy1, sx2, sy2),
-        radius=20,
-        fill="#071B40",
-        outline="#1B665B" if within_target else "#71334B",
-        width=2,
-    )
-
-    _draw_status_icon(
-        draw,
-        (sx1 + 73, sy1 + 74),
-        within_target,
-    )
-
-    _text(
-        draw,
-        (sx1 + 135, sy1 + 30),
-        "PERFORMANCE STATUS",
-        16,
-        True,
-        "#CBD5E1",
-    )
-
-    _text(
-        draw,
-        (sx1 + 135, sy1 + 65),
-        status,
-        28,
-        True,
-        status_color,
-    )
-
-    if predicted_total is not None and actual_total is not None:
-        comparison = "≤" if within_target else ">"
-
-        _text(
-            draw,
-            (sx1 + 135, sy1 + 112),
-            (
-                f"Actual {actual_total:.2f}% "
-                f"{comparison} Predicted {predicted_total:.2f}%"
-            ),
-            17,
-            False,
-            WHITE,
-        )
-
-    # ========================================================
-    # TABLE HEADER
-    # ========================================================
-
-    y = table_top
-
-    fixed_indexes = [0, 1, 2, 3, 4, 9, 10]
-
-    for index in fixed_indexes:
-        left = margin + sum(widths[:index])
-        col_w = widths[index]
-
-        draw.rectangle(
-            (
-                left,
-                y,
-                left + col_w,
-                y + group_header_h + sub_header_h,
-            ),
-            fill=NAVY_2,
-            outline="#496A98",
-            width=1,
-        )
-
-        _center(
-            draw,
-            (
-                left,
-                y,
-                left + col_w,
-                y + group_header_h + sub_header_h,
-            ),
-            columns[index][0],
-            15,
-            True,
-            WHITE,
-        )
-
-    pred_left = margin + sum(widths[:5])
-    pred_width = widths[5] + widths[6]
-
-    draw.rectangle(
-        (
-            pred_left,
-            y,
-            pred_left + pred_width,
-            y + group_header_h,
-        ),
-        fill=NAVY_2,
-        outline="#496A98",
-        width=1,
-    )
-
-    _text(
-        draw,
-        (
-            pred_left + pred_width / 2,
-            y + group_header_h / 2,
-        ),
-        "PREDICTED WASTE",
-        16,
-        True,
-        WHITE,
-        "mm",
-    )
-
-    actual_left = margin + sum(widths[:7])
-    actual_width = widths[7] + widths[8]
-
-    draw.rectangle(
-        (
-            actual_left,
-            y,
-            actual_left + actual_width,
-            y + group_header_h,
-        ),
-        fill=NAVY_2,
-        outline="#496A98",
-        width=1,
-    )
-
-    _text(
-        draw,
-        (
-            actual_left + actual_width / 2,
-            y + group_header_h / 2,
-        ),
-        "ACTUAL WASTE",
-        16,
-        True,
-        WHITE,
-        "mm",
-    )
-
-    for index, label in [
-        (5, "Qty"),
-        (6, "%"),
-        (7, "Qty"),
-        (8, "%"),
-    ]:
-        left = margin + sum(widths[:index])
-        col_w = widths[index]
-
-        draw.rectangle(
-            (
-                left,
-                y + group_header_h,
-                left + col_w,
-                y + group_header_h + sub_header_h,
-            ),
-            fill=NAVY_2,
-            outline="#496A98",
-            width=1,
-        )
-
-        _text(
-            draw,
-            (
-                left + col_w / 2,
-                y + group_header_h + sub_header_h / 2,
-            ),
-            label,
-            15,
-            True,
-            WHITE,
-            "mm",
-        )
-
-    y += group_header_h + sub_header_h
-
-    # ========================================================
-    # DATA ROWS
-    # ========================================================
-
-    for row_number, (_, row) in enumerate(data.iterrows()):
-        row_h = row_heights[row_number]
-        fill = WHITE if row_number % 2 == 0 else ALT
-
-        edition_date = (
-            pd.to_datetime(row["Edition Date"]).strftime("%d/%m/%Y")
-            if pd.notna(row["Edition Date"])
-            else "—"
-        )
-
-        values = [
-            edition_date,
-            row.get("Machine", "—"),
-            row.get("Machine In-charge", "—"),
-            row.get("Publication", "—"),
-            _fmt_int(row.get("PO")),
-            _fmt_int(row.get("Predicted Waste")),
-            _fmt_pct(row.get("Predicted %")),
-            _fmt_int(row.get("Actual Waste")),
-            _fmt_pct(row.get("Actual %")),
-            _fmt_int(row.get("Extra Waste")),
-            wrapped_reasons[row_number],
-        ]
-
-        x = margin
-
-        for column_index, ((_, col_w), value) in enumerate(
-            zip(columns, values)
-        ):
-            draw.rectangle(
-                (
-                    x,
-                    y,
-                    x + col_w,
-                    y + row_h,
-                ),
-                fill=fill,
-                outline=GRID,
-                width=1,
-            )
-
-            color = TEXT
-            bold = column_index in {5, 6, 7, 8, 9}
-
-            if column_index == 6:
-                color = BLUE_VALUE
-
-            if (
-                column_index == 8
-                and pd.notna(row.get("Predicted %"))
-                and pd.notna(row.get("Actual %"))
-                and float(row["Actual %"]) > float(row["Predicted %"])
-            ):
-                color = RED
-
-            if (
-                column_index == 9
-                and pd.notna(row.get("Extra Waste"))
-                and float(row["Extra Waste"]) > 0
-            ):
-                color = RED
-
-            if column_index == 10:
-                _left(
-                    draw,
-                    (
-                        x,
-                        y,
-                        x + col_w,
-                        y + row_h,
-                    ),
-                    value,
-                    15,
-                    False,
-                    TEXT,
-                )
-            else:
-                _center(
-                    draw,
-                    (
-                        x,
-                        y,
-                        x + col_w,
-                        y + row_h,
-                    ),
-                    value,
-                    15,
-                    bold,
-                    color,
-                )
-
-            x += col_w
-
-        y += row_h
-
-    # ========================================================
-    # PREDICTED / ACTUAL SUMMARY
-    # ========================================================
-
-    y += summary_top_gap
-
-    summary_gap = 28
-    summary_width = (
-        width
-        - 2 * margin
-        - summary_gap
-    ) // 2
-
-    def draw_summary(left, title, kind):
-        card_bottom = y + summary_h
-
-        draw.rounded_rectangle(
-            (
-                left,
-                y,
-                left + summary_width,
-                card_bottom,
-            ),
-            radius=20,
-            fill=WHITE,
-            outline=GRID,
-            width=2,
-        )
-
-        draw.rounded_rectangle(
-            (
-                left,
-                y,
-                left + summary_width,
-                y + 62,
-            ),
-            radius=20,
-            fill=NAVY_2,
-        )
-
-        draw.rectangle(
-            (
-                left,
-                y + 38,
-                left + summary_width,
-                y + 62,
-            ),
-            fill=NAVY_2,
-        )
-
-        _text(
-            draw,
-            (left + 28, y + 32),
-            title,
-            18,
-            True,
-            WHITE,
-            "lm",
-        )
-
-        total_card_w = 190
-        total_margin = 24
-        metrics_left = left + 20
-        metrics_right = left + summary_width - total_card_w - total_margin - 12
-        metrics_width = metrics_right - metrics_left
-
-        metric_count = len(machine_summary)
-        metric_width = metrics_width / max(metric_count, 1)
-
-        for index, machine in enumerate(machine_summary):
-            cx = (
-                metrics_left
-                + metric_width * index
-                + metric_width / 2
-            )
-
-            _draw_summary_icon(
-                draw,
-                (cx, y + 111),
-                kind,
-                BLUE_VALUE if kind == "pred" else GREEN_VALUE,
-            )
-
-            label = machine["Label"]
-
-            if label == "PRESS-4 / COL B":
-                label_text = "PRESS-4 /\nCOL B %"
-            else:
-                label_text = f"{label} %"
-
-            _center(
-                draw,
-                (
-                    cx - metric_width / 2,
-                    y + 142,
-                    cx + metric_width / 2,
-                    y + 188,
-                ),
-                label_text,
-                14,
-                True,
-                TEXT,
-            )
-
-            value = (
-                machine["Predicted %"]
-                if kind == "pred"
-                else machine["Actual %"]
-            )
-
-            _text(
-                draw,
-                (cx, y + 218),
-                "—" if value is None else f"{value:.2f}%",
-                27,
-                True,
-                BLUE_VALUE if kind == "pred" else GREEN_VALUE,
-                "ma",
-            )
-
-        total_x2 = left + summary_width - total_margin
-        total_x1 = total_x2 - total_card_w
-        total_y1 = y + 84
-        total_y2 = y + 232
-
-        draw.rounded_rectangle(
-            (
-                total_x1,
-                total_y1,
-                total_x2,
-                total_y2,
-            ),
-            radius=16,
-            fill=NAVY if kind == "pred" else "#075F46",
-        )
-
-        _text(
-            draw,
-            (
-                (total_x1 + total_x2) / 2,
-                total_y1 + 38,
-            ),
-            "TOTAL PREDICT" if kind == "pred" else "TOTAL ACTUAL",
-            14,
-            True,
-            WHITE,
-            "ma",
-        )
-
-        total_value = (
-            overall["Predicted %"]
-            if kind == "pred"
-            else overall["Actual %"]
-        )
-
-        _text(
-            draw,
-            (
-                (total_x1 + total_x2) / 2,
-                total_y1 + 98,
-            ),
-            "—" if total_value is None else f"{total_value:.2f}%",
-            34,
-            True,
-            WHITE,
-            "ma",
-        )
-
-    draw_summary(
-        margin,
-        "PREDICTED SUMMARY",
-        "pred",
-    )
-
-    draw_summary(
-        margin + summary_width + summary_gap,
-        "ACTUAL SUMMARY",
-        "act",
-    )
-
-    output = BytesIO()
-
-    image.save(
-        output,
-        format="PNG",
-        optimize=True,
-    )
-
-    return output.getvalue()
+        draw.polygon([(cx,cy-16),(cx-11,cy+4),(cx-7,cy+13),(cx,cy+17),(cx+7,cy+13),(cx+11,cy+4)],fill=c)
+
+def generate_management_png(df,report_type):
+    data=finalize_calculations(df).reset_index(drop=True); machines,overall=_summary(data)
+    W=1650; M=28; HEADER_H=170; TABLE_GAP=28; GROUP_H=44; SUB_H=42
+    columns=[("EDITION DATE",120),("MACHINE",135),("MACHINE\nIN-CHARGE",155),("PUBLICATION",105),("PO",95),("PRED QTY",95),("PRED %",85),("ACT QTY",95),("ACT %",85),("EXTRA\nWASTE",90),("REASON FOR EXTRA WASTE",537)]
+    widths=[w for _,w in columns]
+    wrapped=[]; heights=[]
+    for _,r in data.iterrows():
+        reason=_safe_reason(r.get("Reason for Extra Waste","NA"))
+        lines=textwrap.wrap(reason,width=58,break_long_words=False,break_on_hyphens=False) or ["NA"]
+        wrapped.append("\n".join(lines)); heights.append(72 if len(lines)==1 else max(82,28+len(lines)*22))
+    SUMMARY_GAP=34; SUMMARY_H=215; BOTTOM=34; table_top=HEADER_H+TABLE_GAP
+    H=table_top+GROUP_H+SUB_H+sum(heights)+SUMMARY_GAP+SUMMARY_H+BOTTOM
+    im=Image.new("RGB",(W,H),WHITE); dr=ImageDraw.Draw(im)
+    dr.rounded_rectangle((0,0,W,HEADER_H),radius=24,fill=NAVY)
+    _txt(dr,(38,48),"PIQ",48,True,WHITE); _txt(dr,(140,68),"PressIQ Analytics",19,True,"#E2E8F0")
+    _txt(dr,(W//2,47),"Actual vs Predicted Waste Report",35,True,WHITE,"ma")
+    date="—"
+    if "Edition Date" in data and data["Edition Date"].notna().any(): date=pd.to_datetime(data["Edition Date"].dropna().iloc[0]).strftime("%d %B %Y")
+    label="MAIN SHIFT" if str(report_type).upper().strip()=="MAIN" else "SUPPLEMENT"
+    pill_w=320; pill_h=44; px=W//2-pill_w//2; py=102
+    dr.rounded_rectangle((px,py,px+pill_w,py+pill_h),radius=22,fill="#0B2858",outline="#315C95",width=2)
+    _txt(dr,(W//2,py+pill_h/2),f"{label}    {date}",16,True,"#EAF2FF","mm")
+    pred_total=overall["pred"]; actual_total=overall["actual"]; good=pred_total is not None and actual_total is not None and actual_total<=pred_total
+    status="WITHIN TARGET" if good else "ABOVE TARGET"; status_color="#34D399" if good else "#FB7185"
+    sx1=W-385; sy1=17; sx2=W-24; sy2=150
+    dr.rounded_rectangle((sx1,sy1,sx2,sy2),radius=18,fill="#071B40",outline="#1E665C" if good else "#76334B",width=2)
+    _status_icon(dr,sx1+57,sy1+66,good)
+    _txt(dr,(sx1+110,sy1+25),"PERFORMANCE STATUS",13,True,"#CBD5E1"); _txt(dr,(sx1+110,sy1+55),status,22,True,status_color)
+    if pred_total is not None and actual_total is not None:
+        symbol="≤" if good else ">"
+        _txt(dr,(sx1+110,sy1+98),f"Actual {actual_total:.2f}% {symbol} Predicted {pred_total:.2f}%",14,False,WHITE)
+    y=table_top
+    for idx in [0,1,2,3,4,9,10]:
+        left=M+sum(widths[:idx]); w=widths[idx]
+        dr.rectangle((left,y,left+w,y+GROUP_H+SUB_H),fill=NAVY2,outline="#496A98",width=1)
+        _center(dr,(left,y,left+w,y+GROUP_H+SUB_H),columns[idx][0],13,True,WHITE)
+    pred_left=M+sum(widths[:5]); pred_w=widths[5]+widths[6]
+    dr.rectangle((pred_left,y,pred_left+pred_w,y+GROUP_H),fill=NAVY2,outline="#496A98",width=1); _txt(dr,(pred_left+pred_w/2,y+GROUP_H/2),"PREDICTED WASTE",13,True,WHITE,"mm")
+    act_left=M+sum(widths[:7]); act_w=widths[7]+widths[8]
+    dr.rectangle((act_left,y,act_left+act_w,y+GROUP_H),fill=NAVY2,outline="#496A98",width=1); _txt(dr,(act_left+act_w/2,y+GROUP_H/2),"ACTUAL WASTE",13,True,WHITE,"mm")
+    for idx,label2 in [(5,"Qty"),(6,"%"),(7,"Qty"),(8,"%")]:
+        left=M+sum(widths[:idx]); w=widths[idx]
+        dr.rectangle((left,y+GROUP_H,left+w,y+GROUP_H+SUB_H),fill=NAVY2,outline="#496A98",width=1); _txt(dr,(left+w/2,y+GROUP_H+SUB_H/2),label2,13,True,WHITE,"mm")
+    y+=GROUP_H+SUB_H
+    for i,(_,r) in enumerate(data.iterrows()):
+        row_h=heights[i]; fill=WHITE if i%2==0 else ALT
+        edition_date=pd.to_datetime(r["Edition Date"]).strftime("%d/%m/%Y") if pd.notna(r["Edition Date"]) else "—"
+        values=[edition_date,r.get("Machine","—"),r.get("Machine In-charge","—"),r.get("Publication","—"),_fmt_int(r.get("PO")),_fmt_int(r.get("Predicted Waste")),_fmt_pct(r.get("Predicted %")),_fmt_int(r.get("Actual Waste")),_fmt_pct(r.get("Actual %")),_fmt_int(r.get("Extra Waste")),wrapped[i]]
+        x=M
+        for j,((_,w),value) in enumerate(zip(columns,values)):
+            dr.rectangle((x,y,x+w,y+row_h),fill=fill,outline=GRID,width=1)
+            color=TEXT; bold=j in {5,6,7,8,9}
+            if j==6: color=BLUE
+            if j==8 and pd.notna(r.get("Predicted %")) and pd.notna(r.get("Actual %")) and float(r["Actual %"])>float(r["Predicted %"]): color=RED
+            if j==9 and pd.notna(r.get("Extra Waste")) and float(r["Extra Waste"])>0: color=RED
+            if j==10: _left(dr,(x,y,x+w,y+row_h),value,13,False,TEXT)
+            else: _center(dr,(x,y,x+w,y+row_h),value,13,bold,color)
+            x+=w
+        y+=row_h
+    y+=SUMMARY_GAP; gap=24; card_w=(W-2*M-gap)//2
+    def draw_summary(left,title,kind):
+        bottom=y+SUMMARY_H
+        dr.rounded_rectangle((left,y,left+card_w,bottom),radius=18,fill=WHITE,outline=GRID,width=2)
+        dr.rounded_rectangle((left,y,left+card_w,y+50),radius=18,fill=NAVY2); dr.rectangle((left,y+31,left+card_w,y+50),fill=NAVY2)
+        _txt(dr,(left+22,y+25),title,15,True,WHITE,"lm")
+        total_w=155; total_right=left+card_w-20; total_left=total_right-total_w
+        metrics_left=left+12; metrics_right=total_left-14; metrics_w=metrics_right-metrics_left
+        count=max(1,len(machines)); each=metrics_w/count
+        for idx,m in enumerate(machines):
+            cx=metrics_left+each*idx+each/2; _summary_icon(dr,cx,y+91,kind)
+            name=m["name"]; label3="PRESS-4 /\nCOL B %" if name=="PRESS-4 / COL B" else f"{name} %"
+            _center(dr,(cx-each/2,y+119,cx+each/2,y+159),label3,12,True,TEXT)
+            val=m["pred"] if kind=="pred" else m["actual"]
+            _txt(dr,(cx,y+185),"—" if val is None else f"{val:.2f}%",21,True,BLUE if kind=="pred" else GREEN,"ma")
+        total_top=y+72; total_bottom=y+193
+        dr.rounded_rectangle((total_left,total_top,total_right,total_bottom),radius=14,fill=NAVY if kind=="pred" else "#075F46")
+        _txt(dr,((total_left+total_right)/2,total_top+31),"TOTAL PREDICT" if kind=="pred" else "TOTAL ACTUAL",11,True,WHITE,"ma")
+        total_val=overall["pred"] if kind=="pred" else overall["actual"]
+        _txt(dr,((total_left+total_right)/2,total_top+80),"—" if total_val is None else f"{total_val:.2f}%",28,True,WHITE,"ma")
+    draw_summary(M,"PREDICTED SUMMARY","pred"); draw_summary(M+card_w+gap,"ACTUAL SUMMARY","actual")
+    out=BytesIO(); im.save(out,format="PNG",optimize=True); return out.getvalue()
