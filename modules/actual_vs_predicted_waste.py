@@ -346,7 +346,7 @@ def _review():
     if missing_manual:
         st.markdown('<div class="avp-note">Complete all manual predicted-waste exception rows before generating the final report.</div>', unsafe_allow_html=True)
     elif missing_reason_count > 0:
-        st.markdown(f'<div class="avp-warning-soft">{missing_reason_count} extra-waste edition(s) currently have no reason. This does not block Final Report generation.</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="avp-warning-soft">{missing_reason_count} extra-waste edition(s) currently have no reason.</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="avp-ready">Working table is ready for the management report.</div>', unsafe_allow_html=True)
 
