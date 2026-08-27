@@ -104,7 +104,7 @@ button[role="tab"] {
 """, unsafe_allow_html=True)
 
 # ---------------- LOGIN ----------------
-COMMON_PASSWORD = "BCCL123"
+COMMON_PASSWORD = "BCCL"
 
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
