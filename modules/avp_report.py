@@ -1,4 +1,5 @@
 from io import BytesIO
+import html
 import pandas as pd
 from PIL import Image
 from modules.avp_engine import finalize_calculations
@@ -26,57 +27,35 @@ def _fmt_pct(value):
     return f"{float(value):.2f}%"
 
 
-def _machine_bucket(row):
-    display_machine = str(row.get("Machine", "")).upper().strip()
-    calc_machine = str(row.get("Calc Machine", "")).upper().strip()
-
-    if "PRESS-4" in display_machine or "PRESS 4" in display_machine:
-        return "PRESS-4 / COL B"
-    if display_machine == "CROMOMAN-C" or calc_machine == "CROMOMAN-C":
-        return "CROMO"
-    if display_machine == "COLORMAN-A" or calc_machine == "COLORMAN-A":
-        return "COL A"
-    if display_machine == "COLORMAN-B" or calc_machine == "COLORMAN-B":
-        return "COL B"
-
-    return display_machine or calc_machine or "OTHER"
-
-
 def _build_summary(data):
     work = data.copy()
-    work["_summary_machine"] = work.apply(_machine_bucket, axis=1)
+    work['_press'] = work['Machine'].astype(str).str.upper().str.strip()
 
-    order = ["CROMO", "COL A", "COL B", "PRESS-4 / COL B"]
+    order = ['PRESS 1', 'PRESS 3', 'PRESS 4', 'PRESS 5']
     machines = []
 
-    for name in order:
-        group = work[work["_summary_machine"] == name]
+    for press in order:
+        group = work[work['_press'] == press]
         if group.empty:
             continue
 
-        po = pd.to_numeric(group["PO"], errors="coerce").fillna(0).sum()
-        pred = pd.to_numeric(group["Predicted Waste"], errors="coerce").sum(min_count=1)
-        act = pd.to_numeric(group["Actual Waste"], errors="coerce").fillna(0).sum()
+        po = pd.to_numeric(group['PO'], errors='coerce').fillna(0).sum()
+        pred = pd.to_numeric(group['Predicted Waste'], errors='coerce').sum(min_count=1)
+        act = pd.to_numeric(group['Actual Waste'], errors='coerce').fillna(0).sum()
 
-        machines.append(
-            {
-                "name": name,
-                "predicted": round(pred / po * 100, 2) if po and pd.notna(pred) else None,
-                "actual": round(act / po * 100, 2) if po else None,
-            }
-        )
+        machines.append({
+            'name': press.title(),
+            'predicted': round(pred / po * 100, 2) if po and pd.notna(pred) else None,
+            'actual': round(act / po * 100, 2) if po else None,
+        })
 
-    total_po = pd.to_numeric(work["PO"], errors="coerce").fillna(0).sum()
-    total_pred = pd.to_numeric(work["Predicted Waste"], errors="coerce").sum(min_count=1)
-    total_act = pd.to_numeric(work["Actual Waste"], errors="coerce").fillna(0).sum()
+    total_po = pd.to_numeric(work['PO'], errors='coerce').fillna(0).sum()
+    total_pred = pd.to_numeric(work['Predicted Waste'], errors='coerce').sum(min_count=1)
+    total_act = pd.to_numeric(work['Actual Waste'], errors='coerce').fillna(0).sum()
 
     overall = {
-        "predicted": round(total_pred / total_po * 100, 2)
-        if total_po and pd.notna(total_pred)
-        else None,
-        "actual": round(total_act / total_po * 100, 2)
-        if total_po
-        else None,
+        'predicted': round(total_pred / total_po * 100, 2) if total_po and pd.notna(total_pred) else None,
+        'actual': round(total_act / total_po * 100, 2) if total_po else None,
     }
 
     return machines, overall
@@ -89,31 +68,50 @@ def _render_html(data, report_type):
     if "Edition Date" in data.columns and data["Edition Date"].notna().any():
         issue_date = pd.to_datetime(data["Edition Date"].dropna().iloc[0]).strftime("%d %B %Y")
 
-    shift = "MAIN SHIFT" if str(report_type).strip().upper() == "MAIN" else "SUPPLEMENT"
+    shift = "NIGHT SHIFT" if str(report_type).strip().upper() == "MAIN" else "SUPPLEMENT"
 
     rows = []
     for _, r in data.iterrows():
         pred_pct = r.get("Predicted %")
         act_pct = r.get("Actual %")
+        pred_qty = r.get("Predicted Waste")
+        act_qty = r.get("Actual Waste")
         extra = r.get("Extra Waste")
 
-        act_class = "bad" if pd.notna(pred_pct) and pd.notna(act_pct) and float(act_pct) > float(pred_pct) else ""
-        extra_class = "bad" if pd.notna(extra) and float(extra) > 0 else ""
+        if pd.notna(pred_pct) and pd.notna(act_pct):
+            if float(act_pct) > float(pred_pct):
+                act_class = "bad"
+            elif float(act_pct) < float(pred_pct):
+                act_class = "good"
+            else:
+                act_class = ""
+        else:
+            act_class = ""
+
+        if pd.notna(pred_qty) and pd.notna(act_qty):
+            if float(act_qty) > float(pred_qty):
+                extra_class = "bad"
+            elif float(act_qty) < float(pred_qty):
+                extra_class = "good"
+            else:
+                extra_class = ""
+        else:
+            extra_class = ""
 
         rows.append(
             f"""
             <tr>
                 <td>{pd.to_datetime(r['Edition Date']).strftime('%d/%m/%Y') if pd.notna(r['Edition Date']) else '—'}</td>
-                <td>{r.get('Machine','—')}</td>
-                <td>{r.get('Machine In-charge','—')}</td>
-                <td>{r.get('Publication','—')}</td>
+                <td>{html.escape(str(r.get('Machine','—')))}</td>
+                <td>{html.escape(str(r.get('Machine In-charge','—')))}</td>
+                <td>{html.escape(str(r.get('Publication','—')))}</td>
                 <td>{_fmt_int(r.get('PO'))}</td>
                 <td>{_fmt_int(r.get('Predicted Waste'))}</td>
                 <td class="pred">{_fmt_pct(r.get('Predicted %'))}</td>
                 <td>{_fmt_int(r.get('Actual Waste'))}</td>
                 <td class="{act_class}">{_fmt_pct(r.get('Actual %'))}</td>
                 <td class="{extra_class}">{_fmt_int(r.get('Extra Waste'))}</td>
-                <td class="reason">{_safe_reason(r.get('Reason for Extra Waste','NA'))}</td>
+                <td class="reason">{html.escape(_safe_reason(r.get('Reason for Extra Waste','NA')))}</td>
             </tr>
             """
         )
@@ -122,7 +120,7 @@ def _render_html(data, report_type):
     act_metrics = []
 
     for m in machines:
-        label = "PRESS-4 / COL B %" if m["name"] == "PRESS-4 / COL B" else f"{m['name']} %"
+        label = f"{m['name']} %"
         pred_metrics.append(
             f"""
             <div class="metric">
@@ -247,6 +245,10 @@ def _render_html(data, report_type):
           color: #e53935;
           font-weight: 800;
         }}
+        .good {{
+          color: #087a57;
+          font-weight: 800;
+        }}
         .summary-grid {{
           display: grid;
           grid-template-columns: 1fr 1fr;
@@ -268,7 +270,7 @@ def _render_html(data, report_type):
         }}
         .summary-body {{
           display: grid;
-          grid-template-columns: 1fr 1fr 1fr 1fr 170px;
+          grid-template-columns: repeat({max(len(machines), 1)}, 1fr) 170px;
           align-items: stretch;
           min-height: 150px;
         }}
@@ -359,7 +361,7 @@ def _render_html(data, report_type):
             <thead>
               <tr>
                 <th rowspan="2">EDITION DATE</th>
-                <th rowspan="2">MACHINE</th>
+                <th rowspan="2">PRESS</th>
                 <th rowspan="2">MACHINE<br>IN-CHARGE</th>
                 <th rowspan="2">PUBLICATION</th>
                 <th rowspan="2">PO</th>
@@ -423,15 +425,25 @@ def generate_management_png(df, report_type):
     html = _render_html(data, report_type)
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            executable_path="/usr/bin/chromium",
-            args=[
-                "--no-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-gpu",
-            ],
-        )
+        try:
+            browser = p.chromium.launch(
+                headless=True,
+                executable_path="/usr/bin/chromium",
+                args=[
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                ],
+            )
+        except Exception:
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                ],
+            )
 
         page = browser.new_page(
             viewport={
