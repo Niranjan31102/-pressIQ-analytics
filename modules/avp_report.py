@@ -1,5 +1,5 @@
 from io import BytesIO
-import html
+import html as html_lib
 import pandas as pd
 from PIL import Image
 from modules.avp_engine import finalize_calculations
@@ -102,16 +102,16 @@ def _render_html(data, report_type):
             f"""
             <tr>
                 <td>{pd.to_datetime(r['Edition Date']).strftime('%d/%m/%Y') if pd.notna(r['Edition Date']) else '—'}</td>
-                <td>{html.escape(str(r.get('Machine','—')))}</td>
-                <td>{html.escape(str(r.get('Machine In-charge','—')))}</td>
-                <td>{html.escape(str(r.get('Publication','—')))}</td>
+                <td>{html_lib.escape(str(r.get('Machine','—')))}</td>
+                <td>{html_lib.escape(str(r.get('Machine In-charge','—')))}</td>
+                <td>{html_lib.escape(str(r.get('Publication','—')))}</td>
                 <td>{_fmt_int(r.get('PO'))}</td>
                 <td>{_fmt_int(r.get('Predicted Waste'))}</td>
                 <td class="pred">{_fmt_pct(r.get('Predicted %'))}</td>
                 <td>{_fmt_int(r.get('Actual Waste'))}</td>
                 <td class="{act_class}">{_fmt_pct(r.get('Actual %'))}</td>
                 <td class="{extra_class}">{_fmt_int(r.get('Extra Waste'))}</td>
-                <td class="reason">{html.escape(_safe_reason(r.get('Reason for Extra Waste','NA')))}</td>
+                <td class="reason">{html_lib.escape(_safe_reason(r.get('Reason for Extra Waste','NA')))}</td>
             </tr>
             """
         )
@@ -138,7 +138,7 @@ def _render_html(data, report_type):
             """
         )
 
-    html = f"""
+    html_doc = f"""
     <!DOCTYPE html>
     <html>
     <head>
@@ -411,7 +411,7 @@ def _render_html(data, report_type):
     </html>
     """
 
-    return html
+    return html_doc
 
 
 def generate_management_png(df, report_type):
