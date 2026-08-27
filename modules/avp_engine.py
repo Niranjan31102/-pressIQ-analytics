@@ -93,7 +93,26 @@ def _base_prediction(rules, machine, pages, uv, production_type):
     return int(round(num(hit.iloc[0]['Base Prediction (Copies)'], 0)))
 
 def _best_innovation_rule(rule_df, reported_innovation, uv):
-    """Match flexible shop-floor innovation wording to the most specific backend rule."""
+    """Flexible innovation matching for changing shop-floor wording.
+
+    Examples:
+      Backend: French Window
+      Report : French Window GNP (With SNP center)
+      -> MATCH
+
+      Backend: HD French Window
+      Report : French Window GNP (With SNP center)
+      -> FALLBACK MATCH on the stable phrase FRENCH WINDOW
+
+      Backend: HD French Window
+      Report : HD French Window GNP
+      -> EXACT/MORE-SPECIFIC MATCH
+
+    The engine first prefers the full backend phrase. If that is not present,
+    it allows a fallback after removing known descriptive prefixes such as HD.
+    This keeps the stable innovation name usable even when operators add or
+    omit descriptive wording.
+    """
     if rule_df.empty:
         return None
 
@@ -104,6 +123,10 @@ def _best_innovation_rule(rule_df, reported_innovation, uv):
     wanted_uv = normalize_yes_no(uv)
     candidates = []
 
+    # Descriptors that may be added/omitted by users without changing the
+    # underlying innovation identity.
+    optional_descriptors = {"HD"}
+
     for idx, rule in rule_df.iterrows():
         if normalize_yes_no(rule['UV (Yes/No)']) != wanted_uv:
             continue
@@ -113,19 +136,31 @@ def _best_innovation_rule(rule_df, reported_innovation, uv):
         if not parameter_tokens:
             continue
 
-        # Example: backend "French Window" matches
-        # "French Window GNP (With SNP center)".
-        # A more specific rule such as "HD French Window" only matches
-        # when HD is also present in the production-report wording.
-        if parameter_tokens.issubset(report_tokens):
-            candidates.append((len(parameter_tokens), len(norm(parameter)), idx))
+        # 1) Full phrase match gets highest priority.
+        full_match = parameter_tokens.issubset(report_tokens)
+
+        # 2) Stable/core phrase fallback. Example:
+        #    HD FRENCH WINDOW -> FRENCH WINDOW
+        core_tokens = parameter_tokens - optional_descriptors
+        core_match = len(core_tokens) >= 2 and core_tokens.issubset(report_tokens)
+
+        if not (full_match or core_match):
+            continue
+
+        # Exact/full phrase outranks fallback. Within the same class,
+        # the more specific rule wins.
+        candidates.append((
+            1 if full_match else 0,
+            len(parameter_tokens) if full_match else len(core_tokens),
+            len(norm(parameter)),
+            idx,
+        ))
 
     if not candidates:
         return None
 
     candidates.sort(reverse=True)
-    return rule_df.loc[candidates[0][2]]
-
+    return rule_df.loc[candidates[0][3]]
 
 def _innovation_addition(rules, innovations, uv):
     df = rules.get('innovation', pd.DataFrame())
