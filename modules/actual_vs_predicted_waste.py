@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from ui_theme import module_hero
-from modules.avp_engine import process_report, finalize_calculations
+from modules.avp_engine import process_report, finalize_calculations, parse_report_date_series
 from modules.avp_report import generate_management_png
 
 
@@ -102,7 +102,7 @@ def _steps():
 
 
 def _summary_cards(df):
-    dates = pd.to_datetime(df["Edition Date"], errors="coerce").dropna()
+    dates = parse_report_date_series(df["Edition Date"]).dropna()
     issue_date = dates.iloc[0].strftime("%d %b %Y") if not dates.empty else "—"
     main_count = int((df["_type"] == "MAIN").sum()) if "_type" in df else 0
     supplement_count = int((df["_type"] == "SUPPLEMENT").sum()) if "_type" in df else 0
@@ -214,7 +214,7 @@ def _upload():
 
 def _display_working_table(calc):
     display = calc.copy()
-    display["Edition Date"] = pd.to_datetime(display["Edition Date"], errors="coerce").dt.strftime("%d/%m/%Y").fillna("—")
+    display["Edition Date"] = parse_report_date_series(display["Edition Date"]).dt.strftime("%d/%m/%Y").fillna("—")
     reason_added = display["Reason for Extra Waste"].apply(_has_reason)
     display["Reason"] = "NA"
     display.loc[(display["Extra Waste"].fillna(0) > 0) & ~reason_added, "Reason"] = "Add Reason"
@@ -346,7 +346,7 @@ def _review():
     if missing_manual:
         st.markdown('<div class="avp-note">Complete all manual predicted-waste exception rows before generating the final report.</div>', unsafe_allow_html=True)
     elif missing_reason_count > 0:
-        st.markdown(f'<div class="avp-warning-soft">{missing_reason_count} extra-waste edition(s) currently have no reason.</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="avp-warning-soft">{missing_reason_count} extra-waste edition(s) currently have no reason. This does not block Final Report generation.</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="avp-ready">Working table is ready for the management report.</div>', unsafe_allow_html=True)
 
