@@ -23,6 +23,58 @@ def num(value, default=0.0):
 def normalize_yes_no(value):
     return 'YES' if norm(value) in {'YES','Y','1','TRUE','UV'} else 'NO'
 
+
+def parse_report_date(value):
+    """
+    Parse PressIQ production-report dates safely.
+
+    Core production reports use day-first dates such as 02-09-2026.
+    Other sheets may use ISO dates such as 2026-09-02.
+    This function explicitly handles both formats so pandas never
+    interprets 02-09-2026 as 09 February 2026.
+    """
+    if value is None or pd.isna(value):
+        return pd.NaT
+
+    if isinstance(value, pd.Timestamp):
+        return value
+
+    # Python datetime/date objects are handled directly by pandas.
+    if hasattr(value, 'year') and hasattr(value, 'month') and hasattr(value, 'day'):
+        try:
+            return pd.Timestamp(value)
+        except Exception:
+            pass
+
+    text = str(value).strip()
+    if not text:
+        return pd.NaT
+
+    formats = [
+        '%d-%m-%Y',
+        '%d/%m/%Y',
+        '%d-%m-%Y %H:%M:%S',
+        '%d/%m/%Y %H:%M:%S',
+        '%Y-%m-%d',
+        '%Y/%m/%d',
+        '%Y-%m-%d %H:%M:%S',
+        '%Y/%m/%d %H:%M:%S',
+    ]
+
+    for fmt in formats:
+        try:
+            return pd.Timestamp(pd.to_datetime(text, format=fmt, errors='raise'))
+        except Exception:
+            continue
+
+    # Last fallback remains day-first because the General sheet's
+    # established convention is DD-MM-YYYY.
+    return pd.to_datetime(text, dayfirst=True, errors='coerce')
+
+
+def parse_report_date_series(series):
+    return series.map(parse_report_date)
+
 def _tokens(value):
     return {token for token in re.findall(r'[A-Z0-9]+', norm(value)) if token}
 
@@ -266,7 +318,7 @@ def process_report(uploaded_file):
         out.append({
             'Row ID': str(index),
             'RunID': run_id,
-            'Edition Date': pd.to_datetime(row.get(c_date), errors='coerce'),
+            'Edition Date': parse_report_date(row.get(c_date)),
             'Report Type': report_type.title(),
             'Machine': display_machine,
             'Calc Machine': machine,
