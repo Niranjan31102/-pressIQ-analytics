@@ -101,7 +101,7 @@ def _render_html(data, report_type):
         rows.append(
             f"""
             <tr>
-                <td>{pd.to_datetime(r['Edition Date']).strftime('%M/%D/%Y') if pd.notna(r['Edition Date']) else '—'}</td>
+                <td>{pd.to_datetime(r['Edition Date']).strftime('%D/%M/%Y') if pd.notna(r['Edition Date']) else '—'}</td>
                 <td>{html_lib.escape(str(r.get('Machine','—')))}</td>
                 <td>{html_lib.escape(str(r.get('Machine In-charge','—')))}</td>
                 <td>{html_lib.escape(str(r.get('Publication','—')))}</td>
