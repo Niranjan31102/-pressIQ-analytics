@@ -1,6 +1,4 @@
 from io import BytesIO
-import textwrap
-
 import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 
@@ -8,14 +6,14 @@ from modules.avp_engine import finalize_calculations
 
 
 # ============================================================
-# EMERGENCY STABLE PNG RENDERER
+# PRESSIQ EMERGENCY LARGE-TEXT PNG
 # No Playwright / Chromium required.
-# Designed for Streamlit Cloud when packages.txt is disabled.
+# Designed to visually resemble the previous HTML report.
 # ============================================================
 
 NAVY = "#061A3F"
 NAVY2 = "#0B2F63"
-BLUE = "#1565D8"
+BLUE = "#1769E0"
 GREEN = "#087A57"
 RED = "#E53935"
 TEXT = "#0F172A"
@@ -33,17 +31,15 @@ def _font(size, bold=False):
         if bold else
         "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
     ]
-
     for path in candidates:
         try:
             return ImageFont.truetype(path, size)
         except Exception:
             pass
-
     return ImageFont.load_default()
 
 
-def _center(draw, box, value, size=16, bold=False, fill=TEXT, spacing=4):
+def _center(draw, box, value, size=18, bold=False, fill=TEXT, spacing=4):
     x1, y1, x2, y2 = box
     text = str(value)
     font = _font(size, bold)
@@ -72,7 +68,7 @@ def _center(draw, box, value, size=16, bold=False, fill=TEXT, spacing=4):
     )
 
 
-def _left(draw, box, value, size=15, bold=False, fill=TEXT, spacing=4):
+def _left(draw, box, value, size=18, bold=False, fill=TEXT, spacing=5):
     x1, y1, x2, y2 = box
     text = str(value)
     font = _font(size, bold)
@@ -83,7 +79,6 @@ def _left(draw, box, value, size=15, bold=False, fill=TEXT, spacing=4):
         font=font,
         spacing=spacing,
     )
-
     th = bbox[3] - bbox[1]
 
     draw.multiline_text(
@@ -100,11 +95,7 @@ def _left(draw, box, value, size=15, bold=False, fill=TEXT, spacing=4):
 
 def _safe_reason(value):
     text = "" if value is None else str(value).strip()
-
-    if text.upper() in {"", "NA", "NAN", "NONE"}:
-        return "NA"
-
-    return text
+    return "NA" if text.upper() in {"", "NA", "NAN", "NONE"} else text
 
 
 def _fmt_int(value):
@@ -142,10 +133,6 @@ def _wrap_by_pixels(draw, text, max_width, font):
 
 
 def _build_summary(data):
-    """
-    Machine column currently contains plant-head press names:
-    Press 1 / Press 3 / Press 4 / Press 5.
-    """
     work = data.copy()
     work["_press"] = work["Machine"].astype(str).str.upper().str.strip()
 
@@ -154,108 +141,78 @@ def _build_summary(data):
 
     for press in press_order:
         group = work[work["_press"] == press]
-
         if group.empty:
             continue
 
         po = pd.to_numeric(group["PO"], errors="coerce").fillna(0).sum()
-        pred = pd.to_numeric(
-            group["Predicted Waste"],
-            errors="coerce",
-        ).sum(min_count=1)
-        actual = pd.to_numeric(
-            group["Actual Waste"],
-            errors="coerce",
-        ).fillna(0).sum()
+        pred = pd.to_numeric(group["Predicted Waste"], errors="coerce").sum(min_count=1)
+        actual = pd.to_numeric(group["Actual Waste"], errors="coerce").fillna(0).sum()
 
         result.append(
             {
                 "name": press.title(),
                 "predicted": round(pred / po * 100, 2)
-                if po and pd.notna(pred)
-                else None,
+                if po and pd.notna(pred) else None,
                 "actual": round(actual / po * 100, 2)
-                if po
-                else None,
+                if po else None,
             }
         )
 
     total_po = pd.to_numeric(work["PO"], errors="coerce").fillna(0).sum()
-    total_pred = pd.to_numeric(
-        work["Predicted Waste"],
-        errors="coerce",
-    ).sum(min_count=1)
-    total_actual = pd.to_numeric(
-        work["Actual Waste"],
-        errors="coerce",
-    ).fillna(0).sum()
+    total_pred = pd.to_numeric(work["Predicted Waste"], errors="coerce").sum(min_count=1)
+    total_actual = pd.to_numeric(work["Actual Waste"], errors="coerce").fillna(0).sum()
 
     overall = {
         "predicted": round(total_pred / total_po * 100, 2)
-        if total_po and pd.notna(total_pred)
-        else None,
+        if total_po and pd.notna(total_pred) else None,
         "actual": round(total_actual / total_po * 100, 2)
-        if total_po
-        else None,
+        if total_po else None,
     }
 
     return result, overall
 
 
 def generate_management_png(df, report_type):
-    """
-    Stable final PNG generator.
-    Works without Chromium / Playwright.
-    """
-
     data = finalize_calculations(df).reset_index(drop=True)
     machines, overall = _build_summary(data)
 
-    # --------------------------------------------------------
-    # Canvas
-    # --------------------------------------------------------
+    # Smaller canvas than previous emergency version.
+    # Streamlit therefore displays the text much larger.
+    W = 1180
+    M = 16
 
-    W = 1536
-    M = 28
-
-    HEADER_H = 138
-    TABLE_GAP = 26
-    GROUP_H = 50
+    HEADER_H = 118
+    TABLE_GAP = 18
+    GROUP_H = 52
     SUB_H = 44
 
     columns = [
-        ("EDITION\nDATE", 112),
-        ("PRESS", 110),
-        ("MACHINE\nIN-CHARGE", 150),
-        ("PUBLICATION", 105),
-        ("PO", 95),
-        ("PRED QTY", 96),
-        ("PRED %", 82),
-        ("ACT QTY", 96),
-        ("ACT %", 82),
-        ("EXTRA\nWASTE", 100),
-        ("REASON FOR EXTRA WASTE", 436),
+        ("EDITION\nDATE", 88),
+        ("PRESS", 88),
+        ("MACHINE\nIN-CHARGE", 118),
+        ("PUBLICATION", 82),
+        ("PO", 76),
+        ("PRED QTY", 74),
+        ("PRED %", 66),
+        ("ACT QTY", 74),
+        ("ACT %", 66),
+        ("EXTRA\nWASTE", 78),
+        ("REASON FOR EXTRA WASTE", 338),
     ]
 
     widths = [w for _, w in columns]
 
-    # --------------------------------------------------------
-    # Dynamic reason wrapping
-    # --------------------------------------------------------
-
     dummy = Image.new("RGB", (W, 100), WHITE)
     ddraw = ImageDraw.Draw(dummy)
 
-    reason_font = _font(16, True)
-    reason_inner_width = columns[-1][1] - 26
+    reason_font = _font(18, True)
+    reason_inner_width = columns[-1][1] - 24
 
     wrapped_reasons = []
     row_heights = []
 
     for _, row in data.iterrows():
-        reason = _safe_reason(
-            row.get("Reason for Extra Waste", "NA")
-        )
+        reason = _safe_reason(row.get("Reason for Extra Waste", "NA"))
 
         lines = _wrap_by_pixels(
             ddraw,
@@ -267,19 +224,19 @@ def generate_management_png(df, report_type):
         wrapped_reasons.append("\n".join(lines))
 
         if len(lines) == 1:
-            row_h = 72
+            row_h = 76
         elif len(lines) == 2:
-            row_h = 86
+            row_h = 90
         elif len(lines) == 3:
-            row_h = 100
+            row_h = 106
         else:
-            row_h = 34 + len(lines) * 23
+            row_h = 40 + len(lines) * 25
 
         row_heights.append(row_h)
 
-    SUMMARY_GAP = 28
-    SUMMARY_H = 195
-    BOTTOM = 24
+    SUMMARY_GAP = 24
+    SUMMARY_H = 200
+    BOTTOM = 18
 
     table_top = HEADER_H + TABLE_GAP
 
@@ -296,48 +253,44 @@ def generate_management_png(df, report_type):
     image = Image.new("RGB", (W, H), WHITE)
     draw = ImageDraw.Draw(image)
 
-    # --------------------------------------------------------
-    # Header
-    # --------------------------------------------------------
+    # ========================================================
+    # HEADER
+    # ========================================================
 
     draw.rounded_rectangle(
         (0, 0, W, HEADER_H),
-        radius=22,
+        radius=18,
         fill=NAVY,
     )
 
     draw.text(
-        (34, 35),
+        (22, 27),
         "PIQ",
-        font=_font(50, True),
+        font=_font(44, True),
         fill=WHITE,
     )
 
     draw.text(
-        (130, 57),
+        (102, 47),
         "PressIQ",
-        font=_font(22, True),
+        font=_font(21, True),
         fill="#E2E8F0",
     )
 
     title = "Actual vs Predicted Waste Report"
-    title_font = _font(38, True)
-    title_box = draw.textbbox((0, 0), title, font=title_font)
-    title_w = title_box[2] - title_box[0]
+    title_font = _font(34, True)
+    tb = draw.textbbox((0, 0), title, font=title_font)
+    tw = tb[2] - tb[0]
 
     draw.text(
-        ((W - title_w) / 2, 30),
+        ((W - tw) / 2, 24),
         title,
         font=title_font,
         fill=WHITE,
     )
 
     issue_date = "—"
-
-    if (
-        "Edition Date" in data.columns
-        and data["Edition Date"].notna().any()
-    ):
+    if "Edition Date" in data.columns and data["Edition Date"].notna().any():
         issue_date = pd.to_datetime(
             data["Edition Date"].dropna().iloc[0]
         ).strftime("%d %B %Y")
@@ -350,23 +303,19 @@ def generate_management_png(df, report_type):
 
     subtitle = f"{shift}  •  {issue_date}"
     subtitle_font = _font(18, True)
-    subtitle_box = draw.textbbox(
-        (0, 0),
-        subtitle,
-        font=subtitle_font,
-    )
-    subtitle_w = subtitle_box[2] - subtitle_box[0]
+    sb = draw.textbbox((0, 0), subtitle, font=subtitle_font)
+    sw = sb[2] - sb[0]
 
     draw.text(
-        ((W - subtitle_w) / 2, 88),
+        ((W - sw) / 2, 76),
         subtitle,
         font=subtitle_font,
         fill="#DCEAFF",
     )
 
-    # --------------------------------------------------------
-    # Table header
-    # --------------------------------------------------------
+    # ========================================================
+    # TABLE HEADER
+    # ========================================================
 
     y = table_top
 
@@ -377,12 +326,7 @@ def generate_management_png(df, report_type):
         w = widths[idx]
 
         draw.rectangle(
-            (
-                x,
-                y,
-                x + w,
-                y + GROUP_H + SUB_H,
-            ),
+            (x, y, x + w, y + GROUP_H + SUB_H),
             fill=NAVY2,
             outline="#5476A5",
             width=1,
@@ -390,14 +334,9 @@ def generate_management_png(df, report_type):
 
         _center(
             draw,
-            (
-                x,
-                y,
-                x + w,
-                y + GROUP_H + SUB_H,
-            ),
+            (x, y, x + w, y + GROUP_H + SUB_H),
             columns[idx][0],
-            15,
+            17,
             True,
             WHITE,
         )
@@ -406,12 +345,7 @@ def generate_management_png(df, report_type):
     pred_w = widths[5] + widths[6]
 
     draw.rectangle(
-        (
-            pred_left,
-            y,
-            pred_left + pred_w,
-            y + GROUP_H,
-        ),
+        (pred_left, y, pred_left + pred_w, y + GROUP_H),
         fill=NAVY2,
         outline="#5476A5",
         width=1,
@@ -419,14 +353,9 @@ def generate_management_png(df, report_type):
 
     _center(
         draw,
-        (
-            pred_left,
-            y,
-            pred_left + pred_w,
-            y + GROUP_H,
-        ),
+        (pred_left, y, pred_left + pred_w, y + GROUP_H),
         "PREDICTED WASTE",
-        15,
+        17,
         True,
         WHITE,
     )
@@ -435,12 +364,7 @@ def generate_management_png(df, report_type):
     actual_w = widths[7] + widths[8]
 
     draw.rectangle(
-        (
-            actual_left,
-            y,
-            actual_left + actual_w,
-            y + GROUP_H,
-        ),
+        (actual_left, y, actual_left + actual_w, y + GROUP_H),
         fill=NAVY2,
         outline="#5476A5",
         width=1,
@@ -448,34 +372,19 @@ def generate_management_png(df, report_type):
 
     _center(
         draw,
-        (
-            actual_left,
-            y,
-            actual_left + actual_w,
-            y + GROUP_H,
-        ),
+        (actual_left, y, actual_left + actual_w, y + GROUP_H),
         "ACTUAL WASTE",
-        15,
+        17,
         True,
         WHITE,
     )
 
-    for idx, label in [
-        (5, "Qty"),
-        (6, "%"),
-        (7, "Qty"),
-        (8, "%"),
-    ]:
+    for idx, label in [(5, "Qty"), (6, "%"), (7, "Qty"), (8, "%")]:
         x = M + sum(widths[:idx])
         w = widths[idx]
 
         draw.rectangle(
-            (
-                x,
-                y + GROUP_H,
-                x + w,
-                y + GROUP_H + SUB_H,
-            ),
+            (x, y + GROUP_H, x + w, y + GROUP_H + SUB_H),
             fill=NAVY2,
             outline="#5476A5",
             width=1,
@@ -483,32 +392,25 @@ def generate_management_png(df, report_type):
 
         _center(
             draw,
-            (
-                x,
-                y + GROUP_H,
-                x + w,
-                y + GROUP_H + SUB_H,
-            ),
+            (x, y + GROUP_H, x + w, y + GROUP_H + SUB_H),
             label,
-            14,
+            16,
             True,
             WHITE,
         )
 
     y += GROUP_H + SUB_H
 
-    # --------------------------------------------------------
-    # Rows
-    # --------------------------------------------------------
+    # ========================================================
+    # TABLE ROWS
+    # ========================================================
 
     for i, (_, row) in enumerate(data.iterrows()):
         row_h = row_heights[i]
-        fill = WHITE if i % 2 == 0 else ALT
+        bg = WHITE if i % 2 == 0 else ALT
 
         date_text = (
-            pd.to_datetime(
-                row["Edition Date"]
-            ).strftime("%d/%m/%Y")
+            pd.to_datetime(row["Edition Date"]).strftime("%d/%m/%Y")
             if pd.notna(row["Edition Date"])
             else "—"
         )
@@ -529,17 +431,10 @@ def generate_management_png(df, report_type):
 
         x = M
 
-        for j, ((_, w), value) in enumerate(
-            zip(columns, values)
-        ):
+        for j, ((_, w), value) in enumerate(zip(columns, values)):
             draw.rectangle(
-                (
-                    x,
-                    y,
-                    x + w,
-                    y + row_h,
-                ),
-                fill=fill,
+                (x, y, x + w, y + row_h),
+                fill=bg,
                 outline=GRID,
                 width=1,
             )
@@ -549,8 +444,6 @@ def generate_management_png(df, report_type):
             if j == 6:
                 color = BLUE
 
-            # Actual Waste %:
-            # red if above prediction, green if below prediction.
             if (
                 j == 8
                 and pd.notna(row.get("Predicted %"))
@@ -561,8 +454,6 @@ def generate_management_png(df, report_type):
                 elif float(row["Actual %"]) < float(row["Predicted %"]):
                     color = GREEN
 
-            # Extra Waste:
-            # red when Actual > Predicted; green otherwise.
             if (
                 j == 9
                 and pd.notna(row.get("Predicted Waste"))
@@ -576,28 +467,18 @@ def generate_management_png(df, report_type):
             if j == 10:
                 _left(
                     draw,
-                    (
-                        x,
-                        y,
-                        x + w,
-                        y + row_h,
-                    ),
+                    (x, y, x + w, y + row_h),
                     value,
-                    16,
+                    18,
                     True,
                     TEXT,
                 )
             else:
                 _center(
                     draw,
-                    (
-                        x,
-                        y,
-                        x + w,
-                        y + row_h,
-                    ),
+                    (x, y, x + w, y + row_h),
                     value,
-                    16,
+                    18,
                     True,
                     color,
                 )
@@ -606,81 +487,61 @@ def generate_management_png(df, report_type):
 
         y += row_h
 
-    # --------------------------------------------------------
-    # Summary cards
-    # --------------------------------------------------------
+    # ========================================================
+    # SUMMARY
+    # ========================================================
 
     y += SUMMARY_GAP
 
-    card_gap = 22
-    card_w = (W - 2 * M - card_gap) // 2
+    gap = 18
+    card_w = (W - 2 * M - gap) // 2
 
-    def draw_summary_card(left, title, kind):
+    def draw_summary(left, title, kind):
         draw.rounded_rectangle(
-            (
-                left,
-                y,
-                left + card_w,
-                y + SUMMARY_H,
-            ),
-            radius=16,
+            (left, y, left + card_w, y + SUMMARY_H),
+            radius=14,
             fill=WHITE,
             outline=GRID,
             width=2,
         )
 
         draw.rounded_rectangle(
-            (
-                left,
-                y,
-                left + card_w,
-                y + 50,
-            ),
-            radius=16,
+            (left, y, left + card_w, y + 50),
+            radius=14,
             fill=NAVY2,
         )
 
         draw.rectangle(
-            (
-                left,
-                y + 31,
-                left + card_w,
-                y + 50,
-            ),
+            (left, y + 31, left + card_w, y + 50),
             fill=NAVY2,
         )
 
         draw.text(
-            (left + 18, y + 14),
+            (left + 16, y + 14),
             title,
-            font=_font(17, True),
+            font=_font(18, True),
             fill=WHITE,
         )
 
-        total_w = 150
-        total_right = left + card_w - 16
+        total_w = 138
+        total_right = left + card_w - 12
         total_left = total_right - total_w
 
-        metrics_left = left + 12
-        metrics_right = total_left - 10
-        metrics_width = metrics_right - metrics_left
+        metrics_left = left + 10
+        metrics_right = total_left - 8
+        metrics_w = metrics_right - metrics_left
 
         count = max(1, len(machines))
-        each = metrics_width / count
+        each = metrics_w / count
 
         for idx, machine in enumerate(machines):
             cx = metrics_left + each * idx + each / 2
 
             _center(
                 draw,
-                (
-                    cx - each / 2,
-                    y + 69,
-                    cx + each / 2,
-                    y + 111,
-                ),
+                (cx - each / 2, y + 66, cx + each / 2, y + 111),
                 f"{machine['name']} %",
-                14,
+                15,
                 True,
                 TEXT,
             )
@@ -689,42 +550,27 @@ def generate_management_png(df, report_type):
 
             _center(
                 draw,
-                (
-                    cx - each / 2,
-                    y + 115,
-                    cx + each / 2,
-                    y + 169,
-                ),
+                (cx - each / 2, y + 114, cx + each / 2, y + 172),
                 "—" if value is None else f"{value:.2f}%",
-                25,
+                28,
                 True,
                 BLUE if kind == "predicted" else GREEN,
             )
 
         total_top = y + 62
-        total_bottom = y + 174
+        total_bottom = y + 177
 
         draw.rounded_rectangle(
-            (
-                total_left,
-                total_top,
-                total_right,
-                total_bottom,
-            ),
-            radius=13,
+            (total_left, total_top, total_right, total_bottom),
+            radius=12,
             fill=NAVY if kind == "predicted" else "#075F46",
         )
 
         _center(
             draw,
-            (
-                total_left,
-                total_top + 8,
-                total_right,
-                total_top + 46,
-            ),
+            (total_left, total_top + 6, total_right, total_top + 47),
             "TOTAL PREDICT" if kind == "predicted" else "TOTAL ACTUAL",
-            12,
+            13,
             True,
             WHITE,
         )
@@ -733,35 +579,16 @@ def generate_management_png(df, report_type):
 
         _center(
             draw,
-            (
-                total_left,
-                total_top + 48,
-                total_right,
-                total_bottom - 8,
-            ),
+            (total_left, total_top + 49, total_right, total_bottom - 6),
             "—" if total_value is None else f"{total_value:.2f}%",
-            30,
+            32,
             True,
             WHITE,
         )
 
-    draw_summary_card(
-        M,
-        "PREDICTED SUMMARY",
-        "predicted",
-    )
-
-    draw_summary_card(
-        M + card_w + card_gap,
-        "ACTUAL SUMMARY",
-        "actual",
-    )
+    draw_summary(M, "PREDICTED SUMMARY", "predicted")
+    draw_summary(M + card_w + gap, "ACTUAL SUMMARY", "actual")
 
     output = BytesIO()
-    image.save(
-        output,
-        format="PNG",
-        optimize=True,
-    )
-
+    image.save(output, format="PNG", optimize=True)
     return output.getvalue()
