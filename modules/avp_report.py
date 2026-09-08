@@ -1,96 +1,14 @@
 from io import BytesIO
-import pandas as pd
-from PIL import Image, ImageDraw, ImageFont
+import html as html_lib
 
+import pandas as pd
+from PIL import Image
 from modules.avp_engine import finalize_calculations
 
-
-# ============================================================
-# PRESSIQ EMERGENCY LARGE-TEXT PNG
-# No Playwright / Chromium required.
-# Designed to visually resemble the previous HTML report.
-# ============================================================
-
-NAVY = "#061A3F"
-NAVY2 = "#0B2F63"
-BLUE = "#1769E0"
-GREEN = "#087A57"
-RED = "#E53935"
-TEXT = "#0F172A"
-GRID = "#D8E1EC"
-ALT = "#F8FAFC"
-WHITE = "#FFFFFF"
-
-
-def _font(size, bold=False):
-    candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-        if bold else
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf"
-        if bold else
-        "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-    ]
-    for path in candidates:
-        try:
-            return ImageFont.truetype(path, size)
-        except Exception:
-            pass
-    return ImageFont.load_default()
-
-
-def _center(draw, box, value, size=18, bold=False, fill=TEXT, spacing=4):
-    x1, y1, x2, y2 = box
-    text = str(value)
-    font = _font(size, bold)
-
-    bbox = draw.multiline_textbbox(
-        (0, 0),
-        text,
-        font=font,
-        spacing=spacing,
-        align="center",
-    )
-
-    tw = bbox[2] - bbox[0]
-    th = bbox[3] - bbox[1]
-
-    draw.multiline_text(
-        (
-            x1 + ((x2 - x1) - tw) / 2,
-            y1 + ((y2 - y1) - th) / 2,
-        ),
-        text,
-        font=font,
-        fill=fill,
-        spacing=spacing,
-        align="center",
-    )
-
-
-def _left(draw, box, value, size=18, bold=False, fill=TEXT, spacing=5):
-    x1, y1, x2, y2 = box
-    text = str(value)
-    font = _font(size, bold)
-
-    bbox = draw.multiline_textbbox(
-        (0, 0),
-        text,
-        font=font,
-        spacing=spacing,
-    )
-    th = bbox[3] - bbox[1]
-
-    draw.multiline_text(
-        (
-            x1 + 12,
-            y1 + max(8, ((y2 - y1) - th) / 2),
-        ),
-        text,
-        font=font,
-        fill=fill,
-        spacing=spacing,
-    )
+try:
+    from playwright.sync_api import sync_playwright
+except Exception:
+    sync_playwright = None
 
 
 def _safe_reason(value):
@@ -110,187 +28,91 @@ def _fmt_pct(value):
     return f"{float(value):.2f}%"
 
 
-def _wrap_by_pixels(draw, text, max_width, font):
-    words = str(text).split()
-
-    if not words:
-        return ["NA"]
-
-    lines = []
-    current = words[0]
-
-    for word in words[1:]:
-        test = current + " " + word
-
-        if draw.textlength(test, font=font) <= max_width:
-            current = test
-        else:
-            lines.append(current)
-            current = word
-
-    lines.append(current)
-    return lines
-
-
 def _build_summary(data):
+    order = ["PRESS 1", "PRESS 3", "PRESS 4", "PRESS 5"]
+
     work = data.copy()
     work["_press"] = work["Machine"].astype(str).str.upper().str.strip()
 
-    press_order = ["PRESS 1", "PRESS 3", "PRESS 4", "PRESS 5"]
-    result = []
+    rows = []
 
-    for press in press_order:
+    for press in order:
         group = work[work["_press"] == press]
+
         if group.empty:
             continue
 
-        po = pd.to_numeric(group["PO"], errors="coerce").fillna(0).sum()
-        pred = pd.to_numeric(group["Predicted Waste"], errors="coerce").sum(min_count=1)
-        actual = pd.to_numeric(group["Actual Waste"], errors="coerce").fillna(0).sum()
+        po = pd.to_numeric(
+            group["PO"],
+            errors="coerce",
+        ).fillna(0).sum()
 
-        result.append(
+        pred = pd.to_numeric(
+            group["Predicted Waste"],
+            errors="coerce",
+        ).sum(min_count=1)
+
+        act = pd.to_numeric(
+            group["Actual Waste"],
+            errors="coerce",
+        ).fillna(0).sum()
+
+        rows.append(
             {
                 "name": press.title(),
-                "predicted": round(pred / po * 100, 2)
-                if po and pd.notna(pred) else None,
-                "actual": round(actual / po * 100, 2)
-                if po else None,
+                "predicted": (
+                    round(pred / po * 100, 2)
+                    if po and pd.notna(pred)
+                    else None
+                ),
+                "actual": (
+                    round(act / po * 100, 2)
+                    if po
+                    else None
+                ),
             }
         )
 
-    total_po = pd.to_numeric(work["PO"], errors="coerce").fillna(0).sum()
-    total_pred = pd.to_numeric(work["Predicted Waste"], errors="coerce").sum(min_count=1)
-    total_actual = pd.to_numeric(work["Actual Waste"], errors="coerce").fillna(0).sum()
+    total_po = pd.to_numeric(
+        work["PO"],
+        errors="coerce",
+    ).fillna(0).sum()
+
+    total_pred = pd.to_numeric(
+        work["Predicted Waste"],
+        errors="coerce",
+    ).sum(min_count=1)
+
+    total_act = pd.to_numeric(
+        work["Actual Waste"],
+        errors="coerce",
+    ).fillna(0).sum()
 
     overall = {
-        "predicted": round(total_pred / total_po * 100, 2)
-        if total_po and pd.notna(total_pred) else None,
-        "actual": round(total_actual / total_po * 100, 2)
-        if total_po else None,
+        "predicted": (
+            round(total_pred / total_po * 100, 2)
+            if total_po and pd.notna(total_pred)
+            else None
+        ),
+        "actual": (
+            round(total_act / total_po * 100, 2)
+            if total_po
+            else None
+        ),
     }
 
-    return result, overall
+    return rows, overall
 
 
-def generate_management_png(df, report_type):
-    data = finalize_calculations(df).reset_index(drop=True)
+def _render_html(data, report_type):
     machines, overall = _build_summary(data)
 
-    # Smaller canvas than previous emergency version.
-    # Streamlit therefore displays the text much larger.
-    W = 1180
-    M = 16
-
-    HEADER_H = 118
-    TABLE_GAP = 18
-    GROUP_H = 52
-    SUB_H = 44
-
-    columns = [
-        ("EDITION\nDATE", 88),
-        ("PRESS", 88),
-        ("MACHINE\nIN-CHARGE", 118),
-        ("PUBLICATION", 82),
-        ("PO", 76),
-        ("PRED QTY", 74),
-        ("PRED %", 66),
-        ("ACT QTY", 74),
-        ("ACT %", 66),
-        ("EXTRA\nWASTE", 78),
-        ("REASON FOR EXTRA WASTE", 338),
-    ]
-
-    widths = [w for _, w in columns]
-
-    dummy = Image.new("RGB", (W, 100), WHITE)
-    ddraw = ImageDraw.Draw(dummy)
-
-    reason_font = _font(18, True)
-    reason_inner_width = columns[-1][1] - 24
-
-    wrapped_reasons = []
-    row_heights = []
-
-    for _, row in data.iterrows():
-        reason = _safe_reason(row.get("Reason for Extra Waste", "NA"))
-
-        lines = _wrap_by_pixels(
-            ddraw,
-            reason,
-            reason_inner_width,
-            reason_font,
-        )
-
-        wrapped_reasons.append("\n".join(lines))
-
-        if len(lines) == 1:
-            row_h = 76
-        elif len(lines) == 2:
-            row_h = 90
-        elif len(lines) == 3:
-            row_h = 106
-        else:
-            row_h = 40 + len(lines) * 25
-
-        row_heights.append(row_h)
-
-    SUMMARY_GAP = 24
-    SUMMARY_H = 200
-    BOTTOM = 18
-
-    table_top = HEADER_H + TABLE_GAP
-
-    H = (
-        table_top
-        + GROUP_H
-        + SUB_H
-        + sum(row_heights)
-        + SUMMARY_GAP
-        + SUMMARY_H
-        + BOTTOM
-    )
-
-    image = Image.new("RGB", (W, H), WHITE)
-    draw = ImageDraw.Draw(image)
-
-    # ========================================================
-    # HEADER
-    # ========================================================
-
-    draw.rounded_rectangle(
-        (0, 0, W, HEADER_H),
-        radius=18,
-        fill=NAVY,
-    )
-
-    draw.text(
-        (22, 27),
-        "PIQ",
-        font=_font(44, True),
-        fill=WHITE,
-    )
-
-    draw.text(
-        (102, 47),
-        "PressIQ",
-        font=_font(21, True),
-        fill="#E2E8F0",
-    )
-
-    title = "Actual vs Predicted Waste Report"
-    title_font = _font(34, True)
-    tb = draw.textbbox((0, 0), title, font=title_font)
-    tw = tb[2] - tb[0]
-
-    draw.text(
-        ((W - tw) / 2, 24),
-        title,
-        font=title_font,
-        fill=WHITE,
-    )
-
     issue_date = "—"
-    if "Edition Date" in data.columns and data["Edition Date"].notna().any():
+
+    if (
+        "Edition Date" in data.columns
+        and data["Edition Date"].notna().any()
+    ):
         issue_date = pd.to_datetime(
             data["Edition Date"].dropna().iloc[0]
         ).strftime("%d %B %Y")
@@ -301,294 +123,542 @@ def generate_management_png(df, report_type):
         else "SUPPLEMENT"
     )
 
-    subtitle = f"{shift}  •  {issue_date}"
-    subtitle_font = _font(18, True)
-    sb = draw.textbbox((0, 0), subtitle, font=subtitle_font)
-    sw = sb[2] - sb[0]
+    table_rows = []
 
-    draw.text(
-        ((W - sw) / 2, 76),
-        subtitle,
-        font=subtitle_font,
-        fill="#DCEAFF",
-    )
+    for _, row in data.iterrows():
+        pred_pct = row.get("Predicted %")
+        actual_pct = row.get("Actual %")
+        actual_qty = row.get("Actual Waste")
+        predicted_qty = row.get("Predicted Waste")
 
-    # ========================================================
-    # TABLE HEADER
-    # ========================================================
-
-    y = table_top
-
-    fixed = [0, 1, 2, 3, 4, 9, 10]
-
-    for idx in fixed:
-        x = M + sum(widths[:idx])
-        w = widths[idx]
-
-        draw.rectangle(
-            (x, y, x + w, y + GROUP_H + SUB_H),
-            fill=NAVY2,
-            outline="#5476A5",
-            width=1,
-        )
-
-        _center(
-            draw,
-            (x, y, x + w, y + GROUP_H + SUB_H),
-            columns[idx][0],
-            17,
-            True,
-            WHITE,
-        )
-
-    pred_left = M + sum(widths[:5])
-    pred_w = widths[5] + widths[6]
-
-    draw.rectangle(
-        (pred_left, y, pred_left + pred_w, y + GROUP_H),
-        fill=NAVY2,
-        outline="#5476A5",
-        width=1,
-    )
-
-    _center(
-        draw,
-        (pred_left, y, pred_left + pred_w, y + GROUP_H),
-        "PREDICTED WASTE",
-        17,
-        True,
-        WHITE,
-    )
-
-    actual_left = M + sum(widths[:7])
-    actual_w = widths[7] + widths[8]
-
-    draw.rectangle(
-        (actual_left, y, actual_left + actual_w, y + GROUP_H),
-        fill=NAVY2,
-        outline="#5476A5",
-        width=1,
-    )
-
-    _center(
-        draw,
-        (actual_left, y, actual_left + actual_w, y + GROUP_H),
-        "ACTUAL WASTE",
-        17,
-        True,
-        WHITE,
-    )
-
-    for idx, label in [(5, "Qty"), (6, "%"), (7, "Qty"), (8, "%")]:
-        x = M + sum(widths[:idx])
-        w = widths[idx]
-
-        draw.rectangle(
-            (x, y + GROUP_H, x + w, y + GROUP_H + SUB_H),
-            fill=NAVY2,
-            outline="#5476A5",
-            width=1,
-        )
-
-        _center(
-            draw,
-            (x, y + GROUP_H, x + w, y + GROUP_H + SUB_H),
-            label,
-            16,
-            True,
-            WHITE,
-        )
-
-    y += GROUP_H + SUB_H
-
-    # ========================================================
-    # TABLE ROWS
-    # ========================================================
-
-    for i, (_, row) in enumerate(data.iterrows()):
-        row_h = row_heights[i]
-        bg = WHITE if i % 2 == 0 else ALT
-
-        date_text = (
-            pd.to_datetime(row["Edition Date"]).strftime("%d/%m/%Y")
-            if pd.notna(row["Edition Date"])
-            else "—"
-        )
-
-        values = [
-            date_text,
-            row.get("Machine", "—"),
-            row.get("Machine In-charge", "—"),
-            row.get("Publication", "—"),
-            _fmt_int(row.get("PO")),
-            _fmt_int(row.get("Predicted Waste")),
-            _fmt_pct(row.get("Predicted %")),
-            _fmt_int(row.get("Actual Waste")),
-            _fmt_pct(row.get("Actual %")),
-            _fmt_int(row.get("Extra Waste")),
-            wrapped_reasons[i],
-        ]
-
-        x = M
-
-        for j, ((_, w), value) in enumerate(zip(columns, values)):
-            draw.rectangle(
-                (x, y, x + w, y + row_h),
-                fill=bg,
-                outline=GRID,
-                width=1,
-            )
-
-            color = TEXT
-
-            if j == 6:
-                color = BLUE
-
-            if (
-                j == 8
-                and pd.notna(row.get("Predicted %"))
-                and pd.notna(row.get("Actual %"))
-            ):
-                if float(row["Actual %"]) > float(row["Predicted %"]):
-                    color = RED
-                elif float(row["Actual %"]) < float(row["Predicted %"]):
-                    color = GREEN
-
-            if (
-                j == 9
-                and pd.notna(row.get("Predicted Waste"))
-                and pd.notna(row.get("Actual Waste"))
-            ):
-                if float(row["Actual Waste"]) > float(row["Predicted Waste"]):
-                    color = RED
-                elif float(row["Actual Waste"]) < float(row["Predicted Waste"]):
-                    color = GREEN
-
-            if j == 10:
-                _left(
-                    draw,
-                    (x, y, x + w, y + row_h),
-                    value,
-                    18,
-                    True,
-                    TEXT,
-                )
+        if pd.notna(pred_pct) and pd.notna(actual_pct):
+            if float(actual_pct) > float(pred_pct):
+                actual_class = "bad"
+            elif float(actual_pct) < float(pred_pct):
+                actual_class = "good"
             else:
-                _center(
-                    draw,
-                    (x, y, x + w, y + row_h),
-                    value,
-                    18,
-                    True,
-                    color,
-                )
+                actual_class = ""
+        else:
+            actual_class = ""
 
-            x += w
+        if pd.notna(predicted_qty) and pd.notna(actual_qty):
+            if float(actual_qty) > float(predicted_qty):
+                extra_class = "bad"
+            elif float(actual_qty) < float(predicted_qty):
+                extra_class = "good"
+            else:
+                extra_class = ""
+        else:
+            extra_class = ""
 
-        y += row_h
+        table_rows.append(
+            f"""
+            <tr>
+                <td>
+                    {
+                        html_lib.escape(
+                            pd.to_datetime(
+                                row["Edition Date"]
+                            ).strftime("%d/%m/%Y")
+                            if pd.notna(row["Edition Date"])
+                            else "—"
+                        )
+                    }
+                </td>
 
-    # ========================================================
-    # SUMMARY
-    # ========================================================
+                <td>
+                    {html_lib.escape(str(row.get("Machine", "—")))}
+                </td>
 
-    y += SUMMARY_GAP
+                <td>
+                    {html_lib.escape(str(row.get("Machine In-charge", "—")))}
+                </td>
 
-    gap = 18
-    card_w = (W - 2 * M - gap) // 2
+                <td>
+                    {html_lib.escape(str(row.get("Publication", "—")))}
+                </td>
 
-    def draw_summary(left, title, kind):
-        draw.rounded_rectangle(
-            (left, y, left + card_w, y + SUMMARY_H),
-            radius=14,
-            fill=WHITE,
-            outline=GRID,
-            width=2,
+                <td>
+                    {_fmt_int(row.get("PO"))}
+                </td>
+
+                <td>
+                    {_fmt_int(row.get("Predicted Waste"))}
+                </td>
+
+                <td class="pred">
+                    {_fmt_pct(row.get("Predicted %"))}
+                </td>
+
+                <td>
+                    {_fmt_int(row.get("Actual Waste"))}
+                </td>
+
+                <td class="{actual_class}">
+                    {_fmt_pct(row.get("Actual %"))}
+                </td>
+
+                <td class="{extra_class}">
+                    {_fmt_int(row.get("Extra Waste"))}
+                </td>
+
+                <td class="reason">
+                    {
+                        html_lib.escape(
+                            _safe_reason(
+                                row.get(
+                                    "Reason for Extra Waste",
+                                    "NA",
+                                )
+                            )
+                        )
+                    }
+                </td>
+            </tr>
+            """
         )
 
-        draw.rounded_rectangle(
-            (left, y, left + card_w, y + 50),
-            radius=14,
-            fill=NAVY2,
-        )
+    def summary_metrics(kind):
+        blocks = []
 
-        draw.rectangle(
-            (left, y + 31, left + card_w, y + 50),
-            fill=NAVY2,
-        )
-
-        draw.text(
-            (left + 16, y + 14),
-            title,
-            font=_font(18, True),
-            fill=WHITE,
-        )
-
-        total_w = 138
-        total_right = left + card_w - 12
-        total_left = total_right - total_w
-
-        metrics_left = left + 10
-        metrics_right = total_left - 8
-        metrics_w = metrics_right - metrics_left
-
-        count = max(1, len(machines))
-        each = metrics_w / count
-
-        for idx, machine in enumerate(machines):
-            cx = metrics_left + each * idx + each / 2
-
-            _center(
-                draw,
-                (cx - each / 2, y + 66, cx + each / 2, y + 111),
-                f"{machine['name']} %",
-                15,
-                True,
-                TEXT,
-            )
-
+        for machine in machines:
             value = machine[kind]
 
-            _center(
-                draw,
-                (cx - each / 2, y + 114, cx + each / 2, y + 172),
-                "—" if value is None else f"{value:.2f}%",
-                28,
-                True,
-                BLUE if kind == "predicted" else GREEN,
+            blocks.append(
+                f"""
+                <div class="metric">
+                    <div class="metric-label">
+                        {html_lib.escape(machine["name"])} %
+                    </div>
+
+                    <div class="metric-value {'pred' if kind == 'predicted' else 'actual'}">
+                        {"—" if value is None else f"{value:.2f}%"}
+                    </div>
+                </div>
+                """
             )
 
-        total_top = y + 62
-        total_bottom = y + 177
+        return "".join(blocks)
 
-        draw.rounded_rectangle(
-            (total_left, total_top, total_right, total_bottom),
-            radius=12,
-            fill=NAVY if kind == "predicted" else "#075F46",
+    html_doc = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+
+      <style>
+        * {{
+          box-sizing: border-box;
+          font-family: Arial, Helvetica, sans-serif;
+        }}
+
+        body {{
+          margin: 0;
+          background: white;
+          color: #0f172a;
+        }}
+
+        .report {{
+          width: 1536px;
+          background: white;
+        }}
+
+        .header {{
+          min-height: 138px;
+          background: linear-gradient(90deg, #061a3f, #08275c);
+          color: white;
+          padding: 24px 34px 20px;
+          display: grid;
+          grid-template-columns: 260px 1fr 260px;
+          align-items: center;
+        }}
+
+        .brand {{
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }}
+
+        .piq {{
+          font-size: 54px;
+          line-height: 1;
+          font-weight: 800;
+          letter-spacing: -3px;
+        }}
+
+        .pressiq {{
+          font-size: 22px;
+          font-weight: 700;
+        }}
+
+        .title {{
+          text-align: center;
+        }}
+
+        .title h1 {{
+          margin: 0;
+          font-size: 40px;
+          line-height: 1.1;
+          font-weight: 800;
+        }}
+
+        .shift {{
+          margin-top: 15px;
+          font-size: 18px;
+          font-weight: 700;
+          color: #dbeafe;
+        }}
+
+        .content {{
+          padding: 26px 28px 22px;
+        }}
+
+        table {{
+          width: 100%;
+          border-collapse: collapse;
+          table-layout: fixed;
+        }}
+
+        th {{
+          background: #0b2f63;
+          color: white;
+          border: 1px solid #4e6f9d;
+          font-size: 16px;
+          line-height: 1.2;
+          font-weight: 800;
+          padding: 12px 8px;
+          text-align: center;
+          vertical-align: middle;
+        }}
+
+        td {{
+          border: 1px solid #d8e1ec;
+          padding: 14px 10px;
+          font-size: 16px;
+          line-height: 1.3;
+          font-weight: 700;
+          text-align: center;
+          vertical-align: middle;
+          background: white;
+        }}
+
+        tbody tr:nth-child(even) td {{
+          background: #f8fafc;
+        }}
+
+        td.reason {{
+          text-align: left;
+          font-size: 16px;
+          line-height: 1.35;
+          font-weight: 600;
+          white-space: normal;
+          overflow-wrap: anywhere;
+        }}
+
+        .pred {{
+          color: #1565d8;
+          font-weight: 800;
+        }}
+
+        .bad {{
+          color: #e53935;
+          font-weight: 800;
+        }}
+
+        .good {{
+          color: #087a57;
+          font-weight: 800;
+        }}
+
+        .summary-grid {{
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 22px;
+          margin-top: 28px;
+        }}
+
+        .summary-card {{
+          border: 1px solid #d8e1ec;
+          border-radius: 16px;
+          overflow: hidden;
+          background: white;
+        }}
+
+        .summary-head {{
+          background: #0b2f63;
+          color: white;
+          padding: 14px 18px;
+          font-size: 18px;
+          font-weight: 800;
+        }}
+
+        .summary-body {{
+          display: flex;
+          align-items: stretch;
+          min-height: 150px;
+        }}
+
+        .metrics {{
+          display: grid;
+          grid-template-columns: repeat({max(len(machines), 1)}, 1fr);
+          flex: 1;
+        }}
+
+        .metric {{
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          padding: 18px 8px;
+          border-right: 1px solid #e5e7eb;
+        }}
+
+        .metric-label {{
+          font-size: 15px;
+          line-height: 1.2;
+          font-weight: 800;
+          text-align: center;
+        }}
+
+        .metric-value {{
+          margin-top: 12px;
+          font-size: 30px;
+          font-weight: 800;
+        }}
+
+        .metric-value.actual {{
+          color: #087a57;
+        }}
+
+        .total-box {{
+          width: 170px;
+          margin: 14px;
+          border-radius: 14px;
+          background: #061a3f;
+          color: white;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 12px;
+        }}
+
+        .total-box.actual {{
+          background: #075f46;
+        }}
+
+        .total-label {{
+          font-size: 14px;
+          font-weight: 800;
+          text-align: center;
+        }}
+
+        .total-value {{
+          margin-top: 10px;
+          font-size: 34px;
+          font-weight: 800;
+        }}
+
+        .w-date {{ width: 8%; }}
+        .w-machine {{ width: 8%; }}
+        .w-incharge {{ width: 11%; }}
+        .w-pub {{ width: 8%; }}
+        .w-po {{ width: 7%; }}
+        .w-num {{ width: 7%; }}
+        .w-extra {{ width: 8%; }}
+        .w-reason {{ width: 29%; }}
+      </style>
+    </head>
+
+    <body>
+      <div class="report">
+
+        <div class="header">
+          <div class="brand">
+            <div class="piq">PIQ</div>
+            <div class="pressiq">PressIQ</div>
+          </div>
+
+          <div class="title">
+            <h1>Actual vs Predicted Waste Report</h1>
+            <div class="shift">
+              {shift} &nbsp;•&nbsp; {issue_date}
+            </div>
+          </div>
+
+          <div></div>
+        </div>
+
+        <div class="content">
+
+          <table>
+            <colgroup>
+              <col class="w-date">
+              <col class="w-machine">
+              <col class="w-incharge">
+              <col class="w-pub">
+              <col class="w-po">
+              <col class="w-num">
+              <col class="w-num">
+              <col class="w-num">
+              <col class="w-num">
+              <col class="w-extra">
+              <col class="w-reason">
+            </colgroup>
+
+            <thead>
+              <tr>
+                <th rowspan="2">EDITION DATE</th>
+                <th rowspan="2">PRESS</th>
+                <th rowspan="2">MACHINE<br>IN-CHARGE</th>
+                <th rowspan="2">PUBLICATION</th>
+                <th rowspan="2">PO</th>
+                <th colspan="2">PREDICTED WASTE</th>
+                <th colspan="2">ACTUAL WASTE</th>
+                <th rowspan="2">EXTRA WASTE<br>(Qty)</th>
+                <th rowspan="2">REASON FOR EXTRA WASTE</th>
+              </tr>
+
+              <tr>
+                <th>Qty</th>
+                <th>%</th>
+                <th>Qty</th>
+                <th>%</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {''.join(table_rows)}
+            </tbody>
+          </table>
+
+          <div class="summary-grid">
+
+            <div class="summary-card">
+              <div class="summary-head">
+                PREDICTED SUMMARY
+              </div>
+
+              <div class="summary-body">
+                <div class="metrics">
+                  {summary_metrics("predicted")}
+                </div>
+
+                <div class="total-box">
+                  <div class="total-label">
+                    TOTAL PREDICT
+                  </div>
+
+                  <div class="total-value">
+                    {
+                        "—"
+                        if overall["predicted"] is None
+                        else f"{overall['predicted']:.2f}%"
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="summary-card">
+              <div class="summary-head">
+                ACTUAL SUMMARY
+              </div>
+
+              <div class="summary-body">
+                <div class="metrics">
+                  {summary_metrics("actual")}
+                </div>
+
+                <div class="total-box actual">
+                  <div class="total-label">
+                    TOTAL ACTUAL
+                  </div>
+
+                  <div class="total-value">
+                    {
+                        "—"
+                        if overall["actual"] is None
+                        else f"{overall['actual']:.2f}%"
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+
+    return html_doc
+
+
+def generate_management_png(df, report_type):
+    if sync_playwright is None:
+        raise RuntimeError(
+            "Playwright is required. Add playwright to requirements.txt."
         )
 
-        _center(
-            draw,
-            (total_left, total_top + 6, total_right, total_top + 47),
-            "TOTAL PREDICT" if kind == "predicted" else "TOTAL ACTUAL",
-            13,
-            True,
-            WHITE,
+    data = finalize_calculations(df).reset_index(drop=True)
+    html_doc = _render_html(data, report_type)
+
+    with sync_playwright() as p:
+        try:
+            browser = p.chromium.launch(
+                headless=True,
+                executable_path="/usr/bin/chromium",
+                args=[
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                ],
+            )
+
+        except Exception:
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                ],
+            )
+
+        page = browser.new_page(
+            viewport={
+                "width": 1536,
+                "height": 2200,
+            },
+            device_scale_factor=1,
         )
 
-        total_value = overall[kind]
-
-        _center(
-            draw,
-            (total_left, total_top + 49, total_right, total_bottom - 6),
-            "—" if total_value is None else f"{total_value:.2f}%",
-            32,
-            True,
-            WHITE,
+        page.set_content(
+            html_doc,
+            wait_until="networkidle",
         )
 
-    draw_summary(M, "PREDICTED SUMMARY", "predicted")
-    draw_summary(M + card_w + gap, "ACTUAL SUMMARY", "actual")
+        png_bytes = page.locator(
+            ".report"
+        ).screenshot(
+            type="png"
+        )
 
-    output = BytesIO()
-    image.save(output, format="PNG", optimize=True)
-    return output.getvalue()
+        browser.close()
+
+    image = Image.open(
+        BytesIO(png_bytes)
+    ).convert("RGB")
+
+    out = BytesIO()
+
+    image.save(
+        out,
+        format="PNG",
+        optimize=True,
+    )
+
+    return out.getvalue()
