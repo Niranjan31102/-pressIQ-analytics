@@ -221,9 +221,6 @@ main_intelligence = st.sidebar.radio(
     "Select Intelligence",
     [
         "Actual vs Predicted Waste",
-        "Utility Intelligence",
-        "PF Intelligence",
-        "Waste Intelligence",
     ]
 )
 module = None
