@@ -351,42 +351,37 @@ def classify_event_activity(units):
 
 def read_hourly_sheet(uploaded_file, sheet_name="Hourly"):
     safe_seek(uploaded_file)
-    xls = pd.ExcelFile(uploaded_file)
-
-    if sheet_name not in xls.sheet_names:
-        raise ValueError(f"'{sheet_name}' sheet not found.")
-
-    safe_seek(uploaded_file)
-    raw_df = pd.read_excel(uploaded_file, sheet_name=sheet_name, header=None)
-
-    header_row = 2
-    headers = raw_df.iloc[header_row].tolist()
-
-    df = raw_df.iloc[header_row + 1:].copy()
-    df.columns = headers
-    df = df.dropna(how="all")
-
-    df = df.rename(columns={
-        df.columns[0]: "Sr No",
-        df.columns[1]: "Feeder Name",
-    })
-
-    df = df[pd.notna(df["Feeder Name"])].copy()
-    df = df.head(72)
-
-    df["Sr No"] = df["Sr No"].astype(str).str.replace(".0", "", regex=False)
+    raw = pd.read_excel(uploaded_file, sheet_name=sheet_name, header=None)
+    header_row = next((i for i in range(min(12, len(raw)))
+                       if str(raw.iloc[i, 1]).strip().lower() == "feeder name"), None)
+    if header_row is None:
+        raise ValueError("Hourly sheet: Feeder Name header not found.")
+    hours = [(i, normalize_hour(raw.iloc[header_row, i])) for i in range(2, raw.shape[1])]
+    hours = [(i, h) for i, h in hours if h in ZONE_MAP]
+    hour_cols = [h for _, h in hours]
+    if len(hour_cols) != 24 or len(set(hour_cols)) != 24:
+        raise ValueError("Hourly sheet requires 24 unique hourly columns (06:00 through 05:00).")
+    df = raw.iloc[header_row + 1:, [0, 1] + [i for i, _ in hours]].copy()
+    df.columns = ["Sr No", "Feeder Name"] + hour_cols
+    serial = pd.to_numeric(df["Sr No"], errors="coerce")
+    df = df[serial.notna() & serial.gt(0) & serial.mod(1).eq(0)].copy()
+    if df.empty or df["Feeder Name"].isna().any():
+        raise ValueError("Hourly sheet contains no usable feeder rows or a missing feeder name.")
+    df["Sr No"] = pd.to_numeric(df["Sr No"]).astype(int).astype(str)
+    if df["Sr No"].duplicated().any():
+        raise ValueError("Duplicate EMS serial numbers. Correct the workbook before analysis.")
     df["Feeder Name"] = df["Feeder Name"].astype(str).str.strip()
     df["Feeder ID"] = df["Sr No"] + " - " + df["Feeder Name"]
-
-    hour_source_cols = df.columns[2:-1]
-    clean_map = {col: normalize_hour(col) for col in hour_source_cols}
-    df = df.rename(columns=clean_map)
-
-    hour_cols = [h for h in clean_map.values() if h in ZONE_MAP]
-
     for col in hour_cols:
         df[col] = pd.to_numeric(df[col], errors="coerce")
-
+    # Missing data remains missing, never replaced by zero.
+    if header_row > 0:
+        try:
+            issue = pd.to_datetime(raw.iloc[header_row - 1, 1])
+            if pd.notna(issue):
+                df.attrs["issue_date"] = issue.strftime("%Y-%m-%d")
+        except (ValueError, TypeError):
+            pass
     return df, hour_cols
 
 
@@ -928,6 +923,203 @@ def render_feeder_card(feeder_id, feeder_name, zone_rows, feeder_status, current
 # MAIN MODULE
 # ============================================================
 
+# Phase 1.1 mapping is embedded for a one-file deployment.
+# feeder_mapping.json in the delivery package is its reviewable companion.
+# Enable DG only after the electrical team confirms non-overlapping source meters.
+PHASE_MAPPING = {'version': '1.1', 'evidence': 'Uploaded Utility Tree structure(1).pptx, slides 1–2; EMS sample serial numbers and names. Physical hierarchy is not a source-energy balance.', 'dg_source_ids': [], 'dg_mapping_confirmed': False, 'solar_accounting_confirmed': False, 'nodes': {'1': {'name': 'HT INCOMER-1', 'parent': None, 'meter': True}, '2': {'name': 'HT INCOMER-2', 'parent': None, 'meter': True}, '3': {'name': 'TRANSFORMER 2 INCOMER', 'parent': '2', 'meter': True}, '4': {'name': 'TRANSFORMER 1 INCOMER', 'parent': '1', 'meter': True}, '5': {'name': 'OLD PCC 9F2 INCOMER', 'parent': '4', 'meter': True}, '6': {'name': 'DG POWER 9F', 'parent': 'dg_distribution', 'meter': True}, '7': {'name': 'DG POWER 3F', 'parent': 'dg_distribution', 'meter': True}, '8': {'name': 'EB POWER 6F', 'parent': 'unmapped', 'meter': True}, '9': {'name': 'DM PLANT PDB', 'parent': 'dm', 'meter': True}, '10': {'name': 'STP', 'parent': 'dm', 'meter': True}, '11': {'name': 'ETP', 'parent': 'dm', 'meter': True}, '12': {'name': 'WATER PUMP PANEL', 'parent': 'dm', 'meter': True}, '13': {'name': 'DRIVER CANTEEN', 'parent': 'dm', 'meter': True}, '14': {'name': 'DM PLANT MCC', 'parent': 'dm', 'meter': True}, '15': {'name': 'DG1', 'parent': 'dg', 'meter': True}, '16': {'name': 'DG2', 'parent': 'dg', 'meter': True}, '17': {'name': 'DG4', 'parent': 'dg', 'meter': True}, '18': {'name': 'UTILITY PANEL', 'parent': '5', 'meter': True}, '19': {'name': 'ADMIN BUILDING MAIN PANEL', 'parent': '5', 'meter': True}, '20': {'name': 'CANTEEN PDB', 'parent': '19', 'meter': True}, '21': {'name': 'AC PLANT MAIN PANEL', 'parent': '5', 'meter': True}, '22': {'name': 'CHILLER 1', 'parent': '21', 'meter': True}, '23': {'name': 'CHILLER 2', 'parent': '21', 'meter': True}, '24': {'name': 'CHILLER 3', 'parent': '21', 'meter': True}, '25': {'name': 'CHILLER 4', 'parent': '21', 'meter': True}, '26': {'name': 'OSCI COOLING SKID PRI PUMP', 'parent': '21', 'meter': True}, '27': {'name': 'OSCI COOLING SKID SEC PUMP', 'parent': '21', 'meter': True}, '28': {'name': 'MOTOR SKID PRI PUMP', 'parent': '21', 'meter': True}, '29': {'name': 'MOTOR SKID SEC PUMP', 'parent': '21', 'meter': True}, '30': {'name': 'COMPRESSOR MAIN', 'parent': '35', 'meter': True}, '31': {'name': 'COMPRESSOR 1', 'parent': '30', 'meter': True}, '32': {'name': 'COMPRESSOR 2', 'parent': '30', 'meter': True}, '33': {'name': 'COMPRESSOR 3', 'parent': '30', 'meter': True}, '34': {'name': 'COMPRESSOR 4', 'parent': '30', 'meter': True}, '35': {'name': 'PRESS 1 INCOMER', 'parent': '5', 'meter': True}, '36': {'name': 'PRESS 2 INCOMER', 'parent': '5', 'meter': True}, '37': {'name': 'PRESS 1 FEEDER (3200 A)', 'parent': '35', 'meter': True}, '38': {'name': 'PRESS 2 FEEDER (3200 A)', 'parent': '36', 'meter': True}, '39': {'name': 'UPS 1', 'parent': '35', 'meter': True}, '40': {'name': 'UPS 2', 'parent': '36', 'meter': True}, '41': {'name': 'UV TOWER PU5', 'parent': '36', 'meter': True}, '42': {'name': 'SPARE', 'parent': '36', 'meter': True}, '43': {'name': 'UV TOWER PU15', 'parent': '36', 'meter': True}, '44': {'name': 'SPARE', 'parent': '36', 'meter': True}, '45': {'name': 'MAIL ROOM DB MAIN', 'parent': '35', 'meter': True}, '46': {'name': 'PLANT POWER PANEL MAIN', 'parent': '5', 'meter': True}, '47': {'name': 'INCOMER NEW PDB WORKSHOP', 'parent': '46', 'meter': True}, '48': {'name': 'SPLIT AC DB MAIN', 'parent': '46', 'meter': True}, '49': {'name': 'NP GODOWN MAIN', 'parent': '46', 'meter': True}, '50': {'name': 'AC DB1 MAIN', 'parent': '46', 'meter': True}, '51': {'name': 'AHU DB 2', 'parent': '46', 'meter': True}, '52': {'name': 'AHU DB 1 MAIN', 'parent': '46', 'meter': True}, '53': {'name': 'INCOMER MAIN LDB PANEL', 'parent': '5', 'meter': True}, '54': {'name': 'MLDB 1', 'parent': '53', 'meter': True}, '55': {'name': 'MLDB 2', 'parent': '53', 'meter': True}, '56': {'name': 'MLDB 3', 'parent': '53', 'meter': True}, '57': {'name': 'MLDB 4', 'parent': '53', 'meter': True}, '58': {'name': 'NP GODOWN LDB MAIN', 'parent': '53', 'meter': True}, '59': {'name': 'AUROSYS 2 DB', 'parent': '40', 'meter': True}, '60': {'name': 'CTP UPS DB', 'parent': '40', 'meter': True}, '61': {'name': 'CROMOMAN MSEB', 'parent': '3', 'meter': True}, '62': {'name': 'CROMOMAN DG', 'parent': 'dg_distribution', 'meter': True}, '63': {'name': 'CROMOMAN RELATED', 'parent': '61', 'meter': True}, '64': {'name': 'CROMOMAN MACHINE', 'parent': '61', 'meter': True}, '65': {'name': 'CROMOMAN HVAC', 'parent': '61', 'meter': True}, '66': {'name': 'RMD STAFF', 'parent': '46', 'meter': True}, '67': {'name': 'Colorman A APL', 'parent': '46', 'meter': True}, '68': {'name': 'Colorman B APL', 'parent': '46', 'meter': True}, '69': {'name': 'Solar PCC', 'parent': '5', 'meter': True}, '70': {'name': 'Solar NP Godown', 'parent': '49', 'meter': True}, '71': {'name': 'Cromoman UV', 'parent': '64', 'meter': True}, '72': {'name': 'Cromoman Spare', 'parent': '64', 'meter': True}, 'dm': {'name': 'DM / ETP / STP', 'parent': '5', 'meter': False}, 'dg': {'name': 'DG Panel — mapping pending', 'parent': None, 'meter': False}, 'dg_distribution': {'name': 'DG distribution — not additional generation', 'parent': 'dg', 'meter': False}, 'unmapped': {'name': 'Mapping review', 'parent': None, 'meter': False}}, 'notes': ['DG1/DG2/DG4 are candidate source meters. Electrical confirmation required before combining them.', 'PPT DG Power 6F does not match EMS EB POWER 6F (8). Left unresolved.', 'Solar readings are visible but excluded from HT + DG accounting until meter direction and boundary are established.', 'DM / ETP / STP has no standalone matching meter in this workbook. No inferred group total.', 'CTP UPS DB and AUROSYS 2 DB appear below UPS-2 in the diagram.', 'Duplicate SPARE labels mapped by EMS IDs 42 and 44 under Press-2.']}
+
+
+def phase_name(value):
+    return " ".join(str(value).strip().upper().split())
+
+
+def phase_meter_values(current_long):
+    """A usable total requires every hourly reading for every analyzed day."""
+    data = current_long.copy()
+    days = data["Analysis Date"].nunique()
+    values = {}
+    for serial, rows in data.groupby("Sr No", sort=False):
+        serial = str(serial)
+        numbers = pd.to_numeric(rows["Consumption"], errors="coerce")
+        expected = PHASE_MAPPING["nodes"].get(serial)
+        names = rows["Feeder Name"].map(phase_name).unique()
+        mismatch = expected is not None and (len(names) != 1 or names[0] != phase_name(expected["name"]))
+        good = np.isfinite(numbers) & numbers.ge(0)
+        complete = (len(rows) == days * 24 and good.all()
+                    and not rows.duplicated(["Analysis Date", "Hour"]).any()
+                    and all(set(g["Hour"]) == set(ZONE_MAP) for _, g in rows.groupby("Analysis Date")))
+        reason = "Name differs from mapping" if mismatch else ("Complete" if complete else "Incomplete / invalid readings")
+        values[serial] = {"units":float(numbers.sum()) if complete and not mismatch else None,
+                          "name":str(rows.iloc[0]["Feeder Name"]), "quality":reason,
+                          "valid_hours":int(good.sum()), "expected_hours":days * 24}
+    return values
+
+
+def phase_source_totals(values):
+    def total(ids):
+        readings = [values.get(i, {}).get("units") for i in ids]
+        return sum(readings) if readings and all(v is not None for v in readings) else None
+    ht = total(["1", "2"])
+    ids = PHASE_MAPPING["dg_source_ids"]
+    # Only the three candidate source meters are supported after explicit confirmation.
+    # Distribution meters must never enter this sum.
+    configured = (PHASE_MAPPING["dg_mapping_confirmed"] and bool(ids)
+                  and len(ids) == len(set(ids)) and set(ids).issubset({"15", "16", "17"}))
+    dg = total(ids) if configured else None
+    return {"ht":ht, "dg":dg, "ht_dg":ht + dg if ht is not None and dg is not None else None}
+
+
+def phase_path(key):
+    nodes = PHASE_MAPPING["nodes"]
+    path, seen = [], set()
+    while key in nodes and key not in seen:
+        seen.add(key)
+        path.append(nodes[key]["name"])
+        key = nodes[key]["parent"]
+    return " / ".join(reversed(path))
+
+
+def phase_descendants(key):
+    children = [k for k, n in PHASE_MAPPING["nodes"].items() if n["parent"] == key]
+    result = [key]
+    for child in children:
+        result.extend(phase_descendants(child))
+    return result
+
+
+def phase_kwh(value):
+    return "Pending" if value is None else f"{value:,.1f}"
+
+
+def phase_card(label, value, note, featured=False):
+    cls = "piq-source piq-featured" if featured else "piq-source"
+    st.markdown(f'<div class="{cls}"><div class="piq-eyebrow">{html.escape(label)}</div>'
+                f'<div class="piq-energy">{phase_kwh(value)}</div>'
+                f'<div class="piq-unit">kWh</div><div class="piq-note">{html.escape(note)}</div></div>',
+                unsafe_allow_html=True)
+
+
+def phase_detail(key, values, current_long, zone_summary, statuses):
+    nodes = PHASE_MAPPING["nodes"]
+    node = nodes[key]
+    st.caption(phase_path(key))
+    if node["meter"]:
+        value = values.get(key, {})
+        st.metric(node["name"], (phase_kwh(value.get("units")) + " kWh") if value.get("units") is not None else "Unavailable")
+        quality = value.get("quality", "Meter absent from selected files")
+        if quality != "Complete":
+            st.warning(quality + ". Consumption control status is withheld for this meter.")
+        else:
+            match = current_long[current_long["Sr No"].astype(str) == key]
+            feeder_id = match.iloc[0]["Feeder ID"]
+            zr = zone_summary[zone_summary["Feeder ID"] == feeder_id]
+            status = statuses.get(feeder_id, "Baseline Pending")
+            render_feeder_card(feeder_id, node["name"], zr, status, current_long)
+            with st.expander("Hourly readings"):
+                pivot = match.pivot(index="Hour", columns="Analysis Date", values="Consumption")
+                pivot = pivot.reindex(list(ZONE_MAP))
+                st.dataframe(pivot, use_container_width=True)
+    else:
+        st.info("Diagram group only. No standalone meter total is assigned to this group.")
+
+    children = [k for k,n in nodes.items() if n["parent"] == key]
+    if children:
+        records = []
+        for child in children:
+            n = nodes[child]; v = values.get(child, {})
+            records.append({"EMS ID": child if n["meter"] else "—", "Connected feeder": n["name"],
+                            "kWh": v.get("units"),
+                            "Reading": v.get("quality", "Meter absent") if n["meter"] else "Diagram group"})
+        st.markdown("#### Directly connected feeders")
+        st.dataframe(pd.DataFrame(records), use_container_width=True, hide_index=True)
+        st.caption("Each row is its own meter reading. Parent and child readings are not added together.")
+
+
+def render_phase_dashboard(current_long, zone_summary, feeder_status_df, calculated_days, baseline_days, baseline_active):
+    st.markdown('''<style>
+    .piq-source{background:#fff;border:1px solid #dce5ef;border-radius:18px;padding:24px 20px;
+      min-height:204px;margin:8px 0 16px;box-shadow:0 6px 24px #102d5010;}
+    .piq-eyebrow{font-size:12px;letter-spacing:1px;font-weight:700;text-transform:uppercase;color:#546a84;}
+    .piq-energy{font-size:clamp(24px,3vw,38px);font-weight:800;letter-spacing:-1px;color:#102b4c;margin-top:12px;}
+    .piq-unit{font-size:13px;color:#60758c;}.piq-note{font-size:12px;line-height:1.5;color:#60758c;margin-top:12px;}
+    .piq-featured{background:linear-gradient(125deg,#10233f,#174a78);border:0;}
+    .piq-featured .piq-energy{color:#fff;}.piq-featured .piq-eyebrow,.piq-featured .piq-unit,.piq-featured .piq-note{color:#cee1f4;}
+    </style>''', unsafe_allow_html=True)
+    values = phase_meter_values(current_long)
+    totals = phase_source_totals(values)
+    dates = sorted(current_long["Analysis Date"].astype(str).unique())
+    st.caption(f"ANALYZED DATA: {dates[0]} to {dates[-1]} · {calculated_days} file(s) · Hourly sheet · 06:00–05:00")
+    st.markdown("### Electricity supply overview")
+    cols = st.columns([1,1,1,1.3])
+    for col, key, label in zip(cols[:2], ["1","2"], ["HT Incomer-1", "HT Incomer-2"]):
+        with col:
+            phase_card(label, values.get(key,{}).get("units"), values.get(key,{}).get("quality", "Meter absent"))
+    with cols[2]:
+        phase_card("DG energy", totals["dg"], "Source mapping pending" if not PHASE_MAPPING["dg_mapping_confirmed"] else "Confirmed source meters only")
+    with cols[3]:
+        if totals["ht_dg"] is not None:
+            phase_card("HT + DG supply", totals["ht_dg"], "Solar accounting remains separate", True)
+        else:
+            phase_card("HT subtotal", totals["ht"], "Plant total pending DG / solar verification", True)
+    st.info("Plant total is not confirmed. DG source-meter mapping and solar accounting require electrical-team confirmation. Downstream meters are excluded from the source subtotal.")
+    if st.session_state.get("utility_missing_files_p11_p11"):
+        st.warning("This is a partial date-range result. Totals cover only the analyzed files shown above.")
+    if baseline_active:
+        st.caption(f"Existing baseline active: {baseline_days} historical days. Existing four zones and event thresholds retained.")
+    else:
+        st.caption("Baseline unavailable. Meter consumption and hierarchy remain available; control results show Baseline Pending.")
+    statuses = dict(zip(feeder_status_df["Feeder ID"], feeder_status_df["Feeder Status"]))
+    tabs = st.tabs(["HT-1 network", "HT-2 network", "DG network", "All meters & review"])
+    for tab, root_key in zip(tabs[:3], ["1", "2", "dg"]):
+        with tab:
+            st.markdown("#### Explore the feeder hierarchy")
+            if root_key == "dg":
+                st.caption("DG1, DG2 and DG4 are candidate source meters. DG distribution readings are shown separately and are not summed.")
+            options = phase_descendants(root_key)
+            selected = st.selectbox("Select feeder or equipment", options,
+                                    format_func=lambda k: phase_path(k), key=f"piq_tree_{root_key}")
+            phase_detail(selected, values, current_long, zone_summary, statuses)
+    with tabs[3]:
+        st.markdown("#### Meter register")
+        st.caption("Search and status filters change this register only. Source totals always cover the analyzed files.")
+        a,b = st.columns(2)
+        search = a.text_input("Search feeder / EMS ID", key="piq_search")
+        status_options = ["All"] + sorted(set(statuses.values()) | {"Data incomplete", "Mapping review", "Meter absent"})
+        chosen = b.selectbox("Filter by status", status_options, key="piq_status")
+        rows = []
+        meter_ids = set(values) | {k for k,n in PHASE_MAPPING["nodes"].items() if n["meter"]}
+        for key in sorted(meter_ids, key=lambda x: int(x)):
+            v = values.get(key, {})
+            node = PHASE_MAPPING["nodes"].get(key)
+            name = v.get("name", node["name"] if node else "Unknown")
+            fid = key + " - " + name
+            state = statuses.get(fid, "Baseline Pending")
+            if not v:
+                state = "Meter absent"
+            elif v.get("units") is None:
+                state = "Data incomplete"
+            if node is None or key == "8" or v.get("quality") == "Name differs from mapping":
+                state = "Mapping review"
+            path = phase_path(key) if node else "Unmapped feeder"
+            if v.get("quality") == "Name differs from mapping":
+                path = "Mapping review — expected " + node["name"]
+            rows.append({"EMS ID":key, "Feeder":name, "kWh":v.get("units"), "Status":state,
+                         "Hierarchy":path, "Data":v.get("quality", "Meter absent")})
+        table = pd.DataFrame(rows)
+        if search.strip():
+            table = table[table["Feeder"].str.contains(search.strip(), case=False, regex=False) | table["EMS ID"].eq(search.strip())]
+        if chosen != "All":
+            table = table[table["Status"] == chosen]
+        st.dataframe(table, use_container_width=True, hide_index=True)
+        st.caption(f"{len(table)} meter(s) shown. No sum across parent and child meters.")
+        with st.expander("Mapping notes and solar readings", expanded=False):
+            for note in PHASE_MAPPING["notes"]:
+                st.write("• " + note)
+            for key in ["69","70"]:
+                st.write(f'{PHASE_MAPPING["nodes"][key]["name"]}: {phase_kwh(values.get(key,{}).get("units"))} kWh')
+            st.caption("Solar meters are visible in their diagram positions. This does not establish generation/import direction.")
+
+
 def run_utility_performance_analyzer():
     add_utility_css()
 
@@ -935,7 +1127,7 @@ def run_utility_performance_analyzer():
     <div class="utility-hero">
         <div class="utility-title">Utility Performance Analyzer</div>
         <div class="utility-subtitle">
-            Feeder-wise Zone Control Dashboard | EMS Daily Utility Performance Analysis
+            Plant Energy Overview · Phase 1.1 · Source meters and feeder hierarchy
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -946,20 +1138,27 @@ def run_utility_performance_analyzer():
         horizontal=True,
     )
 
+    if st.session_state.get("utility_source_p11") != data_source:
+        st.session_state.utility_current_long_p11 = None
+        st.session_state.utility_calculated_days_p11 = 0
+        st.session_state.utility_found_files_p11 = []
+        st.session_state.utility_missing_files_p11 = []
+        st.session_state.utility_source_p11 = data_source
+
     current_long = None
     calculated_days = 0
     
-    if "utility_current_long" not in st.session_state:
-        st.session_state.utility_current_long = None
+    if "utility_current_long_p11" not in st.session_state:
+        st.session_state.utility_current_long_p11 = None
 
-    if "utility_calculated_days" not in st.session_state:
-        st.session_state.utility_calculated_days = 0
+    if "utility_calculated_days_p11" not in st.session_state:
+        st.session_state.utility_calculated_days_p11 = 0
 
-    if "utility_found_files" not in st.session_state:
-        st.session_state.utility_found_files = []
+    if "utility_found_files_p11" not in st.session_state:
+        st.session_state.utility_found_files_p11 = []
 
-    if "utility_missing_files" not in st.session_state:
-        st.session_state.utility_missing_files = []
+    if "utility_missing_files_p11" not in st.session_state:
+        st.session_state.utility_missing_files_p11 = []
 
     # ---------------- GOOGLE DRIVE DATE RANGE MODE ----------------
     if data_source == "Google Drive Folder":
@@ -994,6 +1193,10 @@ def run_utility_performance_analyzer():
         )
             
         if st.button("Analyze Date Range"):
+            st.session_state.utility_current_long_p11 = None
+            st.session_state.utility_found_files_p11 = []
+            st.session_state.utility_missing_files_p11 = []
+            st.session_state.utility_calculated_days_p11 = 0
             try:
                 folder_id = st.secrets["UTILITY_DRIVE_FOLDER_ID"]
             except Exception:
@@ -1012,7 +1215,11 @@ def run_utility_performance_analyzer():
             with st.spinner("Searching and reading EMS files from Google Drive..."):
                 for selected_day in selected_dates:
                     file_name = expected_ems_filename(selected_day)
-                    file_info = find_file_in_drive(folder_id, file_name)
+                    try:
+                        file_info = find_file_in_drive(folder_id, file_name)
+                    except Exception as exc:
+                        missing_files.append(f"{file_name} | lookup failed: {exc}")
+                        continue
 
                     if file_info is None:
                         missing_files.append(file_name)
@@ -1046,10 +1253,10 @@ def run_utility_performance_analyzer():
             current_long = pd.concat(all_day_data, ignore_index=True)
             calculated_days = len(found_files)
 
-            st.session_state.utility_current_long = current_long
-            st.session_state.utility_calculated_days = calculated_days
-            st.session_state.utility_found_files = found_files
-            st.session_state.utility_missing_files = missing_files
+            st.session_state.utility_current_long_p11 = current_long
+            st.session_state.utility_calculated_days_p11 = calculated_days
+            st.session_state.utility_found_files_p11 = found_files
+            st.session_state.utility_missing_files_p11 = missing_files
 
             st.success(f"Files analyzed: {calculated_days} / {len(selected_dates)}")
 
@@ -1057,21 +1264,21 @@ def run_utility_performance_analyzer():
                 st.warning("Missing or unread files: " + ", ".join(missing_files))
 
         else:
-            if st.session_state.utility_current_long is None:
+            if st.session_state.utility_current_long_p11 is None:
                 st.info("Select start date and end date, then click Analyze Date Range.")
                 return
 
-            current_long = st.session_state.utility_current_long
-            calculated_days = st.session_state.utility_calculated_days
+            current_long = st.session_state.utility_current_long_p11
+            calculated_days = st.session_state.utility_calculated_days_p11
 
-            if st.session_state.utility_found_files:
-                total_selected = calculated_days + len(st.session_state.utility_missing_files)
+            if st.session_state.utility_found_files_p11:
+                total_selected = calculated_days + len(st.session_state.utility_missing_files_p11)
                 st.success(f"Files analyzed: {calculated_days} / {total_selected}")
 
-            if st.session_state.utility_missing_files:
+            if st.session_state.utility_missing_files_p11:
                 st.warning(
                     "Missing or unread files: "
-                    + ", ".join(st.session_state.utility_missing_files)
+                    + ", ".join(st.session_state.utility_missing_files_p11)
                 )
 
     # ---------------- MANUAL UPLOAD BACKUP MODE ----------------
@@ -1093,13 +1300,13 @@ def run_utility_performance_analyzer():
             )
 
             current_long = long_format(feeder_df, hour_cols)
-            current_long["Analysis Date"] = "Manual Upload"
+            current_long["Analysis Date"] = feeder_df.attrs.get("issue_date", "Manual Upload")
             calculated_days = 1
 
-            st.session_state.utility_current_long = current_long
-            st.session_state.utility_calculated_days = calculated_days
-            st.session_state.utility_found_files = ["Manual Upload"]
-            st.session_state.utility_missing_files = []
+            st.session_state.utility_current_long_p11 = current_long
+            st.session_state.utility_calculated_days_p11 = calculated_days
+            st.session_state.utility_found_files_p11 = ["Manual Upload"]
+            st.session_state.utility_missing_files_p11 = []
 
         except Exception as e:
             st.error(f"Current EMS file reading failed: {e}")
@@ -1113,7 +1320,10 @@ def run_utility_performance_analyzer():
 
     if available_baseline_files:
         with st.spinner("Loading seasonal baseline from app data..."):
-            baseline, baseline_days = build_baseline(available_baseline_files)
+            try:
+                baseline, baseline_days = build_baseline(available_baseline_files)
+            except Exception as exc:
+                st.warning(f"Baseline could not be loaded: {exc}. Consumption view remains available.")
     else:
         st.warning("Seasonal baseline files not found in baseline_data folder.")
 
@@ -1133,139 +1343,5 @@ def run_utility_performance_analyzer():
         columns={"Zone Status": "Feeder Status"}
     )
 
-    total_units = zone_summary["current_units"].sum()
-    total_feeders = feeder_status_df["Feeder ID"].nunique()
-    in_control = (feeder_status_df["Feeder Status"] == "In Control").sum()
-    warning = (feeder_status_df["Feeder Status"] == "Warning").sum()
-    out_control = (feeder_status_df["Feeder Status"] == "Out Control").sum()
-    data_error = (feeder_status_df["Feeder Status"] == "Data Error Suspect").sum()
-
-    # ---------------- KPI CARDS ----------------
-    k1, k2, k3, k4, k5, k6 = st.columns(6)
-
-    k1.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Total Feeders</div>
-        <div class="kpi-value">{total_feeders}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    k2.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Recorded Units</div>
-        <div class="kpi-value">{total_units:,.0f}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    k3.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">In Control</div>
-        <div class="kpi-value">{in_control}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    k4.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Warning</div>
-        <div class="kpi-value">{warning}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    k5.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Out / Error</div>
-        <div class="kpi-value">{out_control + data_error}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    k6.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Calculated Days</div>
-        <div class="kpi-value">{calculated_days}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("")
-
-    if baseline is None:
-        st.warning("Baseline not active. Please check baseline_data folder in GitHub.")
-    else:
-        st.success(
-            f"Seasonal baseline active automatically: April–May 2026 | "
-            f"{baseline_days} historical days | Current analysis days: {calculated_days}"
-        )
-
-    st.caption(
-        "Note: Recorded Units means sum of all 72 feeder readings. "
-        "It is shown for visibility, not as final plant net consumption."
-    )
-
-    # ---------------- FEEDER CARD FILTERS ----------------
-    st.markdown("### Feeder-wise Zone Control")
-
-    f1, f2 = st.columns([1, 1])
-
-    with f1:
-        selected_status = st.selectbox(
-            "Filter by status",
-            [
-                "All",
-                "In Control",
-                "Minor Variation",
-                "Warning",
-                "Out Control",
-                "Test / Trial",
-                "Idle",
-                "Event Baseline Pending",
-                "Data Error Suspect",
-                "Baseline Pending",
-            ],
-        )
-
-    with f2:
-        search_text = st.text_input("Search feeder", "")
-
-    display_df = feeder_status_df.copy()
-
-    if selected_status != "All":
-        display_df = display_df[display_df["Feeder Status"] == selected_status]
-
-    if search_text.strip():
-        display_df = display_df[
-            display_df["Feeder Name"].str.contains(search_text, case=False, na=False) |
-            display_df["Feeder ID"].str.contains(search_text, case=False, na=False)
-        ]
-
-    status_rank = {
-        "Data Error Suspect": 1,
-        "Out Control": 2,
-        "Warning": 3,
-        "Event Baseline Pending": 4,
-        "Test / Trial": 5,
-        "Minor Variation": 6,
-        "In Control": 7,
-        "Idle": 8,
-        "Baseline Pending": 9,
-    }
-
-    display_df["rank"] = display_df["Feeder Status"].map(status_rank).fillna(9)
-    display_df = display_df.sort_values(["rank", "Feeder ID"])
-
-    if display_df.empty:
-        st.info("No feeder found for selected filter.")
-        return
-
-    for _, feeder in display_df.iterrows():
-        feeder_id = feeder["Feeder ID"]
-        feeder_name = feeder["Feeder Name"]
-        feeder_status = feeder["Feeder Status"]
-
-        zone_rows = zone_summary[zone_summary["Feeder ID"] == feeder_id].copy()
-
-        render_feeder_card(
-            feeder_id=feeder_id,
-            feeder_name=feeder_name,
-            zone_rows=zone_rows,
-            feeder_status=feeder_status,
-            current_long=current_long,
-        )
+    render_phase_dashboard(current_long, zone_summary, feeder_status_df, calculated_days,
+                           baseline_days, baseline is not None)
