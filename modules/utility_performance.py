@@ -1049,75 +1049,27 @@ def render_phase_dashboard(current_long, zone_summary, feeder_status_df, calcula
     totals = phase_source_totals(values)
     dates = sorted(current_long["Analysis Date"].astype(str).unique())
     st.caption(f"ANALYZED DATA: {dates[0]} to {dates[-1]} · {calculated_days} file(s) · Hourly sheet · 06:00–05:00")
-    st.markdown("### Electricity supply overview")
-    cols = st.columns([1,1,1,1.3])
-    for col, key, label in zip(cols[:2], ["1","2"], ["HT Incomer-1", "HT Incomer-2"]):
+    title = "Utility Performance"
+    if len(dates) == 1:
+        parsed_date = pd.to_datetime(dates[0], errors="coerce")
+        if pd.notna(parsed_date):
+            title += "- " + parsed_date.strftime("%d/%m/%Y")
+    st.markdown("### " + title)
+    cols = st.columns([1, 1, 1, 1.3])
+    for col, key, label in zip(cols[:2], ["1", "2"], ["HT Incomer-1", "HT Incomer-2"]):
         with col:
-            phase_card(label, values.get(key,{}).get("units"), values.get(key,{}).get("quality", "Meter absent"))
+            phase_card(label, values.get(key, {}).get("units"), "")
     with cols[2]:
-        phase_card("DG energy", totals["dg"], "Source mapping pending" if not PHASE_MAPPING["dg_mapping_confirmed"] else "Confirmed source meters only")
+        # Requested test-dashboard placeholder; not a verified DG measurement.
+        # Keep unresolved DG out of the verified source calculation.
+        displayed_dg = totals["dg"] if totals["dg"] is not None else 0.0
+        phase_card("DG energy", displayed_dg, "")
     with cols[3]:
         if totals["ht_dg"] is not None:
-            phase_card("HT + DG supply", totals["ht_dg"], "Solar accounting remains separate", True)
+            phase_card("HT + DG supply", totals["ht_dg"], "", True)
         else:
-            phase_card("HT subtotal", totals["ht"], "Plant total pending DG / solar verification", True)
-    st.info("Plant total is not confirmed. DG source-meter mapping and solar accounting require electrical-team confirmation. Downstream meters are excluded from the source subtotal.")
-    if st.session_state.get("utility_missing_files_p11_p11"):
-        st.warning("This is a partial date-range result. Totals cover only the analyzed files shown above.")
-    if baseline_active:
-        st.caption(f"Existing baseline active: {baseline_days} historical days. Existing four zones and event thresholds retained.")
-    else:
-        st.caption("Baseline unavailable. Meter consumption and hierarchy remain available; control results show Baseline Pending.")
-    statuses = dict(zip(feeder_status_df["Feeder ID"], feeder_status_df["Feeder Status"]))
-    tabs = st.tabs(["HT-1 network", "HT-2 network", "DG network", "All meters & review"])
-    for tab, root_key in zip(tabs[:3], ["1", "2", "dg"]):
-        with tab:
-            st.markdown("#### Explore the feeder hierarchy")
-            if root_key == "dg":
-                st.caption("DG1, DG2 and DG4 are candidate source meters. DG distribution readings are shown separately and are not summed.")
-            options = phase_descendants(root_key)
-            selected = st.selectbox("Select feeder or equipment", options,
-                                    format_func=lambda k: phase_path(k), key=f"piq_tree_{root_key}")
-            phase_detail(selected, values, current_long, zone_summary, statuses)
-    with tabs[3]:
-        st.markdown("#### Meter register")
-        st.caption("Search and status filters change this register only. Source totals always cover the analyzed files.")
-        a,b = st.columns(2)
-        search = a.text_input("Search feeder / EMS ID", key="piq_search")
-        status_options = ["All"] + sorted(set(statuses.values()) | {"Data incomplete", "Mapping review", "Meter absent"})
-        chosen = b.selectbox("Filter by status", status_options, key="piq_status")
-        rows = []
-        meter_ids = set(values) | {k for k,n in PHASE_MAPPING["nodes"].items() if n["meter"]}
-        for key in sorted(meter_ids, key=lambda x: int(x)):
-            v = values.get(key, {})
-            node = PHASE_MAPPING["nodes"].get(key)
-            name = v.get("name", node["name"] if node else "Unknown")
-            fid = key + " - " + name
-            state = statuses.get(fid, "Baseline Pending")
-            if not v:
-                state = "Meter absent"
-            elif v.get("units") is None:
-                state = "Data incomplete"
-            if node is None or key == "8" or v.get("quality") == "Name differs from mapping":
-                state = "Mapping review"
-            path = phase_path(key) if node else "Unmapped feeder"
-            if v.get("quality") == "Name differs from mapping":
-                path = "Mapping review — expected " + node["name"]
-            rows.append({"EMS ID":key, "Feeder":name, "kWh":v.get("units"), "Status":state,
-                         "Hierarchy":path, "Data":v.get("quality", "Meter absent")})
-        table = pd.DataFrame(rows)
-        if search.strip():
-            table = table[table["Feeder"].str.contains(search.strip(), case=False, regex=False) | table["EMS ID"].eq(search.strip())]
-        if chosen != "All":
-            table = table[table["Status"] == chosen]
-        st.dataframe(table, use_container_width=True, hide_index=True)
-        st.caption(f"{len(table)} meter(s) shown. No sum across parent and child meters.")
-        with st.expander("Mapping notes and solar readings", expanded=False):
-            for note in PHASE_MAPPING["notes"]:
-                st.write("• " + note)
-            for key in ["69","70"]:
-                st.write(f'{PHASE_MAPPING["nodes"][key]["name"]}: {phase_kwh(values.get(key,{}).get("units"))} kWh')
-            st.caption("Solar meters are visible in their diagram positions. This does not establish generation/import direction.")
+            phase_card("HT subtotal", totals["ht"], "", True)
+
 
 
 def run_utility_performance_analyzer():
