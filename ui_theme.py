@@ -86,19 +86,36 @@ def apply_premium_theme():
             white-space: nowrap;
         }
 
-        section[data-testid="stSidebar"] .stAlert {
-            background: rgba(20, 83, 85, 0.42) !important;
-            border: 1px solid rgba(45, 212, 191, 0.14) !important;
-            border-radius: 12px !important;
-            padding: 0.45rem 0.55rem !important;
-            margin-bottom: 0.75rem !important;
-        }
+        
+    /* =========================
+       SIDEBAR LOGGED-IN USER CARD
+    ========================= */
 
-        section[data-testid="stSidebar"] .stAlert p {
-            font-size: 0.72rem !important;
-            font-weight: 650 !important;
-            line-height: 1.25 !important;
-            word-break: break-word !important;
+    section[data-testid="stSidebar"] .stAlert,
+    section[data-testid="stSidebar"] div[data-testid="stAlert"] {
+        background: #164e52 !important;
+        border: 1px solid #287477 !important;
+        border-radius: 12px !important;
+        padding: 0.55rem 0.75rem !important;
+        margin-bottom: 0.75rem !important;
+    }
+
+   /* Remove white background inside logged-in card */
+    section[data-testid="stSidebar"] .stAlert > div,
+    section[data-testid="stSidebar"] div[data-testid="stAlert"] > div {
+        background: transparent !important;
+    }
+
+    /* Make email clearly visible */
+    section[data-testid="stSidebar"] .stAlert p,
+    section[data-testid="stSidebar"] div[data-testid="stAlert"] p {
+        color: #ffffff !important;
+        font-size: 0.76rem !important;
+        font-weight: 600 !important;
+        line-height: 1.35 !important;
+        overflow-wrap: anywhere;
+   }
+
         }
 
         section[data-testid="stSidebar"] h1,
